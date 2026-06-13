@@ -1,17 +1,17 @@
 @keyframes hero-logo {
 
   0% {
-    transform: translate(global.vw(0), global.vw(40)) scale(0.88) rotate(-6deg);
+    transform: translate(wkf-px(0), wkf-px(40)) scale(0.88) rotate(-6deg);
     opacity: 0;
   }
 
   58.333% {
-    transform: translate(global.vw(0), global.vw(-8)) scale(1.04) rotate(2deg);
+    transform: translate(wkf-px(0), wkf-px(-8)) scale(1.04) rotate(2deg);
     opacity: 1;
   }
 
   100% {
-    transform: translate(global.vw(0), global.vw(0)) scale(1) rotate(0deg);
+    transform: translate(wkf-px(0), wkf-px(0)) scale(1) rotate(0deg);
     opacity: 1;
   }
 

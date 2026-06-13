@@ -1,0 +1,17 @@
+@keyframes hero-logo {
+  0% {
+    transform: translate(0px, 40px) scale(0.88) rotate(-6deg);
+    opacity: 0;
+  }
+  58.333% {
+    transform: translate(0px, -8px) scale(1.04) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.js-hero-logo {
+  animation: hero-logo 1200ms ease-out forwards;
+}

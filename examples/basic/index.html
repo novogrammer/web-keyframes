@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>web-keyframes basic example</title>
     <link rel="stylesheet" href="/node_modules/web-keyframes/dist/editor.css">
+    <link rel="stylesheet" href="./src/generated/example.css">
     <style>
       :root {
         color-scheme: light;
@@ -105,6 +106,10 @@
       <p class="hero-copy">
         This page is a minimal consumer of the package. Use the buttons below or the
         <code>Ctrl+Shift+K</code> shortcut to open the editor overlay.
+      </p>
+      <p class="hero-copy" style="margin-top: 12px;">
+        The <code>.js-hero-logo</code> card below is animated by the generated CSS output from
+        <code>src/animations/hero-logo.timeline.json</code>.
       </p>
       <div class="hero-actions">
         <button type="button" class="hero-button" data-example-action="toggle-editor">Toggle editor</button>

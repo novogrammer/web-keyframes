@@ -3,10 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "serve .",
-    "gen:scss": "web-keyframes to-scss --input src/animations --output src/generated/_animations.generated.scss"
+    "gen:scss": "web-keyframes to-scss --input src/animations --output src/generated/_animations.generated.scss",
+    "gen:css": "sass src/styles/example.scss src/generated/example.css --no-source-map",
+    "build:styles": "npm run gen:scss && npm run gen:css",
+    "dev": "npm run build:styles && serve ."
   },
   "devDependencies": {
+    "sass": "1.77.8",
     "serve": "^14.2.4",
     "web-keyframes": "file:../.."
   }
