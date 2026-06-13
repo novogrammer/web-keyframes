@@ -8,9 +8,9 @@ English: [README.md](./README.md)
 It does two things:
 
 - Edit timeline JSON in a browser-side overlay editor
-- Convert that JSON into SCSS keyframes and animation rules
+- Convert that JSON into SCSS keyframes
 
-This package is intentionally narrow. It does not preview animations on live DOM nodes, auto-save files, or depend on a specific app bundler.
+This package is intentionally narrow. It does not auto-save files or depend on a specific app bundler.
 
 GitHub installs are expected to build `dist/` during package preparation. The repository does not track built files.
 
@@ -57,6 +57,8 @@ editor.toScss();
 - Edit keyframe `time`, `x`, `y`, `scale`, `rotate`, and `opacity`
 - Add, duplicate, and delete keyframes
 - View generated JSON and SCSS inside the editor
+- Run a lightweight preview against real DOM elements already using the same `animation-name`
+- Reset that preview back to the page's original animation name
 - Copy JSON
 - Copy SCSS
 - Reset the editor back to default data
@@ -65,10 +67,25 @@ editor.toScss();
 
 ### Current editor limitations
 
-- No preview against real DOM elements
+- Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the current `id`
+- Preview ignores `translate.functionName` and uses plain unit values for browser-safe CSS
 - No file import or auto-save
 - No easing editor yet
 - No multi-timeline management
+
+### Preview behavior
+
+The `Preview` button searches the current document for elements whose computed `animation-name`
+matches the current keyframe `id`.
+
+When matches are found, the editor:
+
+- generates browser-safe preview CSS with a temporary keyframes name
+- injects one preview `<style>` tag at the end of `<head>`
+- temporarily swaps matching elements to that preview animation name so the animation reruns
+
+`Reset Preview` removes the temporary style tag and restores the previous inline `animation-name`
+value for matched elements.
 
 ## Data shape
 
@@ -140,6 +157,7 @@ When the input is a directory, files are read in filename order and joined with 
 `translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 `translate.functionName` is optional. When present, values are emitted like `customFn(40px)` rather than `40px`.
 `generateScss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
+`generatePreviewCss()` emits browser-safe preview CSS and intentionally ignores `translate.functionName`.
 
 ## Development
 

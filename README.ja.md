@@ -8,9 +8,9 @@ English: [README.md](./README.md)
 できることは 2 つです。
 
 - ブラウザ上のオーバーレイエディタでタイムライン JSON を編集する
-- その JSON から SCSS の keyframes と animation ルールを生成する
+- その JSON から SCSS の keyframes を生成する
 
-このパッケージは意図的に役割を絞っています。実 DOM へのプレビュー適用、自動保存、特定のビルドツールへの依存は持ちません。
+このパッケージは意図的に役割を絞っています。自動保存や特定のビルドツールへの依存は持ちません。
 
 GitHub install 時は `prepare` により `dist/` を生成する前提です。リポジトリ自体にはビルド済みファイルを含めていません。
 
@@ -57,6 +57,8 @@ editor.toScss();
 - キーフレーム `time`、`x`、`y`、`scale`、`rotate`、`opacity` の編集
 - キーフレームの追加、複製、削除
 - 生成された JSON / SCSS のエディタ内プレビュー
+- 同じ `animation-name` を使っている実 DOM 要素に対する軽量 preview
+- その preview の解除
 - JSON のコピー
 - SCSS のコピー
 - デフォルト状態へのリセット
@@ -65,10 +67,25 @@ editor.toScss();
 
 ### 現在の制約
 
-- 実 DOM 要素へのプレビューはしない
+- preview は `document` 内に対象要素が存在し、かつ現在の `id` と同じ `animation-name` を使っている場合にだけ動作する
+- preview では `translate.functionName` を無視し、ブラウザでそのまま解釈できる値だけを使う
 - ファイル import や自動保存はしない
 - easing エディタはまだない
 - 複数タイムライン管理はまだない
+
+### Preview の挙動
+
+`Preview` ボタンは、現在のドキュメント全体から computed style の `animation-name`
+が現在の keyframe `id` と一致する要素を探します。
+
+一致する要素が見つかった場合、エディタは以下を行います。
+
+- 一時的な keyframes 名で browser-safe な preview CSS を生成する
+- `<head>` の末尾に preview 用 `<style>` を 1 枚だけ挿入または更新する
+- 一致した要素の `animation-name` を一時的に差し替えて再生し直す
+
+`Reset Preview` を押すと、一時的な `<style>` を削除し、対象要素の inline `animation-name`
+を元に戻します。
 
 ## データ形式
 
@@ -140,6 +157,7 @@ web-keyframes to-scss \
 `translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 `translate.functionName` は任意で、指定すると `40px` ではなく `customFn(40px)` のように出力されます。
 `generateScss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
+`generatePreviewCss()` は preview 用の browser-safe な CSS を出力し、`translate.functionName` は意図的に無視します。
 
 ## 開発
 
