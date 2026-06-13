@@ -1,5 +1,8 @@
 # web-keyframes
 
+English: [README.md](./README.md)  
+日本語: [README.ja.md](./README.ja.md)
+
 `web-keyframes` is a lightweight keyframe data editor and SCSS generator for web animation workflows.
 
 It does two things:
@@ -150,3 +153,4 @@ node --test
 
 - Change history: [CHANGELOG.md](./CHANGELOG.md)
 - Maintainer release steps: [docs/release.md](./docs/release.md)
+- 日本語のリリース手順: [docs/release.ja.md](./docs/release.ja.md)
