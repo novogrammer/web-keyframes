@@ -1,0 +1,59 @@
+# Release Guide
+
+This project is currently intended to be installed from GitHub tags rather than published to npm.
+
+## Versioning
+
+- Update `package.json` `version`
+- Add a new section to [CHANGELOG.md](../CHANGELOG.md)
+- Keep the install example in [README.md](../README.md) aligned with the next tag when needed
+
+## Pre-release checks
+
+Run these commands from the repo root:
+
+```bash
+npm install
+npm run build
+npm run typecheck
+node --test
+```
+
+Expected result:
+
+- `dist/` is rebuilt successfully
+- typecheck passes
+- all tests pass
+
+## Release steps
+
+1. Review the working tree and commit any intended changes.
+2. Bump the version in `package.json`.
+3. Update `CHANGELOG.md` with the release date and notable changes.
+4. Re-run the verification commands.
+5. Create a git commit for the release metadata if needed.
+6. Create an annotated tag, for example:
+
+```bash
+git tag -a v0.1.0 -m "web-keyframes v0.1.0"
+```
+
+7. Push the branch and tag:
+
+```bash
+git push origin main
+git push origin v0.1.0
+```
+
+## Install from GitHub
+
+Consumers can install a tagged release like this:
+
+```bash
+npm install github:YOUR_NAME/web-keyframes#v0.1.0
+```
+
+## Notes
+
+- `dist/` is ignored in git, so consumers should install from a tag that has already been built into the package artifact flow you choose.
+- If you want GitHub tag installs to include built files directly from the repository, revisit the current `.gitignore` / packaging strategy before the first public release.

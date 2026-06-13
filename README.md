@@ -143,3 +143,8 @@ npm run build
 npm run typecheck
 node --test
 ```
+
+## Release
+
+- Change history: [CHANGELOG.md](./CHANGELOG.md)
+- Maintainer release steps: [docs/release.md](./docs/release.md)
