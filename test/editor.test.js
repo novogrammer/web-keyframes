@@ -91,7 +91,60 @@ test("data helpers stay available before and after mount", () => {
 
   assert.equal(editor.getData().id, "hero-logo");
   assert.match(editor.toScss(), /\.js-hero-logo/);
-  assert.match(window.document.body.textContent ?? "", /hero-logo/);
+  const idInput = window.document.querySelector("[data-wkf-field='id']");
+  assert.equal(idInput?.value, "hero-logo");
+});
+
+test("meta inputs update editor data", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  setInputValue(window.document, "id", "hero-title");
+  setInputValue(window.document, "target", ".js-hero-title");
+  setInputValue(window.document, "unitFunction", "layout.vw");
+  setNumberValue(window.document, "duration", 1600);
+  setNumberValue(window.document, "designWidth", 1280);
+
+  const data = editor.getData();
+  assert.equal(data.id, "hero-title");
+  assert.equal(data.target, ".js-hero-title");
+  assert.equal(data.unitFunction, "layout.vw");
+  assert.equal(data.duration, 1600);
+  assert.equal(data.designWidth, 1280);
+});
+
+test("keyframe editor updates selected frame values", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  setNumberValue(window.document, "time", 300, 1);
+  setNumberValue(window.document, "x", 24);
+  setNumberValue(window.document, "opacity", 0.45);
+
+  const [firstKeyframe] = editor.getData().keyframes;
+  assert.equal(firstKeyframe.time, 300);
+  assert.equal(firstKeyframe.x, 24);
+  assert.equal(firstKeyframe.opacity, 0.45);
+});
+
+test("add and delete keyframe actions update the list", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  clickAction(window.document, "add-keyframe");
+  assert.equal(editor.getData().keyframes.length, 3);
+
+  const keyframeButtons = window.document.querySelectorAll("[data-wkf-action='select-keyframe']");
+  keyframeButtons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  clickAction(window.document, "delete-keyframe");
+
+  assert.equal(editor.getData().keyframes.length, 2);
 });
 
 function createWindow() {
@@ -100,5 +153,25 @@ function createWindow() {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
+  globalThis.MouseEvent = dom.window.MouseEvent;
+  globalThis.Event = dom.window.Event;
   return dom;
+}
+
+function setInputValue(document, field, value) {
+  const input = document.querySelector(`[data-wkf-field='${field}']`);
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setNumberValue(document, field, value, index = 0) {
+  const inputs = document.querySelectorAll(`[data-wkf-field='${field}']`);
+  const input = inputs[index];
+  input.value = String(value);
+  input.dispatchEvent(new Event(input.type === "range" ? "input" : "change", { bubbles: true }));
+}
+
+function clickAction(document, action) {
+  const button = document.querySelector(`[data-wkf-action='${action}']`);
+  button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 }

@@ -39,6 +39,7 @@ export class WebKeyframesEditor {
   private container: HTMLElement | null = null;
   private mounted = false;
   private data: WebKeyframesData;
+  private selectedKeyframeIndex = 0;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -46,8 +47,7 @@ export class WebKeyframesEditor {
     }
 
     this.root = options.root;
-    this.data = cloneData(options.initialData ?? DEFAULT_EDITOR_DATA);
-    validateWebKeyframesData(this.data);
+    this.data = normalizeForEditor(options.initialData ?? DEFAULT_EDITOR_DATA);
     this.shortcut = parseShortcut(options.shortcut);
     this.handleKeydown = (event) => {
       if (this.shortcut !== null && matchesShortcut(event, this.shortcut)) {
@@ -116,7 +116,8 @@ export class WebKeyframesEditor {
   }
 
   setData(data: WebKeyframesData): void {
-    this.data = cloneData(validateWebKeyframesData(data));
+    this.data = normalizeForEditor(data);
+    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.data.keyframes.length);
     if (this.container !== null) {
       this.render();
     }
@@ -142,38 +143,75 @@ export class WebKeyframesEditor {
     }
 
     const normalized = normalizeWebKeyframesData(this.data);
-    const summary = [
-      { label: "ID", value: normalized.id },
-      { label: "Target", value: normalized.target },
-      { label: "Duration", value: `${normalized.duration}ms` },
-      { label: "Design Width", value: String(normalized.designWidth) },
-      { label: "Unit Function", value: normalized.unitFunction },
-      { label: "Keyframes", value: String(normalized.keyframes.length) },
-    ];
+    const selectedKeyframe = normalized.keyframes[this.selectedKeyframeIndex] ?? normalized.keyframes[0];
+    this.selectedKeyframeIndex = normalized.keyframes.indexOf(selectedKeyframe);
 
     this.container.innerHTML = `
       <div class="__wkf-panel">
         <div class="__wkf-header">
           <div>
             <p class="__wkf-kicker">web-keyframes editor</p>
-            <h2 class="__wkf-title">Mounted</h2>
+            <h2 class="__wkf-title">Keyframe Data Editor</h2>
           </div>
-          <button type="button" class="__wkf-button" data-wkf-action="hide">Hide</button>
+          <div class="__wkf-actions">
+            <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="hide">Hide</button>
+          </div>
         </div>
-        <div class="__wkf-grid">
-          ${summary
-            .map(
-              (item) => `
-                <div class="__wkf-field">
-                  <div class="__wkf-label">${escapeHtml(item.label)}</div>
-                  <div class="__wkf-value">${escapeHtml(item.value)}</div>
+        <div class="__wkf-layout">
+          <div class="__wkf-section">
+            <div class="__wkf-section-title">Timeline</div>
+            <div class="__wkf-grid __wkf-grid--meta">
+              ${renderTextField("id", "ID", normalized.id)}
+              ${renderTextField("target", "Target Selector", normalized.target)}
+              ${renderNumberField("duration", "Duration", normalized.duration, 1, 1)}
+              ${renderNumberField("designWidth", "Design Width", normalized.designWidth, 1, 1)}
+              ${renderTextField("unitFunction", "Unit Function", normalized.unitFunction)}
+            </div>
+          </div>
+          <div class="__wkf-columns">
+            <div class="__wkf-section __wkf-section--list">
+              <div class="__wkf-section-head">
+                <div class="__wkf-section-title">Keyframes</div>
+                <div class="__wkf-inline-actions">
+                  <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="add-keyframe">Add</button>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-keyframe" ${
+                    normalized.keyframes.length <= 2 ? "disabled" : ""
+                  }>Delete</button>
                 </div>
-              `,
-            )
-            .join("")}
+              </div>
+              <div class="__wkf-keyframe-list">
+                ${normalized.keyframes
+                  .map(
+                    (keyframe, index) => `
+                      <button
+                        type="button"
+                        class="__wkf-keyframe-item${index === this.selectedKeyframeIndex ? " __wkf-keyframe-item--active" : ""}"
+                        data-wkf-action="select-keyframe"
+                        data-wkf-index="${index}"
+                      >
+                        <span class="__wkf-keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
+                        <span class="__wkf-keyframe-meta">${escapeHtml(formatKeyframeSummary(keyframe))}</span>
+                      </button>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </div>
+            <div class="__wkf-section __wkf-section--editor">
+              <div class="__wkf-section-title">Selected Keyframe</div>
+              <div class="__wkf-grid __wkf-grid--editor">
+                ${renderRangeField("time", "Time", selectedKeyframe.time, 0, normalized.duration)}
+                ${renderNumberField("x", "X", selectedKeyframe.x)}
+                ${renderNumberField("y", "Y", selectedKeyframe.y)}
+                ${renderNumberField("scale", "Scale", selectedKeyframe.scale, 0.001, 0.001)}
+                ${renderNumberField("rotate", "Rotate", selectedKeyframe.rotate, 1, 0.1)}
+                ${renderNumberField("opacity", "Opacity", selectedKeyframe.opacity, 0, 0.01, 1)}
+              </div>
+            </div>
+          </div>
         </div>
         <div class="__wkf-footer">
-          <p class="__wkf-note">Editing UI and clipboard actions will be added next. Core data APIs are already available.</p>
+          <p class="__wkf-note">Core data updates are live. Copy actions and richer timeline controls are next.</p>
         </div>
       </div>
     `;
@@ -182,6 +220,147 @@ export class WebKeyframesEditor {
     hideButton?.addEventListener("click", () => {
       this.hide();
     });
+
+    this.bindMetaFields();
+    this.bindKeyframeSelection();
+    this.bindKeyframeEditor();
+    this.bindKeyframeActions();
+  }
+
+  private bindMetaFields(): void {
+    this.bindInputValue("id", (value) => {
+      this.data.id = value;
+    });
+    this.bindInputValue("target", (value) => {
+      this.data.target = value;
+    });
+    this.bindInputValue("unitFunction", (value) => {
+      this.data.unitFunction = value;
+    });
+    this.bindInputNumber("duration", (value) => {
+      this.data.duration = Math.max(1, Math.round(value));
+      this.data.keyframes = this.data.keyframes.map((keyframe) => ({
+        ...keyframe,
+        time: Math.min(keyframe.time, this.data.duration),
+      }));
+      this.data = normalizeForEditor(this.data);
+    });
+    this.bindInputNumber("designWidth", (value) => {
+      this.data.designWidth = Math.max(1, Math.round(value));
+    });
+  }
+
+  private bindKeyframeSelection(): void {
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-keyframe']").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.selectedKeyframeIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.data.keyframes.length);
+        this.render();
+      });
+    });
+  }
+
+  private bindKeyframeEditor(): void {
+    this.bindInputNumber("time", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.time = clampNumber(Math.round(value), 0, this.data.duration);
+      });
+    });
+    this.bindInputNumber("x", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.x = value;
+      });
+    });
+    this.bindInputNumber("y", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.y = value;
+      });
+    });
+    this.bindInputNumber("scale", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.scale = value;
+      });
+    });
+    this.bindInputNumber("rotate", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.rotate = value;
+      });
+    });
+    this.bindInputNumber("opacity", (value) => {
+      this.updateSelectedKeyframe((keyframe) => {
+        keyframe.opacity = clampNumber(value, 0, 1);
+      });
+    });
+  }
+
+  private bindKeyframeActions(): void {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-keyframe']")?.addEventListener("click", () => {
+      const nextFrame = createNextKeyframe(this.data.keyframes, this.selectedKeyframeIndex, this.data.duration);
+      const nextKeyframes = [...this.data.keyframes, nextFrame];
+      this.data = {
+        ...this.data,
+        keyframes: nextKeyframes,
+      };
+      this.data = normalizeForEditor(this.data);
+      this.selectedKeyframeIndex = this.data.keyframes.findIndex((keyframe) => keyframe === nextFrame);
+      if (this.selectedKeyframeIndex === -1) {
+        this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, nextFrame.time);
+      }
+      this.render();
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-keyframe']")?.addEventListener("click", () => {
+      if (this.data.keyframes.length <= 2) {
+        return;
+      }
+
+      this.data = {
+        ...this.data,
+        keyframes: this.data.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex),
+      };
+      this.data = normalizeForEditor(this.data);
+      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.data.keyframes.length);
+      this.render();
+    });
+  }
+
+  private bindInputValue(field: string, assign: (value: string) => void): void {
+    const input = this.container?.querySelector<HTMLInputElement>(`[data-wkf-field='${field}']`);
+    input?.addEventListener("input", () => {
+      assign(input.value);
+      this.render();
+    });
+  }
+
+  private bindInputNumber(field: string, assign: (value: number) => void): void {
+    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
+      const eventName = input.type === "range" ? "input" : "change";
+      input.addEventListener(eventName, () => {
+        const value = Number(input.value);
+        if (!Number.isFinite(value)) {
+          return;
+        }
+
+        assign(value);
+        this.render();
+      });
+    });
+  }
+
+  private updateSelectedKeyframe(update: (keyframe: NonNullable<WebKeyframesData["keyframes"][number]>) => void): void {
+    const keyframes = this.data.keyframes.map((keyframe) => ({ ...keyframe }));
+    const selected = keyframes[this.selectedKeyframeIndex];
+    if (!selected) {
+      return;
+    }
+
+    update(selected);
+    keyframes.sort((left, right) => left.time - right.time);
+    this.selectedKeyframeIndex = keyframes.indexOf(selected);
+    this.data = {
+      ...this.data,
+      keyframes,
+    };
+    this.render();
   }
 }
 
@@ -249,6 +428,123 @@ function cloneData(data: WebKeyframesData): WebKeyframesData {
     ...data,
     keyframes: data.keyframes.map((keyframe) => ({ ...keyframe })),
   };
+}
+
+function normalizeForEditor(data: WebKeyframesData): WebKeyframesData {
+  const normalized = normalizeWebKeyframesData(cloneData(validateWebKeyframesData(data)));
+  return {
+    ...normalized,
+    keyframes: normalized.keyframes.map((keyframe) => ({ ...keyframe })),
+  };
+}
+
+function clampIndex(index: number, length: number): number {
+  if (length <= 0) {
+    return 0;
+  }
+
+  return clampNumber(Number.isFinite(index) ? Math.round(index) : 0, 0, length - 1);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function createNextKeyframe(
+  keyframes: WebKeyframesData["keyframes"],
+  selectedIndex: number,
+  duration: number,
+) {
+  const selected = keyframes[selectedIndex] ?? keyframes[keyframes.length - 1];
+  const next = keyframes[selectedIndex + 1];
+  const previous = keyframes[selectedIndex - 1];
+  let time = duration;
+
+  if (selected && next) {
+    time = Math.round((selected.time + next.time) / 2);
+  } else if (selected && previous) {
+    time = Math.min(duration, Math.round((selected.time + duration) / 2));
+  } else if (selected) {
+    time = Math.min(duration, selected.time);
+  }
+
+  return {
+    ...selected,
+    time,
+  };
+}
+
+function findClosestKeyframeIndex(keyframes: WebKeyframesData["keyframes"], time: number): number {
+  return keyframes.reduce((closestIndex, keyframe, index) => {
+    const currentDistance = Math.abs(keyframes[closestIndex].time - time);
+    const nextDistance = Math.abs(keyframe.time - time);
+    return nextDistance < currentDistance ? index : closestIndex;
+  }, 0);
+}
+
+function renderTextField(field: string, label: string, value: string): string {
+  return `
+    <label class="__wkf-field">
+      <span class="__wkf-label">${escapeHtml(label)}</span>
+      <input class="__wkf-input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
+    </label>
+  `;
+}
+
+function renderNumberField(
+  field: string,
+  label: string,
+  value: number,
+  min?: number,
+  step?: number,
+  max?: number,
+): string {
+  return `
+    <label class="__wkf-field">
+      <span class="__wkf-label">${escapeHtml(label)}</span>
+      <input
+        class="__wkf-input"
+        type="number"
+        data-wkf-field="${escapeHtml(field)}"
+        value="${escapeHtml(String(value))}"
+        ${min !== undefined ? `min="${min}"` : ""}
+        ${max !== undefined ? `max="${max}"` : ""}
+        ${step !== undefined ? `step="${step}"` : ""}
+      >
+    </label>
+  `;
+}
+
+function renderRangeField(field: string, label: string, value: number, min: number, max: number): string {
+  return `
+    <div class="__wkf-field __wkf-field--time">
+      <span class="__wkf-label">${escapeHtml(label)}</span>
+      <div class="__wkf-time-row">
+        <input
+          class="__wkf-range"
+          type="range"
+          data-wkf-field="${escapeHtml(field)}"
+          value="${escapeHtml(String(value))}"
+          min="${min}"
+          max="${max}"
+          step="1"
+        >
+        <input
+          class="__wkf-input"
+          type="number"
+          data-wkf-field="${escapeHtml(field)}"
+          value="${escapeHtml(String(value))}"
+          min="${min}"
+          max="${max}"
+          step="1"
+        >
+      </div>
+    </div>
+  `;
+}
+
+function formatKeyframeSummary(keyframe: WebKeyframesData["keyframes"][number]): string {
+  return `x ${keyframe.x}, y ${keyframe.y}, opacity ${keyframe.opacity}`;
 }
 
 function escapeHtml(value: string): string {
