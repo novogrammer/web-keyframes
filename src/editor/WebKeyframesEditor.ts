@@ -42,6 +42,8 @@ export class WebKeyframesEditor {
   private selectedKeyframeIndex = 0;
   private statusMessage = "Core data updates are live. Copy actions and richer timeline controls are next.";
   private statusTone: "info" | "success" | "error" = "info";
+  private previewTitle: string | null = null;
+  private previewContent = "";
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -156,6 +158,7 @@ export class WebKeyframesEditor {
             <h2 class="__wkf-title">Keyframe Data Editor</h2>
           </div>
           <div class="__wkf-actions">
+            <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="reset">Reset</button>
             <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="hide">Hide</button>
           </div>
         </div>
@@ -219,9 +222,27 @@ export class WebKeyframesEditor {
             </div>
           </div>
         </div>
+        ${
+          this.previewTitle !== null
+            ? `
+              <div class="__wkf-preview">
+                <div class="__wkf-preview-head">
+                  <div>
+                    <div class="__wkf-section-title">${escapeHtml(this.previewTitle)}</div>
+                    <p class="__wkf-subtitle">Current generated output</p>
+                  </div>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="close-preview">Close</button>
+                </div>
+                <textarea class="__wkf-preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
+              </div>
+            `
+            : ""
+        }
         <div class="__wkf-footer">
           <p class="__wkf-note __wkf-note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
           <div class="__wkf-inline-actions">
+            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-json">View JSON</button>
+            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-scss">View SCSS</button>
             <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="copy-json">Copy JSON</button>
             <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="copy-scss">Copy SCSS</button>
           </div>
@@ -233,12 +254,16 @@ export class WebKeyframesEditor {
     hideButton?.addEventListener("click", () => {
       this.hide();
     });
+    this.container.querySelector<HTMLElement>("[data-wkf-action='reset']")?.addEventListener("click", () => {
+      this.reset();
+    });
 
     this.bindMetaFields();
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
     this.bindKeyframeActions();
     this.bindCopyActions();
+    this.bindPreviewActions();
   }
 
   private bindMetaFields(): void {
@@ -402,6 +427,21 @@ export class WebKeyframesEditor {
     });
   }
 
+  private bindPreviewActions(): void {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-json']")?.addEventListener("click", () => {
+      this.openPreview("JSON Preview", () => this.toJson());
+    });
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-scss']")?.addEventListener("click", () => {
+      this.openPreview("SCSS Preview", () => this.toScss());
+    });
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='close-preview']")?.addEventListener("click", () => {
+      this.previewTitle = null;
+      this.previewContent = "";
+      this.setStatus("info", "Closed preview.");
+      this.render();
+    });
+  }
+
   private async copyPayload(kind: "json" | "scss"): Promise<void> {
     try {
       const text = kind === "json" ? this.toJson() : this.toScss();
@@ -418,6 +458,30 @@ export class WebKeyframesEditor {
   private setStatus(tone: "info" | "success" | "error", message: string): void {
     this.statusTone = tone;
     this.statusMessage = message;
+  }
+
+  private reset(): void {
+    this.data = normalizeForEditor(DEFAULT_EDITOR_DATA);
+    this.selectedKeyframeIndex = 0;
+    this.previewTitle = null;
+    this.previewContent = "";
+    this.setStatus("success", "Reset editor data to defaults.");
+    this.render();
+  }
+
+  private openPreview(title: string, getContent: () => string): void {
+    try {
+      this.previewTitle = title;
+      this.previewContent = getContent();
+      this.setStatus("success", `Opened ${title.toLowerCase()}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.previewTitle = null;
+      this.previewContent = "";
+      this.setStatus("error", message);
+    }
+
+    this.render();
   }
 }
 

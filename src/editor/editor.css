@@ -237,6 +237,33 @@
   color: rgba(255, 255, 255, 0.65);
 }
 
+.__wkf-preview {
+  margin: 0 20px 20px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.__wkf-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.__wkf-preview-textarea {
+  width: 100%;
+  min-height: 220px;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(7, 10, 20, 0.48);
+  color: inherit;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
 .__wkf-note {
   color: rgba(255, 255, 255, 0.72);
 }

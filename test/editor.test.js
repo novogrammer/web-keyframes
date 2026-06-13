@@ -203,6 +203,50 @@ test("copy actions surface validation errors instead of crashing the editor", as
   assert.match(getStatusText(window.document), /id is required/);
 });
 
+test("view actions open JSON and SCSS previews and can be closed", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "view-json");
+  assert.match(getPreviewValue(window.document), /"id": "new-animation"/);
+
+  await clickAction(window.document, "view-scss");
+  assert.match(getPreviewValue(window.document), /@keyframes new-animation/);
+
+  await clickAction(window.document, "close-preview");
+  assert.equal(getPreviewValue(window.document), "");
+});
+
+test("reset restores default data after edits", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setInputValue(window.document, "id", "custom-id");
+  setNumberValue(window.document, "x", 48);
+
+  await clickAction(window.document, "reset");
+
+  const data = editor.getData();
+  assert.equal(data.id, "new-animation");
+  assert.equal(data.keyframes[0].x, 0);
+  assert.match(getStatusText(window.document), /Reset editor data to defaults/);
+});
+
+test("view actions surface validation errors when output cannot be generated", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setInputValue(window.document, "id", "");
+
+  await clickAction(window.document, "view-json");
+
+  assert.match(getStatusText(window.document), /id is required/);
+});
+
 function createWindow(options = {}) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>");
   const clipboardWrites = [];
@@ -252,4 +296,8 @@ async function clickAction(document, action) {
 
 function getStatusText(document) {
   return document.querySelector("[data-wkf-status]")?.textContent ?? "";
+}
+
+function getPreviewValue(document) {
+  return document.querySelector(".__wkf-preview-textarea")?.value ?? "";
 }
