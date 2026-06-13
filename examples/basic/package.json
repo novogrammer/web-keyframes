@@ -1,0 +1,13 @@
+{
+  "name": "web-keyframes-example-basic",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "serve .",
+    "gen:scss": "web-keyframes to-scss --input src/animations --output src/generated/_animations.generated.scss"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4",
+    "web-keyframes": "file:../.."
+  }
+}

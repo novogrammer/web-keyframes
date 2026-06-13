@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>web-keyframes basic example</title>
+    <link rel="stylesheet" href="/node_modules/web-keyframes/dist/editor.css">
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font: 16px/1.5 system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top left, #f7efcf, transparent 28%),
+          linear-gradient(180deg, #f6f4ec, #d8dfeb);
+        color: #162030;
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 80px 24px 320px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 12px;
+        color: #6c778d;
+      }
+
+      .hero-title {
+        max-width: 10ch;
+        margin: 16px 0 12px;
+        font-size: clamp(52px, 9vw, 110px);
+        line-height: 0.95;
+      }
+
+      .hero-copy {
+        max-width: 38rem;
+        margin: 0;
+        color: #334155;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .hero-button {
+        border: 0;
+        border-radius: 999px;
+        padding: 14px 18px;
+        background: #162030;
+        color: #f8fafc;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .hero-button--ghost {
+        background: rgba(22, 32, 48, 0.08);
+        color: #162030;
+      }
+
+      .hero-card {
+        margin-top: 56px;
+        max-width: 440px;
+        border-radius: 24px;
+        padding: 28px;
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 24px 60px rgba(22, 32, 48, 0.1);
+      }
+
+      .js-hero-logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 88px;
+        height: 88px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #162030, #315178);
+        color: #f8fafc;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="eyebrow">web-keyframes example</p>
+      <h1 class="hero-title">Edit timeline data in-place.</h1>
+      <p class="hero-copy">
+        This page is a minimal consumer of the package. Use the buttons below or the
+        <code>Ctrl+Shift+K</code> shortcut to open the editor overlay.
+      </p>
+      <div class="hero-actions">
+        <button type="button" class="hero-button" data-example-action="toggle-editor">Toggle editor</button>
+        <button type="button" class="hero-button hero-button--ghost" data-example-action="show-json">Log JSON</button>
+        <button type="button" class="hero-button hero-button--ghost" data-example-action="show-scss">Log SCSS</button>
+      </div>
+      <div class="hero-card">
+        <div class="js-hero-logo">WKF</div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "web-keyframes/editor": "/node_modules/web-keyframes/dist/editor.js"
+        }
+      }
+    </script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
