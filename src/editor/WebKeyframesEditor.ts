@@ -52,10 +52,22 @@ type FocusSnapshot = {
   selectionEnd: number | null;
 };
 
+type PanelPosition = {
+  left: number;
+  top: number;
+};
+
+type DragState = {
+  pointerOffsetX: number;
+  pointerOffsetY: number;
+};
+
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly shortcut: ShortcutDescriptor | null;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
+  private readonly handleDragMove: (event: MouseEvent) => void;
+  private readonly handleDragEnd: () => void;
   private container: HTMLElement | null = null;
   private mounted = false;
   private data: WebKeyframesData;
@@ -65,6 +77,8 @@ export class WebKeyframesEditor {
   private previewTitle: string | null = null;
   private previewContent = "";
   private pendingFocus: FocusSnapshot | null = null;
+  private panelPosition: PanelPosition | null = null;
+  private dragState: DragState | null = null;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -85,6 +99,12 @@ export class WebKeyframesEditor {
         event.preventDefault();
         this.toggle();
       }
+    };
+    this.handleDragMove = (event) => {
+      this.updateDragPosition(event);
+    };
+    this.handleDragEnd = () => {
+      this.stopDragging();
     };
   }
 
@@ -111,6 +131,7 @@ export class WebKeyframesEditor {
       return;
     }
 
+    this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
     this.container?.remove();
     this.container = null;
@@ -176,12 +197,12 @@ export class WebKeyframesEditor {
 
     this.container.innerHTML = `
       <div class="__wkf-panel">
-        <div class="__wkf-header">
+        <div class="__wkf-header" data-wkf-drag-handle="true">
           <div>
             <p class="__wkf-kicker">web-keyframes editor</p>
             <h2 class="__wkf-title">Keyframe Data Editor</h2>
           </div>
-          <div class="__wkf-actions">
+          <div class="__wkf-actions" data-wkf-no-drag="true">
             <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="reset">Reset</button>
             <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="hide">Hide</button>
           </div>
@@ -294,14 +315,27 @@ export class WebKeyframesEditor {
       this.reset();
     });
 
+    this.bindDragging();
     this.bindMetaFields();
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
     this.bindKeyframeActions();
     this.bindCopyActions();
     this.bindPreviewActions();
+    this.applyPanelPosition();
     queueMicrotask(() => {
       this.restoreFocus();
+    });
+  }
+
+  private bindDragging(): void {
+    const handle = this.container?.querySelector<HTMLElement>("[data-wkf-drag-handle='true']");
+    if (!handle) {
+      return;
+    }
+
+    handle.addEventListener("mousedown", (event) => {
+      this.startDragging(event);
     });
   }
 
@@ -573,6 +607,93 @@ export class WebKeyframesEditor {
     }
 
     this.pendingFocus = null;
+  }
+
+  private startDragging(event: MouseEvent): void {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("[data-wkf-no-drag='true'], button, input, select, textarea, label")
+    ) {
+      return;
+    }
+
+    const panel = this.container?.querySelector<HTMLElement>(".__wkf-panel");
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (!panel || !ownerWindow) {
+      return;
+    }
+
+    const rect = panel.getBoundingClientRect();
+    this.panelPosition = {
+      left: rect.left,
+      top: rect.top,
+    };
+    this.dragState = {
+      pointerOffsetX: event.clientX - rect.left,
+      pointerOffsetY: event.clientY - rect.top,
+    };
+
+    panel.classList.add("__wkf-panel--dragging");
+    ownerWindow.addEventListener("mousemove", this.handleDragMove);
+    ownerWindow.addEventListener("mouseup", this.handleDragEnd);
+    event.preventDefault();
+  }
+
+  private updateDragPosition(event: MouseEvent): void {
+    if (this.dragState === null || this.container === null) {
+      return;
+    }
+
+    const panel = this.container.querySelector<HTMLElement>(".__wkf-panel");
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (!panel || !ownerWindow) {
+      return;
+    }
+
+    const rect = panel.getBoundingClientRect();
+    const maxLeft = Math.max(0, ownerWindow.innerWidth - rect.width);
+    const maxTop = Math.max(0, ownerWindow.innerHeight - rect.height);
+    this.panelPosition = {
+      left: clampNumber(event.clientX - this.dragState.pointerOffsetX, 0, maxLeft),
+      top: clampNumber(event.clientY - this.dragState.pointerOffsetY, 0, maxTop),
+    };
+    this.applyPanelPosition();
+  }
+
+  private stopDragging(): void {
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (ownerWindow) {
+      ownerWindow.removeEventListener("mousemove", this.handleDragMove);
+      ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
+    }
+
+    this.container?.querySelector<HTMLElement>(".__wkf-panel")?.classList.remove("__wkf-panel--dragging");
+    this.dragState = null;
+  }
+
+  private applyPanelPosition(): void {
+    const panel = this.container?.querySelector<HTMLElement>(".__wkf-panel");
+    if (!panel) {
+      return;
+    }
+
+    if (this.panelPosition === null) {
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.bottom = "";
+      panel.style.transform = "";
+      return;
+    }
+
+    panel.style.left = `${this.panelPosition.left}px`;
+    panel.style.top = `${this.panelPosition.top}px`;
+    panel.style.bottom = "auto";
+    panel.style.transform = "none";
   }
 }
 

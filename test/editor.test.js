@@ -49,6 +49,52 @@ test("show, hide, and toggle update visibility state", () => {
   assert.ok(panel?.classList.contains("__wkf-root--visible"));
 });
 
+test("header drag updates the panel position", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  editor.show();
+
+  const panel = window.document.querySelector(".__wkf-panel");
+  const header = window.document.querySelector(".__wkf-header");
+  panel.getBoundingClientRect = () => ({
+    left: 100,
+    top: 200,
+    width: 360,
+    height: 320,
+    right: 460,
+    bottom: 520,
+  });
+
+  header.dispatchEvent(
+    new window.MouseEvent("mousedown", {
+      bubbles: true,
+      button: 0,
+      clientX: 140,
+      clientY: 240,
+    }),
+  );
+  window.dispatchEvent(
+    new window.MouseEvent("mousemove", {
+      bubbles: true,
+      clientX: 220,
+      clientY: 300,
+    }),
+  );
+  window.dispatchEvent(
+    new window.MouseEvent("mouseup", {
+      bubbles: true,
+      clientX: 220,
+      clientY: 300,
+    }),
+  );
+
+  assert.equal(panel.style.left, "180px");
+  assert.equal(panel.style.top, "260px");
+  assert.equal(panel.style.transform, "none");
+});
+
 test("shortcut toggles the editor when enabled", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({
@@ -329,6 +375,7 @@ function createWindow(options = {}) {
 
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
+  globalThis.Element = dom.window.Element;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLInputElement = dom.window.HTMLInputElement;
   globalThis.HTMLSelectElement = dom.window.HTMLSelectElement;
