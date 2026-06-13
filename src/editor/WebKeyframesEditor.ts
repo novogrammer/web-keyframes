@@ -45,6 +45,13 @@ type RenderWebKeyframesData = Omit<WebKeyframesData, "translate"> & {
   translate: RenderTranslateConfig;
 };
 
+type FocusSnapshot = {
+  field: string;
+  index: number;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+};
+
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly shortcut: ShortcutDescriptor | null;
@@ -57,6 +64,7 @@ export class WebKeyframesEditor {
   private statusTone: "info" | "success" | "error" = "info";
   private previewTitle: string | null = null;
   private previewContent = "";
+  private pendingFocus: FocusSnapshot | null = null;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -292,6 +300,9 @@ export class WebKeyframesEditor {
     this.bindKeyframeActions();
     this.bindCopyActions();
     this.bindPreviewActions();
+    queueMicrotask(() => {
+      this.restoreFocus();
+    });
   }
 
   private bindMetaFields(): void {
@@ -425,6 +436,7 @@ export class WebKeyframesEditor {
 
     const eventName = input instanceof HTMLSelectElement ? "change" : "input";
     input.addEventListener(eventName, () => {
+      this.pendingFocus = captureFocusSnapshot(this.container, field, input);
       assign(input.value);
       this.setStatus("info", "Editing timeline data.");
       this.render();
@@ -440,6 +452,7 @@ export class WebKeyframesEditor {
           return;
         }
 
+        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
         assign(value);
         this.setStatus("info", "Editing timeline data.");
         this.render();
@@ -534,6 +547,32 @@ export class WebKeyframesEditor {
     this.previewContent = "";
     this.setStatus("info", message);
     this.render();
+  }
+
+  private restoreFocus(): void {
+    if (this.container === null || this.pendingFocus === null) {
+      return;
+    }
+
+    const selector = `[data-wkf-field='${this.pendingFocus.field}']`;
+    const inputs = this.container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(selector);
+    const input = inputs[this.pendingFocus.index];
+    if (!input) {
+      this.pendingFocus = null;
+      return;
+    }
+
+    input.focus();
+    if (
+      input instanceof HTMLInputElement &&
+      this.pendingFocus.selectionStart !== null &&
+      this.pendingFocus.selectionEnd !== null &&
+      typeof input.setSelectionRange === "function"
+    ) {
+      input.setSelectionRange(this.pendingFocus.selectionStart, this.pendingFocus.selectionEnd);
+    }
+
+    this.pendingFocus = null;
   }
 }
 
@@ -740,6 +779,22 @@ function renderSelectField(
       </select>
     </label>
   `;
+}
+
+function captureFocusSnapshot(
+  container: HTMLElement | null,
+  field: string,
+  input: HTMLInputElement | HTMLSelectElement,
+): FocusSnapshot {
+  const inputs = container?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`) ?? [];
+  const index = Math.max(0, Array.from(inputs).indexOf(input));
+
+  return {
+    field,
+    index,
+    selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
+    selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
+  };
 }
 
 function renderNumberField(

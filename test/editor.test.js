@@ -138,6 +138,30 @@ test("meta inputs update editor data", () => {
   assert.equal(data.designWidth, 1280);
 });
 
+test("custom unit input keeps focus while typing", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setSelectValue(window.document, "translateUnit", "custom");
+
+  const input = window.document.querySelector("[data-wkf-field='translateCustomUnit']");
+  input.focus();
+  input.value = "v";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await Promise.resolve();
+
+  const nextInput = window.document.querySelector("[data-wkf-field='translateCustomUnit']");
+  assert.equal(window.document.activeElement, nextInput);
+
+  nextInput.value = "vw";
+  nextInput.dispatchEvent(new Event("input", { bubbles: true }));
+  await Promise.resolve();
+
+  assert.equal(window.document.activeElement, window.document.querySelector("[data-wkf-field='translateCustomUnit']"));
+  assert.equal(editor.getData().translate?.customUnit, "vw");
+});
+
 test("keyframe editor updates selected frame values", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -306,6 +330,7 @@ function createWindow(options = {}) {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.HTMLInputElement = dom.window.HTMLInputElement;
   globalThis.HTMLSelectElement = dom.window.HTMLSelectElement;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
