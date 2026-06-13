@@ -54,6 +54,12 @@ export class WebKeyframesEditor {
     this.data = normalizeForEditor(options.initialData ?? DEFAULT_EDITOR_DATA);
     this.shortcut = parseShortcut(options.shortcut);
     this.handleKeydown = (event) => {
+      if (event.key === "Escape" && this.previewTitle !== null) {
+        event.preventDefault();
+        this.closePreview("Closed preview.");
+        return;
+      }
+
       if (this.shortcut !== null && matchesShortcut(event, this.shortcut)) {
         event.preventDefault();
         this.toggle();
@@ -74,10 +80,7 @@ export class WebKeyframesEditor {
     this.container = container;
     this.render();
     this.root.append(container);
-
-    if (this.shortcut !== null) {
-      ownerDocument.addEventListener("keydown", this.handleKeydown);
-    }
+    ownerDocument.addEventListener("keydown", this.handleKeydown);
 
     this.mounted = true;
   }
@@ -435,10 +438,7 @@ export class WebKeyframesEditor {
       this.openPreview("SCSS Preview", () => this.toScss());
     });
     this.container?.querySelector<HTMLElement>("[data-wkf-action='close-preview']")?.addEventListener("click", () => {
-      this.previewTitle = null;
-      this.previewContent = "";
-      this.setStatus("info", "Closed preview.");
-      this.render();
+      this.closePreview("Closed preview.");
     });
   }
 
@@ -481,6 +481,13 @@ export class WebKeyframesEditor {
       this.setStatus("error", message);
     }
 
+    this.render();
+  }
+
+  private closePreview(message: string): void {
+    this.previewTitle = null;
+    this.previewContent = "";
+    this.setStatus("info", message);
     this.render();
   }
 }

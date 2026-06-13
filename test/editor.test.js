@@ -70,6 +70,27 @@ test("shortcut toggles the editor when enabled", () => {
   assert.ok(panel?.classList.contains("__wkf-root--visible"));
 });
 
+test("shortcut false disables keyboard toggle", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    shortcut: false,
+  });
+
+  editor.mount();
+  window.document.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "K",
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    }),
+  );
+
+  const panel = window.document.querySelector(".__wkf-root");
+  assert.equal(panel?.classList.contains("__wkf-root--visible"), false);
+});
+
 test("data helpers stay available before and after mount", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -217,6 +238,25 @@ test("view actions open JSON and SCSS previews and can be closed", async () => {
 
   await clickAction(window.document, "close-preview");
   assert.equal(getPreviewValue(window.document), "");
+});
+
+test("escape closes an open preview", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  await clickAction(window.document, "view-json");
+  assert.match(getPreviewValue(window.document), /"id": "new-animation"/);
+
+  window.document.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }),
+  );
+
+  assert.equal(getPreviewValue(window.document), "");
+  assert.match(getStatusText(window.document), /Closed preview/);
 });
 
 test("reset restores default data after edits", async () => {

@@ -50,10 +50,13 @@ editor.toScss();
 
 - Edit `id`, `target`, `duration`, `designWidth`, and `unitFunction`
 - Edit keyframe `time`, `x`, `y`, `scale`, `rotate`, and `opacity`
-- Add and delete keyframes
+- Add, duplicate, and delete keyframes
+- View generated JSON and SCSS inside the editor
 - Copy JSON
 - Copy SCSS
+- Reset the editor back to default data
 - Toggle visibility with an optional shortcut
+- Close preview panels with `Escape`
 
 ### Current editor limitations
 
