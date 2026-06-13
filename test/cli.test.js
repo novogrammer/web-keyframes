@@ -18,7 +18,10 @@ test("CLI converts a single JSON file to SCSS", async () => {
     JSON.stringify({
       id: "hero-logo",
       duration: 1200,
-      unitFunction: "global.vw",
+      translate: {
+        unit: "px",
+        functionName: "global.vw",
+      },
       keyframes: [
         { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
         { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
