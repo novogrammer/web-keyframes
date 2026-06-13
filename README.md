@@ -53,7 +53,7 @@ editor.toScss();
 
 ### Current editor features
 
-- Edit `id`, `target`, `duration`, `designWidth`, and `unitFunction`
+- Edit `id`, `target`, `duration`, `designWidth`, and translate output settings
 - Edit keyframe `time`, `x`, `y`, `scale`, `rotate`, and `opacity`
 - Add, duplicate, and delete keyframes
 - View generated JSON and SCSS inside the editor
@@ -78,7 +78,10 @@ editor.toScss();
   "target": ".js-hero-logo",
   "duration": 1200,
   "designWidth": 1440,
-  "unitFunction": "global.vw",
+  "translate": {
+    "unit": "px",
+    "functionName": "global.vw"
+  },
   "keyframes": [
     {
       "time": 0,
@@ -125,12 +128,12 @@ When the input is a directory, files are read in filename order and joined with 
 ```scss
 @keyframes hero-logo {
   0% {
-    transform: translate(global.vw(0), global.vw(40)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);
     opacity: 0;
   }
 
   100% {
-    transform: translate(global.vw(0), global.vw(0)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -139,6 +142,9 @@ When the input is a directory, files are read in filename order and joined with 
   animation: hero-logo 1200ms ease-out forwards;
 }
 ```
+
+`translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
+`translate.functionName` is optional. When present, values are emitted like `customFn(40px)` rather than `40px`.
 
 ## Development
 

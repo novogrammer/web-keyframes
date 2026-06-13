@@ -53,7 +53,7 @@ editor.toScss();
 
 ### 現在のエディタ機能
 
-- `id`、`target`、`duration`、`designWidth`、`unitFunction` の編集
+- `id`、`target`、`duration`、`designWidth`、translate 出力設定の編集
 - キーフレーム `time`、`x`、`y`、`scale`、`rotate`、`opacity` の編集
 - キーフレームの追加、複製、削除
 - 生成された JSON / SCSS のエディタ内プレビュー
@@ -78,7 +78,10 @@ editor.toScss();
   "target": ".js-hero-logo",
   "duration": 1200,
   "designWidth": 1440,
-  "unitFunction": "global.vw",
+  "translate": {
+    "unit": "px",
+    "functionName": "global.vw"
+  },
   "keyframes": [
     {
       "time": 0,
@@ -125,12 +128,12 @@ web-keyframes to-scss \
 ```scss
 @keyframes hero-logo {
   0% {
-    transform: translate(global.vw(0), global.vw(40)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);
     opacity: 0;
   }
 
   100% {
-    transform: translate(global.vw(0), global.vw(0)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -139,6 +142,9 @@ web-keyframes to-scss \
   animation: hero-logo 1200ms ease-out forwards;
 }
 ```
+
+`translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
+`translate.functionName` は任意で、指定すると `40px` ではなく `customFn(40px)` のように出力されます。
 
 ## 開発
 

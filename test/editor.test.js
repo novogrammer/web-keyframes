@@ -124,14 +124,16 @@ test("meta inputs update editor data", () => {
 
   setInputValue(window.document, "id", "hero-title");
   setInputValue(window.document, "target", ".js-hero-title");
-  setInputValue(window.document, "unitFunction", "layout.vw");
+  setSelectValue(window.document, "translateUnit", "vw");
+  setInputValue(window.document, "translateFunctionName", "layout.wrap");
   setNumberValue(window.document, "duration", 1600);
   setNumberValue(window.document, "designWidth", 1280);
 
   const data = editor.getData();
   assert.equal(data.id, "hero-title");
   assert.equal(data.target, ".js-hero-title");
-  assert.equal(data.unitFunction, "layout.vw");
+  assert.equal(data.translate?.unit, "vw");
+  assert.equal(data.translate?.functionName, "layout.wrap");
   assert.equal(data.duration, 1600);
   assert.equal(data.designWidth, 1280);
 });
@@ -304,6 +306,7 @@ function createWindow(options = {}) {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.HTMLSelectElement = dom.window.HTMLSelectElement;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.Event = dom.window.Event;
@@ -318,6 +321,12 @@ function setInputValue(document, field, value) {
   const input = document.querySelector(`[data-wkf-field='${field}']`);
   input.value = value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setSelectValue(document, field, value) {
+  const input = document.querySelector(`[data-wkf-field='${field}']`);
+  input.value = value;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function setNumberValue(document, field, value, index = 0) {

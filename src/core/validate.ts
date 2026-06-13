@@ -1,6 +1,7 @@
-import type { WebKeyframe, WebKeyframesData } from "./types.js";
+import type { TranslateConfig, WebKeyframe, WebKeyframesData } from "./types.js";
 
 const KEYFRAME_FIELDS = ["time", "x", "y", "scale", "rotate", "opacity"] as const;
+const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
 
 export class WebKeyframesValidationError extends Error {
   readonly issues: string[];
@@ -37,8 +38,8 @@ export function validateWebKeyframesData(data: unknown): WebKeyframesData {
     issues.push("designWidth must be a finite number.");
   }
 
-  if (candidate.unitFunction !== undefined && typeof candidate.unitFunction !== "string") {
-    issues.push("unitFunction must be a string when provided.");
+  if (candidate.translate !== undefined) {
+    issues.push(...validateTranslate(candidate.translate));
   }
 
   if (!Array.isArray(candidate.keyframes)) {
@@ -58,6 +59,33 @@ export function validateWebKeyframesData(data: unknown): WebKeyframesData {
   }
 
   return candidate as WebKeyframesData;
+}
+
+function validateTranslate(translate: unknown): string[] {
+  if (!isPlainObject(translate)) {
+    return ["translate must be an object when provided."];
+  }
+
+  const candidate = translate as Partial<TranslateConfig>;
+  const issues: string[] = [];
+
+  if (typeof candidate.unit !== "string" || !TRANSLATE_UNITS.has(candidate.unit)) {
+    issues.push("translate.unit must be one of px, vw, vh, %, or custom.");
+  }
+
+  if (candidate.functionName !== undefined && typeof candidate.functionName !== "string") {
+    issues.push("translate.functionName must be a string when provided.");
+  }
+
+  if (candidate.customUnit !== undefined && typeof candidate.customUnit !== "string") {
+    issues.push("translate.customUnit must be a string when provided.");
+  }
+
+  if (candidate.unit === "custom" && (!candidate.customUnit || candidate.customUnit.trim() === "")) {
+    issues.push("translate.customUnit is required when translate.unit is custom.");
+  }
+
+  return issues;
 }
 
 function validateKeyframe(

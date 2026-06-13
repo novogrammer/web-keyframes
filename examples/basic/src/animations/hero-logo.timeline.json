@@ -3,7 +3,10 @@
   "target": ".js-hero-logo",
   "duration": 1200,
   "designWidth": 1440,
-  "unitFunction": "wkf-px",
+  "translate": {
+    "unit": "px",
+    "functionName": "wkf-px"
+  },
   "keyframes": [
     {
       "time": 0,

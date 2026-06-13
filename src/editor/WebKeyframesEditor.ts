@@ -1,10 +1,10 @@
 import {
-  DEFAULT_UNIT_FUNCTION,
+  DEFAULT_TRANSLATE_CONFIG,
   generateScss,
   normalizeWebKeyframesData,
   validateWebKeyframesData,
 } from "../core/index.js";
-import type { WebKeyframesData } from "../core/index.js";
+import type { TranslateUnit, WebKeyframesData } from "../core/index.js";
 
 export type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -17,7 +17,10 @@ export const DEFAULT_EDITOR_DATA: WebKeyframesData = {
   target: ".js-target",
   duration: 1200,
   designWidth: 1440,
-  unitFunction: DEFAULT_UNIT_FUNCTION,
+  translate: {
+    unit: DEFAULT_TRANSLATE_CONFIG.unit,
+    functionName: DEFAULT_TRANSLATE_CONFIG.functionName ?? undefined,
+  },
   keyframes: [
     { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
     { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
@@ -30,6 +33,16 @@ type ShortcutDescriptor = {
   metaKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
+};
+
+type RenderTranslateConfig = {
+  unit: TranslateUnit;
+  functionName: string;
+  customUnit: string;
+};
+
+type RenderWebKeyframesData = Omit<WebKeyframesData, "translate"> & {
+  translate: RenderTranslateConfig;
 };
 
 export class WebKeyframesEditor {
@@ -173,7 +186,19 @@ export class WebKeyframesEditor {
               ${renderTextField("target", "Target Selector", renderData.target)}
               ${renderNumberField("duration", "Duration", renderData.duration, 1, 1)}
               ${renderNumberField("designWidth", "Design Width", renderData.designWidth, 1, 1)}
-              ${renderTextField("unitFunction", "Unit Function", renderData.unitFunction ?? DEFAULT_UNIT_FUNCTION)}
+              ${renderSelectField("translateUnit", "Translate Unit", renderData.translate.unit, [
+                { value: "px", label: "px" },
+                { value: "vw", label: "vw" },
+                { value: "vh", label: "vh" },
+                { value: "%", label: "%" },
+                { value: "custom", label: "custom" },
+              ])}
+              ${renderTextField("translateFunctionName", "Translate Function", renderData.translate.functionName ?? "")}
+              ${
+                renderData.translate.unit === "custom"
+                  ? renderTextField("translateCustomUnit", "Custom Unit", renderData.translate.customUnit ?? "")
+                  : ""
+              }
             </div>
           </div>
           <div class="__wkf-columns">
@@ -276,8 +301,23 @@ export class WebKeyframesEditor {
     this.bindInputValue("target", (value) => {
       this.data.target = value;
     });
-    this.bindInputValue("unitFunction", (value) => {
-      this.data.unitFunction = value;
+    this.bindInputValue("translateFunctionName", (value) => {
+      this.data.translate = {
+        ...(this.data.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+        functionName: value,
+      };
+    });
+    this.bindInputValue("translateCustomUnit", (value) => {
+      this.data.translate = {
+        ...(this.data.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+        customUnit: value,
+      };
+    });
+    this.bindInputValue("translateUnit", (value) => {
+      this.data.translate = {
+        ...(this.data.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+        unit: value as TranslateUnit,
+      };
     });
     this.bindInputNumber("duration", (value) => {
       this.data.duration = Math.max(1, Math.round(value));
@@ -378,8 +418,13 @@ export class WebKeyframesEditor {
   }
 
   private bindInputValue(field: string, assign: (value: string) => void): void {
-    const input = this.container?.querySelector<HTMLInputElement>(`[data-wkf-field='${field}']`);
-    input?.addEventListener("input", () => {
+    const input = this.container?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`);
+    if (!input) {
+      return;
+    }
+
+    const eventName = input instanceof HTMLSelectElement ? "change" : "input";
+    input.addEventListener(eventName, () => {
       assign(input.value);
       this.setStatus("info", "Editing timeline data.");
       this.render();
@@ -554,6 +599,7 @@ function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): bo
 function cloneData(data: WebKeyframesData): WebKeyframesData {
   return {
     ...data,
+    translate: data.translate ? { ...data.translate } : undefined,
     keyframes: data.keyframes.map((keyframe) => ({ ...keyframe })),
   };
 }
@@ -562,17 +608,26 @@ function normalizeForEditor(data: WebKeyframesData): WebKeyframesData {
   const normalized = normalizeWebKeyframesData(cloneData(validateWebKeyframesData(data)));
   return {
     ...normalized,
+    translate: {
+      unit: normalized.translate.unit,
+      functionName: normalized.translate.functionName ?? undefined,
+      customUnit: normalized.translate.customUnit ?? undefined,
+    },
     keyframes: normalized.keyframes.map((keyframe) => ({ ...keyframe })),
   };
 }
 
-function getRenderData(data: WebKeyframesData): WebKeyframesData {
+function getRenderData(data: WebKeyframesData): RenderWebKeyframesData {
   const cloned = cloneData(data);
   return {
     ...cloned,
     duration: Number.isFinite(cloned.duration) && cloned.duration > 0 ? Math.round(cloned.duration) : 1,
     designWidth: Number.isFinite(cloned.designWidth) ? cloned.designWidth : 1440,
-    unitFunction: cloned.unitFunction?.trim() || DEFAULT_UNIT_FUNCTION,
+    translate: {
+      unit: cloned.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      functionName: cloned.translate?.functionName?.trim() || "",
+      customUnit: cloned.translate?.unit === "custom" ? cloned.translate.customUnit?.trim() || "" : "",
+    },
     keyframes: cloned.keyframes
       .map((keyframe) => ({
         ...keyframe,
@@ -662,6 +717,27 @@ function renderTextField(field: string, label: string, value: string): string {
     <label class="__wkf-field">
       <span class="__wkf-label">${escapeHtml(label)}</span>
       <input class="__wkf-input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
+    </label>
+  `;
+}
+
+function renderSelectField(
+  field: string,
+  label: string,
+  value: string,
+  options: Array<{ value: string; label: string }>,
+): string {
+  return `
+    <label class="__wkf-field">
+      <span class="__wkf-label">${escapeHtml(label)}</span>
+      <select class="__wkf-input" data-wkf-field="${escapeHtml(field)}">
+        ${options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`,
+          )
+          .join("")}
+      </select>
     </label>
   `;
 }

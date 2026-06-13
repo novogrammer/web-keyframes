@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  DEFAULT_UNIT_FUNCTION,
+  DEFAULT_TRANSLATE_CONFIG,
   WebKeyframesValidationError,
   generateScss,
   normalizeWebKeyframesData,
@@ -14,7 +14,7 @@ const baseData = {
   target: ".js-hero-logo",
   duration: 1200,
   designWidth: 1440,
-  unitFunction: "global.vw",
+  translate: { unit: "px", functionName: "global.vw" },
   keyframes: [
     { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
     { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
@@ -26,25 +26,41 @@ test("generateScss renders the expected SCSS", () => {
 
   assert.equal(
     scss,
-    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(global.vw(0), global.vw(40)) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(global.vw(0), global.vw(0)) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n\n.js-hero-logo {\n  animation: hero-logo 1200ms ease-out forwards;\n}\n`,
+    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n\n.js-hero-logo {\n  animation: hero-logo 1200ms ease-out forwards;\n}\n`,
   );
 });
 
-test("normalizeWebKeyframesData applies the default unit function and sorts keyframes", () => {
+test("normalizeWebKeyframesData applies the default translate config and sorts keyframes", () => {
   const normalized = normalizeWebKeyframesData({
     ...baseData,
-    unitFunction: "",
+    translate: undefined,
     keyframes: [
       { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
       { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
     ],
   });
 
-  assert.equal(normalized.unitFunction, DEFAULT_UNIT_FUNCTION);
+  assert.deepEqual(normalized.translate, DEFAULT_TRANSLATE_CONFIG);
   assert.deepEqual(
     normalized.keyframes.map((keyframe) => keyframe.time),
     [0, 1200],
   );
+});
+
+test("generateScss supports direct units and optional wrapping functions", () => {
+  const scss = generateScss({
+    ...baseData,
+    translate: { unit: "vw" },
+  });
+
+  assert.match(scss, /translate\(0vw, 40vw\)/);
+
+  const wrapped = generateScss({
+    ...baseData,
+    translate: { unit: "%", functionName: "customFn" },
+  });
+
+  assert.match(wrapped, /translate\(customFn\(0%\), customFn\(40%\)\)/);
 });
 
 test("generateScss rounds percentages to at most 3 decimals", () => {
@@ -94,5 +110,22 @@ test("validateWebKeyframesData rejects out-of-range keyframe times", () => {
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("keyframes[0].time must be greater than or equal to 0.") &&
       error.issues.includes("keyframes[1].time must be less than or equal to duration."),
+  );
+});
+
+test("validateWebKeyframesData rejects invalid translate settings", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesData({
+        ...baseData,
+        translate: {
+          unit: "custom",
+          functionName: 123,
+        },
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("translate.functionName must be a string when provided.") &&
+      error.issues.includes("translate.customUnit is required when translate.unit is custom."),
   );
 });

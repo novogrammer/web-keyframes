@@ -8,7 +8,7 @@ export function generateScss(data: WebKeyframesData): string {
   const keyframeBlocks = normalized.keyframes.map((keyframe) => {
     const percent = formatPercent((keyframe.time / normalized.duration) * 100);
     const transform =
-      `translate(${normalized.unitFunction}(${formatNumber(keyframe.x)}), ${normalized.unitFunction}(${formatNumber(keyframe.y)})) ` +
+      `translate(${renderTranslateValue(keyframe.x, normalized.translate)}, ${renderTranslateValue(keyframe.y, normalized.translate)}) ` +
       `scale(${formatNumber(keyframe.scale)}) rotate(${formatNumber(keyframe.rotate)}deg)`;
 
     return [
@@ -28,6 +28,17 @@ export function generateScss(data: WebKeyframesData): string {
   ].join("\n");
 
   return formatScss([keyframes, target]);
+}
+
+function renderTranslateValue(value: number, translate: ReturnType<typeof normalizeWebKeyframesData>["translate"]): string {
+  const unit = translate.unit === "custom" ? translate.customUnit ?? "px" : translate.unit;
+  const dimension = `${formatNumber(value)}${unit}`;
+
+  if (translate.functionName) {
+    return `${translate.functionName}(${dimension})`;
+  }
+
+  return dimension;
 }
 
 function formatPercent(value: number): string {

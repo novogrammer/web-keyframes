@@ -5,7 +5,7 @@ const initialData = {
   target: ".js-hero-logo",
   duration: 1200,
   designWidth: 1440,
-  unitFunction: "wkf-px",
+  translate: { unit: "px", functionName: "wkf-px" },
   keyframes: [
     { time: 0, x: 0, y: 40, scale: 0.88, rotate: -6, opacity: 0 },
     { time: 700, x: 0, y: -8, scale: 1.04, rotate: 2, opacity: 1 },
