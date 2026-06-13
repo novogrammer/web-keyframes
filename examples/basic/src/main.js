@@ -24,11 +24,3 @@ editor.mount();
 document.querySelector('[data-example-action="toggle-editor"]')?.addEventListener("click", () => {
   editor.toggle();
 });
-
-document.querySelector('[data-example-action="show-json"]')?.addEventListener("click", () => {
-  console.log(editor.toJson());
-});
-
-document.querySelector('[data-example-action="show-scss"]')?.addEventListener("click", () => {
-  console.log(editor.toScss());
-});
