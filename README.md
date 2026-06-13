@@ -9,6 +9,8 @@ It does two things:
 
 This package is intentionally narrow. It does not preview animations on live DOM nodes, auto-save files, or depend on a specific app bundler.
 
+GitHub installs are expected to build `dist/` during package preparation. The repository does not track built files.
+
 ## Install
 
 ```bash

@@ -17,6 +17,8 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/cli/index.ts src/editor.ts --format esm --dts --clean && node scripts/copy-editor-css.mjs",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test"
   },

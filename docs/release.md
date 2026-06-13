@@ -55,5 +55,6 @@ npm install github:YOUR_NAME/web-keyframes#v0.1.0
 
 ## Notes
 
-- `dist/` is ignored in git, so consumers should install from a tag that has already been built into the package artifact flow you choose.
-- If you want GitHub tag installs to include built files directly from the repository, revisit the current `.gitignore` / packaging strategy before the first public release.
+- `dist/` is ignored in git.
+- GitHub installs rely on the package `prepare` step to build `dist/` from source during installation.
+- `prepack` also rebuilds `dist/` before creating a tarball, so local package archives and future npm publishing use the same output path.
