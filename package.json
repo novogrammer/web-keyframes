@@ -1,0 +1,30 @@
+{
+  "name": "web-keyframes",
+  "version": "0.1.0",
+  "description": "Lightweight keyframe editor core and SCSS generator for web animations.",
+  "type": "module",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "web-keyframes": "./bin/web-keyframes.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
