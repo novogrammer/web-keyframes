@@ -147,6 +147,25 @@ test("add and delete keyframe actions update the list", () => {
   assert.equal(editor.getData().keyframes.length, 2);
 });
 
+test("duplicate keyframe action inserts a copied frame and keeps timeline percentages visible", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const beforeText = window.document.body.textContent ?? "";
+  assert.match(beforeText, /0%/);
+  assert.match(beforeText, /100%/);
+
+  await clickAction(window.document, "duplicate-keyframe");
+
+  const data = editor.getData();
+  assert.equal(data.keyframes.length, 3);
+  assert.equal(data.keyframes[1].time, 600);
+  assert.equal(data.keyframes[1].x, data.keyframes[0].x);
+  assert.match(window.document.body.textContent ?? "", /50% of timeline/);
+});
+
 test("copy actions write JSON and SCSS to the clipboard", async () => {
   const { window, clipboardWrites } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });

@@ -176,6 +176,7 @@ export class WebKeyframesEditor {
                 <div class="__wkf-section-title">Keyframes</div>
                 <div class="__wkf-inline-actions">
                   <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="add-keyframe">Add</button>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="duplicate-keyframe">Duplicate</button>
                   <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-keyframe" ${
                     renderData.keyframes.length <= 2 ? "disabled" : ""
                   }>Delete</button>
@@ -192,6 +193,7 @@ export class WebKeyframesEditor {
                         data-wkf-index="${index}"
                       >
                         <span class="__wkf-keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
+                        <span class="__wkf-keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, renderData.duration))}</span>
                         <span class="__wkf-keyframe-meta">${escapeHtml(formatKeyframeSummary(keyframe))}</span>
                       </button>
                     `,
@@ -200,7 +202,12 @@ export class WebKeyframesEditor {
               </div>
             </div>
             <div class="__wkf-section __wkf-section--editor">
-              <div class="__wkf-section-title">Selected Keyframe</div>
+              <div class="__wkf-section-head">
+                <div>
+                  <div class="__wkf-section-title">Selected Keyframe</div>
+                  <p class="__wkf-subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, renderData.duration))} of timeline</p>
+                </div>
+              </div>
               <div class="__wkf-grid __wkf-grid--editor">
                 ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
                 ${renderNumberField("x", "X", selectedKeyframe.x)}
@@ -326,6 +333,18 @@ export class WebKeyframesEditor {
       };
       this.data = normalizeForEditor(this.data);
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.data.keyframes.length);
+      this.render();
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-keyframe']")?.addEventListener("click", () => {
+      const duplicatedFrame = duplicateKeyframe(this.data.keyframes, this.selectedKeyframeIndex, this.data.duration);
+      this.data = {
+        ...this.data,
+        keyframes: [...this.data.keyframes, duplicatedFrame],
+      };
+      this.data = normalizeForEditor(this.data);
+      this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, duplicatedFrame.time, duplicatedFrame);
+      this.setStatus("info", "Duplicated selected keyframe.");
       this.render();
     });
   }
@@ -533,12 +552,38 @@ function createNextKeyframe(
   };
 }
 
-function findClosestKeyframeIndex(keyframes: WebKeyframesData["keyframes"], time: number): number {
+function findClosestKeyframeIndex(
+  keyframes: WebKeyframesData["keyframes"],
+  time: number,
+  preferredFrame?: WebKeyframesData["keyframes"][number],
+): number {
+  if (preferredFrame) {
+    const exactIndex = keyframes.indexOf(preferredFrame);
+    if (exactIndex !== -1) {
+      return exactIndex;
+    }
+  }
+
   return keyframes.reduce((closestIndex, keyframe, index) => {
     const currentDistance = Math.abs(keyframes[closestIndex].time - time);
     const nextDistance = Math.abs(keyframe.time - time);
     return nextDistance < currentDistance ? index : closestIndex;
   }, 0);
+}
+
+function duplicateKeyframe(
+  keyframes: WebKeyframesData["keyframes"],
+  selectedIndex: number,
+  duration: number,
+) {
+  const selected = keyframes[selectedIndex] ?? keyframes[keyframes.length - 1];
+  const next = keyframes[selectedIndex + 1];
+  const nextTime = next ? Math.round((selected.time + next.time) / 2) : Math.min(duration, selected.time + Math.max(1, Math.round(duration * 0.1)));
+
+  return {
+    ...selected,
+    time: clampNumber(nextTime, 0, duration),
+  };
 }
 
 function renderTextField(field: string, label: string, value: string): string {
@@ -604,6 +649,20 @@ function renderRangeField(field: string, label: string, value: number, min: numb
 
 function formatKeyframeSummary(keyframe: WebKeyframesData["keyframes"][number]): string {
   return `x ${keyframe.x}, y ${keyframe.y}, opacity ${keyframe.opacity}`;
+}
+
+function formatPercentLabel(time: number, duration: number): string {
+  const safeDuration = duration <= 0 ? 1 : duration;
+  const percent = (time / safeDuration) * 100;
+  return `${formatNumber(percent)}%`;
+}
+
+function formatNumber(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+
+  return value.toFixed(3).replace(/\.?0+$/, "");
 }
 
 async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {

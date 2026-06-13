@@ -150,6 +150,11 @@
   text-transform: uppercase;
 }
 
+.__wkf-subtitle {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+}
+
 .__wkf-grid--meta {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -213,12 +218,18 @@
 }
 
 .__wkf-keyframe-time,
+.__wkf-keyframe-percent,
 .__wkf-keyframe-meta {
   display: block;
 }
 
 .__wkf-keyframe-time {
   font-weight: 700;
+}
+
+.__wkf-keyframe-percent {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .__wkf-keyframe-meta {
