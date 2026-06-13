@@ -40,6 +40,8 @@ export class WebKeyframesEditor {
   private mounted = false;
   private data: WebKeyframesData;
   private selectedKeyframeIndex = 0;
+  private statusMessage = "Core data updates are live. Copy actions and richer timeline controls are next.";
+  private statusTone: "info" | "success" | "error" = "info";
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -142,9 +144,9 @@ export class WebKeyframesEditor {
       return;
     }
 
-    const normalized = normalizeWebKeyframesData(this.data);
-    const selectedKeyframe = normalized.keyframes[this.selectedKeyframeIndex] ?? normalized.keyframes[0];
-    this.selectedKeyframeIndex = normalized.keyframes.indexOf(selectedKeyframe);
+    const renderData = getRenderData(this.data);
+    const selectedKeyframe = renderData.keyframes[this.selectedKeyframeIndex] ?? renderData.keyframes[0];
+    this.selectedKeyframeIndex = renderData.keyframes.indexOf(selectedKeyframe);
 
     this.container.innerHTML = `
       <div class="__wkf-panel">
@@ -161,11 +163,11 @@ export class WebKeyframesEditor {
           <div class="__wkf-section">
             <div class="__wkf-section-title">Timeline</div>
             <div class="__wkf-grid __wkf-grid--meta">
-              ${renderTextField("id", "ID", normalized.id)}
-              ${renderTextField("target", "Target Selector", normalized.target)}
-              ${renderNumberField("duration", "Duration", normalized.duration, 1, 1)}
-              ${renderNumberField("designWidth", "Design Width", normalized.designWidth, 1, 1)}
-              ${renderTextField("unitFunction", "Unit Function", normalized.unitFunction)}
+              ${renderTextField("id", "ID", renderData.id)}
+              ${renderTextField("target", "Target Selector", renderData.target)}
+              ${renderNumberField("duration", "Duration", renderData.duration, 1, 1)}
+              ${renderNumberField("designWidth", "Design Width", renderData.designWidth, 1, 1)}
+              ${renderTextField("unitFunction", "Unit Function", renderData.unitFunction ?? DEFAULT_UNIT_FUNCTION)}
             </div>
           </div>
           <div class="__wkf-columns">
@@ -175,12 +177,12 @@ export class WebKeyframesEditor {
                 <div class="__wkf-inline-actions">
                   <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="add-keyframe">Add</button>
                   <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-keyframe" ${
-                    normalized.keyframes.length <= 2 ? "disabled" : ""
+                    renderData.keyframes.length <= 2 ? "disabled" : ""
                   }>Delete</button>
                 </div>
               </div>
               <div class="__wkf-keyframe-list">
-                ${normalized.keyframes
+                ${renderData.keyframes
                   .map(
                     (keyframe, index) => `
                       <button
@@ -200,7 +202,7 @@ export class WebKeyframesEditor {
             <div class="__wkf-section __wkf-section--editor">
               <div class="__wkf-section-title">Selected Keyframe</div>
               <div class="__wkf-grid __wkf-grid--editor">
-                ${renderRangeField("time", "Time", selectedKeyframe.time, 0, normalized.duration)}
+                ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
                 ${renderNumberField("x", "X", selectedKeyframe.x)}
                 ${renderNumberField("y", "Y", selectedKeyframe.y)}
                 ${renderNumberField("scale", "Scale", selectedKeyframe.scale, 0.001, 0.001)}
@@ -211,7 +213,11 @@ export class WebKeyframesEditor {
           </div>
         </div>
         <div class="__wkf-footer">
-          <p class="__wkf-note">Core data updates are live. Copy actions and richer timeline controls are next.</p>
+          <p class="__wkf-note __wkf-note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
+          <div class="__wkf-inline-actions">
+            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="copy-json">Copy JSON</button>
+            <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="copy-scss">Copy SCSS</button>
+          </div>
         </div>
       </div>
     `;
@@ -225,6 +231,7 @@ export class WebKeyframesEditor {
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
     this.bindKeyframeActions();
+    this.bindCopyActions();
   }
 
   private bindMetaFields(): void {
@@ -327,6 +334,7 @@ export class WebKeyframesEditor {
     const input = this.container?.querySelector<HTMLInputElement>(`[data-wkf-field='${field}']`);
     input?.addEventListener("input", () => {
       assign(input.value);
+      this.setStatus("info", "Editing timeline data.");
       this.render();
     });
   }
@@ -341,6 +349,7 @@ export class WebKeyframesEditor {
         }
 
         assign(value);
+        this.setStatus("info", "Editing timeline data.");
         this.render();
       });
     });
@@ -360,7 +369,36 @@ export class WebKeyframesEditor {
       ...this.data,
       keyframes,
     };
+    this.setStatus("info", "Editing timeline data.");
     this.render();
+  }
+
+  private bindCopyActions(): void {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-json']")?.addEventListener("click", () => {
+      void this.copyPayload("json");
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-scss']")?.addEventListener("click", () => {
+      void this.copyPayload("scss");
+    });
+  }
+
+  private async copyPayload(kind: "json" | "scss"): Promise<void> {
+    try {
+      const text = kind === "json" ? this.toJson() : this.toScss();
+      await writeClipboardText(this.root.ownerDocument.defaultView, text);
+      this.setStatus("success", kind === "json" ? "Copied JSON to clipboard." : "Copied SCSS to clipboard.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus("error", message);
+    }
+
+    this.render();
+  }
+
+  private setStatus(tone: "info" | "success" | "error", message: string): void {
+    this.statusTone = tone;
+    this.statusMessage = message;
   }
 }
 
@@ -435,6 +473,27 @@ function normalizeForEditor(data: WebKeyframesData): WebKeyframesData {
   return {
     ...normalized,
     keyframes: normalized.keyframes.map((keyframe) => ({ ...keyframe })),
+  };
+}
+
+function getRenderData(data: WebKeyframesData): WebKeyframesData {
+  const cloned = cloneData(data);
+  return {
+    ...cloned,
+    duration: Number.isFinite(cloned.duration) && cloned.duration > 0 ? Math.round(cloned.duration) : 1,
+    designWidth: Number.isFinite(cloned.designWidth) ? cloned.designWidth : 1440,
+    unitFunction: cloned.unitFunction?.trim() || DEFAULT_UNIT_FUNCTION,
+    keyframes: cloned.keyframes
+      .map((keyframe) => ({
+        ...keyframe,
+        time: Number.isFinite(keyframe.time) ? keyframe.time : 0,
+        x: Number.isFinite(keyframe.x) ? keyframe.x : 0,
+        y: Number.isFinite(keyframe.y) ? keyframe.y : 0,
+        scale: Number.isFinite(keyframe.scale) ? keyframe.scale : 1,
+        rotate: Number.isFinite(keyframe.rotate) ? keyframe.rotate : 0,
+        opacity: Number.isFinite(keyframe.opacity) ? keyframe.opacity : 1,
+      }))
+      .sort((left, right) => left.time - right.time),
   };
 }
 
@@ -545,6 +604,16 @@ function renderRangeField(field: string, label: string, value: number, min: numb
 
 function formatKeyframeSummary(keyframe: WebKeyframesData["keyframes"][number]): string {
   return `x ${keyframe.x}, y ${keyframe.y}, opacity ${keyframe.opacity}`;
+}
+
+async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {
+  const clipboard = windowObject?.navigator?.clipboard;
+
+  if (!clipboard?.writeText) {
+    throw new Error("Clipboard API is not available.");
+  }
+
+  await clipboard.writeText(text);
 }
 
 function escapeHtml(value: string): string {

@@ -147,15 +147,68 @@ test("add and delete keyframe actions update the list", () => {
   assert.equal(editor.getData().keyframes.length, 2);
 });
 
-function createWindow() {
+test("copy actions write JSON and SCSS to the clipboard", async () => {
+  const { window, clipboardWrites } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "copy-json");
+  await clickAction(window.document, "copy-scss");
+
+  assert.match(clipboardWrites[0], /"id": "new-animation"/);
+  assert.match(clipboardWrites[1], /@keyframes new-animation/);
+  assert.match(getStatusText(window.document), /Copied SCSS to clipboard/);
+});
+
+test("copy actions show an error when the clipboard API is unavailable", async () => {
+  const { window } = createWindow({ withClipboard: false });
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "copy-json");
+
+  assert.match(getStatusText(window.document), /Clipboard API is not available/);
+});
+
+test("copy actions surface validation errors instead of crashing the editor", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setInputValue(window.document, "id", "");
+
+  await clickAction(window.document, "copy-json");
+
+  assert.match(getStatusText(window.document), /id is required/);
+});
+
+function createWindow(options = {}) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>");
+  const clipboardWrites = [];
+  const navigatorValue = options.withClipboard === false
+    ? dom.window.navigator
+    : {
+        ...dom.window.navigator,
+        clipboard: {
+          writeText: async (text) => {
+            clipboardWrites.push(text);
+          },
+        },
+      };
+
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.Event = dom.window.Event;
-  return dom;
+  Object.defineProperty(dom.window, "navigator", {
+    value: navigatorValue,
+    configurable: true,
+  });
+  return { window: dom.window, clipboardWrites };
 }
 
 function setInputValue(document, field, value) {
@@ -171,7 +224,13 @@ function setNumberValue(document, field, value, index = 0) {
   input.dispatchEvent(new Event(input.type === "range" ? "input" : "change", { bubbles: true }));
 }
 
-function clickAction(document, action) {
+async function clickAction(document, action) {
   const button = document.querySelector(`[data-wkf-action='${action}']`);
   button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function getStatusText(document) {
+  return document.querySelector("[data-wkf-status]")?.textContent ?? "";
 }

@@ -230,6 +230,14 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
+.__wkf-note--success {
+  color: #99f0ae;
+}
+
+.__wkf-note--error {
+  color: #ff9f9f;
+}
+
 @media (max-width: 800px) {
   .__wkf-root {
     padding: 12px;
