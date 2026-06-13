@@ -11,9 +11,7 @@ import {
 
 const baseData = {
   id: "hero-logo",
-  target: ".js-hero-logo",
   duration: 1200,
-  designWidth: 1440,
   translate: { unit: "px", functionName: "global.vw" },
   keyframes: [
     { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
@@ -26,7 +24,7 @@ test("generateScss renders the expected SCSS", () => {
 
   assert.equal(
     scss,
-    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n\n.js-hero-logo {\n  animation: hero-logo 1200ms ease-out forwards;\n}\n`,
+    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
   );
 });
 
@@ -83,14 +81,12 @@ test("validateWebKeyframesData rejects missing and invalid required fields", () 
       validateWebKeyframesData({
         ...baseData,
         id: "",
-        target: "",
         duration: 0,
         keyframes: [{ time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 }],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("id is required.") &&
-      error.issues.includes("target is required.") &&
       error.issues.includes("duration must be a number greater than 0.") &&
       error.issues.includes("keyframes must contain at least 2 items."),
   );

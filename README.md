@@ -53,7 +53,7 @@ editor.toScss();
 
 ### Current editor features
 
-- Edit `id`, `target`, `duration`, `designWidth`, and translate output settings
+- Edit `id`, `duration`, and translate output settings
 - Edit keyframe `time`, `x`, `y`, `scale`, `rotate`, and `opacity`
 - Add, duplicate, and delete keyframes
 - View generated JSON and SCSS inside the editor
@@ -75,9 +75,7 @@ editor.toScss();
 ```json
 {
   "id": "hero-logo",
-  "target": ".js-hero-logo",
   "duration": 1200,
-  "designWidth": 1440,
   "translate": {
     "unit": "px",
     "functionName": "global.vw"
@@ -137,14 +135,11 @@ When the input is a directory, files are read in filename order and joined with 
     opacity: 1;
   }
 }
-
-.js-hero-logo {
-  animation: hero-logo 1200ms ease-out forwards;
-}
 ```
 
 `translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 `translate.functionName` is optional. When present, values are emitted like `customFn(40px)` rather than `40px`.
+`generateScss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 
 ## Development
 

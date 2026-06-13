@@ -2,9 +2,7 @@ import { WebKeyframesEditor } from "web-keyframes/editor";
 
 const initialData = {
   id: "hero-logo",
-  target: ".js-hero-logo",
   duration: 1200,
-  designWidth: 1440,
   translate: { unit: "px", functionName: "wkf-px" },
   keyframes: [
     { time: 0, x: 0, y: 40, scale: 0.88, rotate: -6, opacity: 0 },

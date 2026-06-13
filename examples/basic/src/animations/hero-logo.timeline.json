@@ -1,8 +1,6 @@
 {
   "id": "hero-logo",
-  "target": ".js-hero-logo",
   "duration": 1200,
-  "designWidth": 1440,
   "translate": {
     "unit": "px",
     "functionName": "wkf-px"

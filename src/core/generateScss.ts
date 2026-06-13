@@ -20,14 +20,7 @@ export function generateScss(data: WebKeyframesData): string {
   });
 
   const keyframes = ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");
-
-  const target = [
-    `${normalized.target} {`,
-    `  animation: ${normalized.id} ${formatNumber(normalized.duration)}ms ease-out forwards;`,
-    "}",
-  ].join("\n");
-
-  return formatScss([keyframes, target]);
+  return formatScss([keyframes]);
 }
 
 function renderTranslateValue(value: number, translate: ReturnType<typeof normalizeWebKeyframesData>["translate"]): string {

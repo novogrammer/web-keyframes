@@ -17,9 +17,7 @@ test("CLI converts a single JSON file to SCSS", async () => {
     inputPath,
     JSON.stringify({
       id: "hero-logo",
-      target: ".js-hero-logo",
       duration: 1200,
-      designWidth: 1440,
       unitFunction: "global.vw",
       keyframes: [
         { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
@@ -44,9 +42,7 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
     path.join(tempDir, "a.timeline.json"),
     JSON.stringify({
       id: "a",
-      target: ".a",
       duration: 100,
-      designWidth: 1440,
       keyframes: [
         { time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
         { time: 100, x: 10, y: 10, scale: 1, rotate: 0, opacity: 1 },
@@ -57,9 +53,7 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
     path.join(tempDir, "b.timeline.json"),
     JSON.stringify({
       id: "b",
-      target: ".b",
       duration: 100,
-      designWidth: 1440,
       keyframes: [
         { time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
         { time: 100, x: 20, y: 20, scale: 1, rotate: 0, opacity: 1 },

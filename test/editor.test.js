@@ -147,9 +147,7 @@ test("data helpers stay available before and after mount", () => {
   editor.mount();
   editor.setData({
     id: "hero-logo",
-    target: ".js-hero-logo",
     duration: 900,
-    designWidth: 1440,
     keyframes: [
       { time: 0, x: 0, y: 20, scale: 1, rotate: 0, opacity: 0 },
       { time: 900, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
@@ -157,7 +155,7 @@ test("data helpers stay available before and after mount", () => {
   });
 
   assert.equal(editor.getData().id, "hero-logo");
-  assert.match(editor.toScss(), /\.js-hero-logo/);
+  assert.match(editor.toScss(), /@keyframes hero-logo/);
   const idInput = window.document.querySelector("[data-wkf-field='id']");
   assert.equal(idInput?.value, "hero-logo");
 });
@@ -169,19 +167,15 @@ test("meta inputs update editor data", () => {
   editor.mount();
 
   setInputValue(window.document, "id", "hero-title");
-  setInputValue(window.document, "target", ".js-hero-title");
   setSelectValue(window.document, "translateUnit", "vw");
   setInputValue(window.document, "translateFunctionName", "layout.wrap");
   setNumberValue(window.document, "duration", 1600);
-  setNumberValue(window.document, "designWidth", 1280);
 
   const data = editor.getData();
   assert.equal(data.id, "hero-title");
-  assert.equal(data.target, ".js-hero-title");
   assert.equal(data.translate?.unit, "vw");
   assert.equal(data.translate?.functionName, "layout.wrap");
   assert.equal(data.duration, 1600);
-  assert.equal(data.designWidth, 1280);
 });
 
 test("custom unit input keeps focus while typing", async () => {

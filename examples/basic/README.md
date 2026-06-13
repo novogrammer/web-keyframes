@@ -19,8 +19,7 @@ Then open the served URL and use:
 
 - `Ctrl+Shift+K` to toggle the editor
 - `Toggle editor` button to open and close the overlay
-- `Log JSON` / `Log SCSS` to inspect generated output in the browser console
-- The `WKF` card is animated by generated CSS compiled from timeline JSON
+- The `WKF` card is animated by a hand-written `animation` rule that references generated keyframes
 
 ## Build generated styles
 
@@ -32,5 +31,8 @@ This writes:
 
 - `src/generated/_animations.generated.scss`
 - `src/generated/example.css`
+
+The generated SCSS contains only `@keyframes`. The example's `animation` shorthand stays in
+`src/styles/example.scss`.
 
 `npm run dev` runs this build step automatically before serving the page.

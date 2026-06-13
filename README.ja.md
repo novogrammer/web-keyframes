@@ -53,7 +53,7 @@ editor.toScss();
 
 ### 現在のエディタ機能
 
-- `id`、`target`、`duration`、`designWidth`、translate 出力設定の編集
+- `id`、`duration`、translate 出力設定の編集
 - キーフレーム `time`、`x`、`y`、`scale`、`rotate`、`opacity` の編集
 - キーフレームの追加、複製、削除
 - 生成された JSON / SCSS のエディタ内プレビュー
@@ -75,9 +75,7 @@ editor.toScss();
 ```json
 {
   "id": "hero-logo",
-  "target": ".js-hero-logo",
   "duration": 1200,
-  "designWidth": 1440,
   "translate": {
     "unit": "px",
     "functionName": "global.vw"
@@ -137,14 +135,11 @@ web-keyframes to-scss \
     opacity: 1;
   }
 }
-
-.js-hero-logo {
-  animation: hero-logo 1200ms ease-out forwards;
-}
 ```
 
 `translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 `translate.functionName` は任意で、指定すると `40px` ではなく `customFn(40px)` のように出力されます。
+`generateScss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 
 ## 開発
 

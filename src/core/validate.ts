@@ -26,16 +26,8 @@ export function validateWebKeyframesData(data: unknown): WebKeyframesData {
     issues.push("id is required.");
   }
 
-  if (typeof candidate.target !== "string" || candidate.target.trim() === "") {
-    issues.push("target is required.");
-  }
-
   if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
     issues.push("duration must be a number greater than 0.");
-  }
-
-  if (typeof candidate.designWidth !== "number" || !Number.isFinite(candidate.designWidth)) {
-    issues.push("designWidth must be a finite number.");
   }
 
   if (candidate.translate !== undefined) {

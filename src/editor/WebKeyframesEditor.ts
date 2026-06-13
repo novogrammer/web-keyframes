@@ -14,9 +14,7 @@ export type WebKeyframesEditorOptions = {
 
 export const DEFAULT_EDITOR_DATA: WebKeyframesData = {
   id: "new-animation",
-  target: ".js-target",
   duration: 1200,
-  designWidth: 1440,
   translate: {
     unit: DEFAULT_TRANSLATE_CONFIG.unit,
     functionName: DEFAULT_TRANSLATE_CONFIG.functionName ?? undefined,
@@ -212,9 +210,7 @@ export class WebKeyframesEditor {
             <div class="__wkf-section-title">Timeline</div>
             <div class="__wkf-grid __wkf-grid--meta">
               ${renderTextField("id", "ID", renderData.id)}
-              ${renderTextField("target", "Target Selector", renderData.target)}
               ${renderNumberField("duration", "Duration", renderData.duration, 1, 1)}
-              ${renderNumberField("designWidth", "Design Width", renderData.designWidth, 1, 1)}
               ${renderSelectField("translateUnit", "Translate Unit", renderData.translate.unit, [
                 { value: "px", label: "px" },
                 { value: "vw", label: "vw" },
@@ -343,9 +339,6 @@ export class WebKeyframesEditor {
     this.bindInputValue("id", (value) => {
       this.data.id = value;
     });
-    this.bindInputValue("target", (value) => {
-      this.data.target = value;
-    });
     this.bindInputValue("translateFunctionName", (value) => {
       this.data.translate = {
         ...(this.data.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
@@ -371,9 +364,6 @@ export class WebKeyframesEditor {
         time: Math.min(keyframe.time, this.data.duration),
       }));
       this.data = normalizeForEditor(this.data);
-    });
-    this.bindInputNumber("designWidth", (value) => {
-      this.data.designWidth = Math.max(1, Math.round(value));
     });
   }
 
@@ -782,7 +772,6 @@ function getRenderData(data: WebKeyframesData): RenderWebKeyframesData {
   return {
     ...cloned,
     duration: Number.isFinite(cloned.duration) && cloned.duration > 0 ? Math.round(cloned.duration) : 1,
-    designWidth: Number.isFinite(cloned.designWidth) ? cloned.designWidth : 1440,
     translate: {
       unit: cloned.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
       functionName: cloned.translate?.functionName?.trim() || "",

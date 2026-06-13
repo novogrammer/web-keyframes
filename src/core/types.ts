@@ -17,9 +17,7 @@ export type TranslateConfig = {
 
 export type WebKeyframesData = {
   id: string;
-  target: string;
   duration: number;
-  designWidth: number;
   translate?: TranslateConfig;
   keyframes: WebKeyframe[];
 };
