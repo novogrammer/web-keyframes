@@ -290,6 +290,48 @@ test("copy actions surface validation errors instead of crashing the editor", as
   assert.match(getStatusText(window.document), /id is required/);
 });
 
+test("preview applies generated keyframes to matching animation-name targets and can be reset", async () => {
+  const { window } = createWindow();
+  const target = window.document.createElement("div");
+  target.className = "preview-target";
+  window.document.body.append(target);
+  const originalGetComputedStyle = window.getComputedStyle.bind(window);
+  window.getComputedStyle = (element) => {
+    if (element === target) {
+      return { animationName: "new-animation" };
+    }
+
+    return originalGetComputedStyle(element);
+  };
+
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+  editor.mount();
+
+  await clickAction(window.document, "run-preview");
+
+  const style = window.document.head.querySelector("style[data-wkf-preview='true']");
+  assert.ok(style);
+  assert.match(style.textContent ?? "", /@keyframes new-animation__wkf_preview/);
+  assert.equal(target.style.animationName, "new-animation__wkf_preview");
+  assert.match(getStatusText(window.document), /Applied preview to 1 element/);
+
+  await clickAction(window.document, "reset-preview");
+
+  assert.equal(window.document.head.querySelector("style[data-wkf-preview='true']"), null);
+  assert.equal(target.style.animationName, "");
+  assert.match(getStatusText(window.document), /Reset preview/);
+});
+
+test("preview reports a clear error when no target uses the current animation-name", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  await clickAction(window.document, "run-preview");
+
+  assert.match(getStatusText(window.document), /No elements using animation-name "new-animation" were found/);
+});
+
 test("view actions open JSON and SCSS previews and can be closed", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -376,6 +418,7 @@ function createWindow(options = {}) {
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.Event = dom.window.Event;
+  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   Object.defineProperty(dom.window, "navigator", {
     value: navigatorValue,
     configurable: true,

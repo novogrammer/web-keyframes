@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_TRANSLATE_CONFIG,
   WebKeyframesValidationError,
+  generatePreviewCss,
   generateScss,
   normalizeWebKeyframesData,
   validateWebKeyframesData,
@@ -59,6 +60,17 @@ test("generateScss supports direct units and optional wrapping functions", () =>
   });
 
   assert.match(wrapped, /translate\(customFn\(0%\), customFn\(40%\)\)/);
+});
+
+test("generatePreviewCss ignores wrapping functions for browser preview", () => {
+  const css = generatePreviewCss({
+    ...baseData,
+    translate: { unit: "px", functionName: "customFn" },
+  }, "hero-logo__wkf_preview");
+
+  assert.match(css, /@keyframes hero-logo__wkf_preview/);
+  assert.match(css, /translate\(0px, 40px\)/);
+  assert.doesNotMatch(css, /customFn/);
 });
 
 test("generateScss rounds percentages to at most 3 decimals", () => {

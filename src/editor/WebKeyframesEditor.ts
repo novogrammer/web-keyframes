@@ -1,5 +1,6 @@
 import {
   DEFAULT_TRANSLATE_CONFIG,
+  generatePreviewCss,
   generateScss,
   normalizeWebKeyframesData,
   validateWebKeyframesData,
@@ -60,6 +61,17 @@ type DragState = {
   pointerOffsetY: number;
 };
 
+type PreviewTargetState = {
+  element: HTMLElement;
+  inlineAnimationName: string;
+};
+
+type ActivePreview = {
+  keyframesName: string;
+  styleElement: HTMLStyleElement;
+  targets: PreviewTargetState[];
+};
+
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly shortcut: ShortcutDescriptor | null;
@@ -77,6 +89,7 @@ export class WebKeyframesEditor {
   private pendingFocus: FocusSnapshot | null = null;
   private panelPosition: PanelPosition | null = null;
   private dragState: DragState | null = null;
+  private activePreview: ActivePreview | null = null;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -129,6 +142,7 @@ export class WebKeyframesEditor {
       return;
     }
 
+    this.clearAppliedPreview();
     this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
     this.container?.remove();
@@ -294,6 +308,8 @@ export class WebKeyframesEditor {
         <div class="__wkf-footer">
           <p class="__wkf-note __wkf-note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
           <div class="__wkf-inline-actions">
+            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="run-preview">Preview</button>
+            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
             <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-json">View JSON</button>
             <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-scss">View SCSS</button>
             <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="copy-json">Copy JSON</button>
@@ -513,6 +529,12 @@ export class WebKeyframesEditor {
   }
 
   private bindPreviewActions(): void {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='run-preview']")?.addEventListener("click", () => {
+      this.runPreview();
+    });
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='reset-preview']")?.addEventListener("click", () => {
+      this.resetAppliedPreview();
+    });
     this.container?.querySelector<HTMLElement>("[data-wkf-action='view-json']")?.addEventListener("click", () => {
       this.openPreview("JSON Preview", () => this.toJson());
     });
@@ -543,6 +565,7 @@ export class WebKeyframesEditor {
   }
 
   private reset(): void {
+    this.clearAppliedPreview();
     this.data = normalizeForEditor(DEFAULT_EDITOR_DATA);
     this.selectedKeyframeIndex = 0;
     this.previewTitle = null;
@@ -571,6 +594,78 @@ export class WebKeyframesEditor {
     this.previewContent = "";
     this.setStatus("info", message);
     this.render();
+  }
+
+  private runPreview(): void {
+    try {
+      const normalized = normalizeWebKeyframesData(this.data);
+      const ownerDocument = this.root.ownerDocument;
+      const ownerWindow = ownerDocument.defaultView;
+      if (!ownerWindow) {
+        throw new Error("Preview is not available in this environment.");
+      }
+
+      this.clearAppliedPreview();
+
+      const targets = findPreviewTargets(ownerDocument, normalized.id);
+      if (targets.length === 0) {
+        throw new Error(`No elements using animation-name "${normalized.id}" were found.`);
+      }
+
+      const previewName = `${normalized.id}__wkf_preview`;
+      const styleElement = ensurePreviewStyleElement(ownerDocument);
+      styleElement.textContent = generatePreviewCss(this.data, previewName);
+
+      const appliedTargets = targets.map((element) => ({
+        element,
+        inlineAnimationName: element.style.animationName,
+      }));
+
+      for (const target of appliedTargets) {
+        const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
+        const nextAnimationName = replaceAnimationName(computedAnimationName, normalized.id, previewName);
+        target.element.style.animationName = "none";
+        void target.element.offsetWidth;
+        target.element.style.animationName = nextAnimationName;
+      }
+
+      this.activePreview = {
+        keyframesName: previewName,
+        styleElement,
+        targets: appliedTargets,
+      };
+      this.setStatus("success", `Applied preview to ${appliedTargets.length} element${appliedTargets.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus("error", message);
+    }
+
+    this.render();
+  }
+
+  private resetAppliedPreview(): void {
+    if (this.activePreview === null) {
+      this.setStatus("info", "Preview is not active.");
+      this.render();
+      return;
+    }
+
+    this.clearAppliedPreview();
+    this.setStatus("success", "Reset preview.");
+    this.render();
+  }
+
+  private clearAppliedPreview(): void {
+    if (this.activePreview === null) {
+      return;
+    }
+
+    for (const target of this.activePreview.targets) {
+      target.element.style.animationName = target.inlineAnimationName;
+    }
+
+    this.activePreview.styleElement.remove();
+    this.activePreview = null;
   }
 
   private restoreFocus(): void {
@@ -957,6 +1052,46 @@ function renderRangeField(field: string, label: string, value: number, min: numb
       </div>
     </div>
   `;
+}
+
+function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
+  const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
+  if (existing) {
+    return existing;
+  }
+
+  const styleElement = ownerDocument.createElement("style");
+  styleElement.dataset.wkfPreview = "true";
+  ownerDocument.head.append(styleElement);
+  return styleElement;
+}
+
+function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    return [];
+  }
+
+  return Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) => {
+    const names = ownerWindow.getComputedStyle(element).animationName;
+    return splitAnimationNames(names).includes(animationName);
+  });
+}
+
+function splitAnimationNames(value: string): string[] {
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && part !== "none");
+}
+
+function replaceAnimationName(value: string, currentName: string, nextName: string): string {
+  const names = splitAnimationNames(value);
+  if (names.length === 0) {
+    return nextName;
+  }
+
+  return names.map((name) => (name === currentName ? nextName : name)).join(", ");
 }
 
 function formatKeyframeSummary(keyframe: WebKeyframesData["keyframes"][number]): string {

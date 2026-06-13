@@ -7,6 +7,7 @@ export type {
   WebKeyframesData,
 } from "./types.js";
 export { formatScss } from "./formatScss.js";
+export { generatePreviewCss } from "./generatePreviewCss.js";
 export { generateScss } from "./generateScss.js";
 export { DEFAULT_TRANSLATE_CONFIG, normalizeWebKeyframesData } from "./normalize.js";
 export { WebKeyframesValidationError, validateWebKeyframesData } from "./validate.js";
