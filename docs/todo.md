@@ -1,25 +1,25 @@
 # TODO
 
-## Product direction
+## プロダクト方針
 
-- Re-evaluate whether the editor is meaningfully faster than hand-writing animation code.
-- Keep testing the core value proposition against real production tasks, not just internal consistency.
-- Watch for the failure mode where the data model becomes more complex than plain CSS/SCSS authoring.
+- このエディタがアニメーションコードを手書きするより本当に有意に速いのかを再評価する。
+- 内部的な一貫性だけでなく、実際の制作タスクで中核の価値提案を引き続き検証する。
+- データモデルが素の CSS/SCSS 記述より複雑になってしまう失敗パターンを警戒する。
 
-## Authoring model
+## 編集モデル
 
-- Replace the current fixed transform fields with an ordered transform list model.
-- Preserve transform order explicitly so matrix multiplication order is controlled by authored sequence.
-- Migrate from the current `x / y / scale / rotate / opacity` style model to a list-based transform representation.
-- Explore a minimal transform item set first: `translate`, `scale`, `rotate`, `skew`.
+- 現在の固定 transform フィールドを、順序付き transform リストモデルに置き換える。
+- 行列の乗算順序を記述した順番で制御できるよう、transform の順序を明示的に保持する。
+- 現在の `x / y / scale / rotate / opacity` スタイルのモデルから、リストベースの transform 表現へ移行する。
+- まずは最小限の transform 項目セットを検討する: `translate`, `scale`, `rotate`, `skew`。
 
-## Preview
+## プレビュー
 
-- Decide how far preview should go beyond the current lightweight DOM replay.
-- Confirm whether animation-name based target discovery is reliable enough in real sites.
-- Evaluate whether preview should expose clearer feedback when multiple targets share the same animation name.
+- 現在の軽量な DOM リプレイを超えて、プレビューをどこまで拡張するか決める。
+- `animation-name` ベースの対象検出が実サイトでも十分信頼できるか確認する。
+- 複数の対象が同じ animation 名を共有する場合、プレビューでより明確なフィードバックを出すべきか評価する。
 
 ## UX
 
-- Validate that the editor still feels faster than direct editing once more transform types are added.
-- Avoid growing the UI into a slower abstraction than writing CSS/SCSS by hand.
+- transform の種類を増やしたあとでも、エディタが直接編集より速いと感じられるか検証する。
+- UI が、CSS/SCSS を手で書くより遅い抽象化へ膨らまないようにする。
