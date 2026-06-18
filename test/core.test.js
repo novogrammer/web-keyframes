@@ -4,9 +4,13 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_TRANSLATE_CONFIG,
   WebKeyframesValidationError,
+  duplicateKeyframes,
   generatePreviewCss,
   generateScss,
+  nudgeTransforms,
   normalizeWebKeyframesData,
+  spreadKeyframeTimes,
+  staggerKeyframes,
   validateWebKeyframesData,
 } from "../dist/index.js";
 
@@ -15,8 +19,24 @@ const baseData = {
   duration: 1200,
   translate: { unit: "px", functionName: "global.vw" },
   keyframes: [
-    { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
-    { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+    {
+      time: 0,
+      opacity: 0,
+      transforms: [
+        { kind: "translate", x: 0, y: 40 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ],
+    },
+    {
+      time: 1200,
+      opacity: 1,
+      transforms: [
+        { kind: "translate", x: 0, y: 0 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ],
+    },
   ],
 };
 
@@ -34,8 +54,8 @@ test("normalizeWebKeyframesData applies the default translate config and sorts k
     ...baseData,
     translate: undefined,
     keyframes: [
-      { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
-      { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
+      baseData.keyframes[1],
+      baseData.keyframes[0],
     ],
   });
 
@@ -73,14 +93,59 @@ test("generatePreviewCss ignores wrapping functions for browser preview", () => 
   assert.doesNotMatch(css, /customFn/);
 });
 
+test("normalizeWebKeyframesData upgrades legacy fixed transform fields", () => {
+  const normalized = normalizeWebKeyframesData({
+    id: "legacy",
+    duration: 500,
+    keyframes: [
+      { time: 0, x: 10, y: 20, scale: 0.8, rotate: -15, opacity: 0.5 },
+      { time: 500, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+    ],
+  });
+
+  assert.deepEqual(normalized.keyframes[0].transforms, [
+    { kind: "translate", x: 10, y: 20 },
+    { kind: "scale", value: 0.8 },
+    { kind: "rotate", value: -15 },
+  ]);
+});
+
+test("generateScss preserves explicit transform order including skew", () => {
+  const scss = generateScss({
+    ...baseData,
+    keyframes: [
+      {
+        time: 0,
+        opacity: 0,
+        transforms: [
+          { kind: "rotate", value: -6 },
+          { kind: "translate", x: 0, y: 40 },
+          { kind: "skew", x: 8, y: -4 },
+        ],
+      },
+      {
+        time: 1200,
+        opacity: 1,
+        transforms: [
+          { kind: "rotate", value: 0 },
+          { kind: "translate", x: 0, y: 0 },
+          { kind: "skew", x: 0, y: 0 },
+        ],
+      },
+    ],
+  });
+
+  assert.match(scss, /transform: rotate\(-6deg\) translate\(global\.vw\(0px\), global\.vw\(40px\)\) skew\(8deg, -4deg\)/);
+});
+
 test("generateScss rounds percentages to at most 3 decimals", () => {
   const scss = generateScss({
     ...baseData,
     duration: 3,
     keyframes: [
-      { time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
-      { time: 1, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0.5 },
-      { time: 3, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+      { time: 1, opacity: 0.5, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+      { time: 3, opacity: 1, transforms: [{ kind: "translate", x: 0, y: 0 }] },
     ],
   });
 
@@ -94,7 +159,7 @@ test("validateWebKeyframesData rejects missing and invalid required fields", () 
         ...baseData,
         id: "",
         duration: 0,
-        keyframes: [{ time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 }],
+        keyframes: [{ time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] }],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
@@ -110,8 +175,8 @@ test("validateWebKeyframesData rejects out-of-range keyframe times", () => {
       validateWebKeyframesData({
         ...baseData,
         keyframes: [
-          { time: -1, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
-          { time: 1201, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+          { time: -1, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+          { time: 1201, opacity: 1, transforms: [{ kind: "translate", x: 0, y: 0 }] },
         ],
       }),
     (error) =>
@@ -119,6 +184,41 @@ test("validateWebKeyframesData rejects out-of-range keyframe times", () => {
       error.issues.includes("keyframes[0].time must be greater than or equal to 0.") &&
       error.issues.includes("keyframes[1].time must be less than or equal to duration."),
   );
+});
+
+test("validateWebKeyframesData rejects invalid transform entries", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesData({
+        ...baseData,
+        keyframes: [
+          {
+            time: 0,
+            opacity: 0,
+            transforms: [{ kind: "skew", x: 0, y: "bad" }],
+          },
+          baseData.keyframes[1],
+        ],
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("keyframes[0].transforms[0].y must be a finite number."),
+  );
+});
+
+test("edit helpers support duplicate, nudge, spread, and stagger workflows", () => {
+  const duplicated = duplicateKeyframes(baseData, [0], 300);
+  assert.equal(duplicated.keyframes.length, 3);
+  assert.equal(duplicated.keyframes[1].time, 300);
+
+  const nudged = nudgeTransforms(baseData, [0], [0], "y", -12);
+  assert.equal(nudged.keyframes[0].transforms[0].y, 28);
+
+  const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 1200);
+  assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.time), [0, 600, 1200]);
+
+  const staggered = staggerKeyframes(baseData, [0, 1], 180, 120);
+  assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.time), [120, 300]);
 });
 
 test("validateWebKeyframesData rejects invalid translate settings", () => {

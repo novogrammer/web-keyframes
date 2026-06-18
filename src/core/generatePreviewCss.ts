@@ -1,6 +1,6 @@
 import { formatScss } from "./formatScss.js";
 import { normalizeWebKeyframesData } from "./normalize.js";
-import type { WebKeyframesData } from "./types.js";
+import type { TransformOperation, WebKeyframesData } from "./types.js";
 
 export function generatePreviewCss(data: WebKeyframesData, keyframesName?: string): string {
   const normalized = normalizeWebKeyframesData(data);
@@ -8,9 +8,9 @@ export function generatePreviewCss(data: WebKeyframesData, keyframesName?: strin
 
   const keyframeBlocks = normalized.keyframes.map((keyframe) => {
     const percent = formatPercent((keyframe.time / normalized.duration) * 100);
-    const transform =
-      `translate(${renderPreviewTranslateValue(keyframe.x, normalized.translate)}, ${renderPreviewTranslateValue(keyframe.y, normalized.translate)}) ` +
-      `scale(${formatNumber(keyframe.scale)}) rotate(${formatNumber(keyframe.rotate)}deg)`;
+    const transform = keyframe.transforms
+      .map((item) => renderPreviewTransform(item, normalized.translate))
+      .join(" ");
 
     return [
       `  ${percent} {`,
@@ -21,6 +21,22 @@ export function generatePreviewCss(data: WebKeyframesData, keyframesName?: strin
   });
 
   return formatScss([["@keyframes " + animationName + " {", ...keyframeBlocks, "}"].join("\n\n")]);
+}
+
+function renderPreviewTransform(
+  transform: TransformOperation,
+  translate: ReturnType<typeof normalizeWebKeyframesData>["translate"],
+): string {
+  switch (transform.kind) {
+    case "translate":
+      return `translate(${renderPreviewTranslateValue(transform.x, translate)}, ${renderPreviewTranslateValue(transform.y, translate)})`;
+    case "scale":
+      return `scale(${formatNumber(transform.value)})`;
+    case "rotate":
+      return `rotate(${formatNumber(transform.value)}deg)`;
+    case "skew":
+      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
+  }
 }
 
 function renderPreviewTranslateValue(

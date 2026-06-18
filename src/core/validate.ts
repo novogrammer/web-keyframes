@@ -1,7 +1,17 @@
-import type { TranslateConfig, WebKeyframe, WebKeyframesData } from "./types.js";
+import type {
+  RotateTransform,
+  ScaleTransform,
+  SkewTransform,
+  TransformOperation,
+  TranslateConfig,
+  TranslateTransform,
+  WebKeyframe,
+  WebKeyframesData,
+} from "./types.js";
 
-const KEYFRAME_FIELDS = ["time", "x", "y", "scale", "rotate", "opacity"] as const;
 const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
+const LEGACY_TRANSFORM_FIELDS = ["x", "y", "scale", "rotate"] as const;
+const TRANSFORM_KINDS = new Set(["translate", "scale", "rotate", "skew"]);
 
 export class WebKeyframesValidationError extends Error {
   readonly issues: string[];
@@ -92,11 +102,36 @@ function validateKeyframe(
   const candidate = keyframe as Partial<WebKeyframe>;
   const issues: string[] = [];
 
-  for (const field of KEYFRAME_FIELDS) {
-    const value = candidate[field];
+  if (!isFiniteNumber(candidate.time)) {
+    issues.push(`keyframes[${index}].time must be a finite number.`);
+  }
 
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      issues.push(`keyframes[${index}].${field} must be a finite number.`);
+  if (!isFiniteNumber(candidate.opacity)) {
+    issues.push(`keyframes[${index}].opacity must be a finite number.`);
+  }
+
+  if (Array.isArray(candidate.transforms)) {
+    if (candidate.transforms.length === 0) {
+      issues.push(`keyframes[${index}].transforms must contain at least 1 item when provided.`);
+    }
+
+    candidate.transforms.forEach((transform, transformIndex) => {
+      issues.push(...validateTransform(transform, index, transformIndex));
+    });
+  } else {
+    for (const field of LEGACY_TRANSFORM_FIELDS) {
+      const value = candidate[field];
+      if (!isFiniteNumber(value)) {
+        issues.push(`keyframes[${index}].${field} must be a finite number.`);
+      }
+    }
+
+    if (candidate.skewX !== undefined && !isFiniteNumber(candidate.skewX)) {
+      issues.push(`keyframes[${index}].skewX must be a finite number.`);
+    }
+
+    if (candidate.skewY !== undefined && !isFiniteNumber(candidate.skewY)) {
+      issues.push(`keyframes[${index}].skewY must be a finite number.`);
     }
   }
 
@@ -111,6 +146,72 @@ function validateKeyframe(
   }
 
   return issues;
+}
+
+function validateTransform(transform: unknown, keyframeIndex: number, transformIndex: number): string[] {
+  if (!isPlainObject(transform)) {
+    return [`keyframes[${keyframeIndex}].transforms[${transformIndex}] must be an object.`];
+  }
+
+  const candidate = transform as Partial<TransformOperation>;
+  const issues: string[] = [];
+  const prefix = `keyframes[${keyframeIndex}].transforms[${transformIndex}]`;
+
+  if (typeof candidate.kind !== "string" || !TRANSFORM_KINDS.has(candidate.kind)) {
+    issues.push(`${prefix}.kind must be one of translate, scale, rotate, or skew.`);
+    return issues;
+  }
+
+  switch (candidate.kind) {
+    case "translate":
+      issues.push(...validateTranslateTransform(candidate as Partial<TranslateTransform>, prefix));
+      break;
+    case "scale":
+      issues.push(...validateScaleTransform(candidate as Partial<ScaleTransform>, prefix));
+      break;
+    case "rotate":
+      issues.push(...validateRotateTransform(candidate as Partial<RotateTransform>, prefix));
+      break;
+    case "skew":
+      issues.push(...validateSkewTransform(candidate as Partial<SkewTransform>, prefix));
+      break;
+  }
+
+  return issues;
+}
+
+function validateTranslateTransform(transform: Partial<TranslateTransform>, prefix: string): string[] {
+  const issues: string[] = [];
+  if (!isFiniteNumber(transform.x)) {
+    issues.push(`${prefix}.x must be a finite number.`);
+  }
+  if (!isFiniteNumber(transform.y)) {
+    issues.push(`${prefix}.y must be a finite number.`);
+  }
+  return issues;
+}
+
+function validateScaleTransform(transform: Partial<ScaleTransform>, prefix: string): string[] {
+  return isFiniteNumber(transform.value) ? [] : [`${prefix}.value must be a finite number.`];
+}
+
+function validateRotateTransform(transform: Partial<RotateTransform>, prefix: string): string[] {
+  return isFiniteNumber(transform.value) ? [] : [`${prefix}.value must be a finite number.`];
+}
+
+function validateSkewTransform(transform: Partial<SkewTransform>, prefix: string): string[] {
+  const issues: string[] = [];
+  if (!isFiniteNumber(transform.x)) {
+    issues.push(`${prefix}.x must be a finite number.`);
+  }
+  if (!isFiniteNumber(transform.y)) {
+    issues.push(`${prefix}.y must be a finite number.`);
+  }
+  return issues;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

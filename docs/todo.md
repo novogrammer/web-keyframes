@@ -10,20 +10,20 @@
 
 ## 編集モデル
 
-- 現在の固定 transform フィールドを、順序付き transform リストモデルに置き換える。
-- 行列の乗算順序を記述した順番で制御できるよう、transform の順序を明示的に保持する。
-- 現在の `x / y / scale / rotate / opacity` スタイルのモデルから、リストベースの transform 表現へ移行する。
-- まずは最小限の transform 項目セットを検討する: `translate`, `scale`, `rotate`, `skew`。
-- transform の配列順をそのまま SCSS 出力順と preview の適用順に反映し、内部表現と出力の意味を一致させる。
+- [x] 固定 transform フィールドを、順序付き transform リストモデルに置き換えた。
+- [x] transform の順序を明示的に保持し、記述順をそのまま出力へ反映する。
+- [x] `x / y / scale / rotate / opacity` スタイルのモデルから、リストベースの transform 表現へ移行した。
+- [x] 最小 transform 項目セットとして `translate`, `scale`, `rotate`, `skew` を扱えるようにした。
+- [x] transform の配列順をそのまま SCSS 出力順と preview の適用順に反映した。
 - タイムライン UI の複雑化より先に、transform 順序を失わないデータ構造を確定する。
-- transform の内部表現を、JavaScript 側で扱いやすい小さなデータモデルとして明確にする。
+- [x] transform の内部表現を、JavaScript 側で扱いやすい小さなデータモデルとして明確にした。
 
 ## プレビュー
 
 - 現在の軽量な DOM リプレイを超えて、プレビューをどこまで拡張するか決める。
 - `animation-name` ベースの対象検出が実サイトでも十分信頼できるか確認する。
 - 複数の対象が同じ animation 名を共有する場合、プレビューでより明確なフィードバックを出すべきか評価する。
-- transform リスト化のあとも、preview 側が生成器と同じ transform 順序を厳密に再現することを確認する。
+- [x] transform リスト化のあとも、preview 側が生成器と同じ transform 順序を厳密に再現するようにした。
 
 ## UX
 
@@ -34,9 +34,9 @@
 
 ## 編集 API
 
-- 高頻度の修正操作を、JavaScript から呼べる明示的な編集コマンドとして定義する。
-- まずは最小セットとして `nudge`, `offset`, `duplicate`, `spread`, `mirror`, `stagger` の必要性を検討する。
-- 各操作が「どの対象に」「どの値を」「どう変更するか」を API 仕様として言語化する。
+- [x] 高頻度の修正操作を、JavaScript から呼べる明示的な編集コマンドとして定義した。
+- [x] 最小セットとして `nudge`, `offset`, `duplicate`, `spread`, `mirror`, `stagger` を実装した。
+- [x] 各操作の対象と変更内容が型と関数シグネチャで分かる API にした。
 - UI はそれらの操作を直接実装するのではなく、プログラム側の編集 API を呼び出す薄い層として保つ。
 - 単一値編集だけでなく、複数キーフレームや複数 transform への一括操作を前提に設計する。
 - キーボードショートカットや将来の CLI 拡張でも再利用できる操作語彙にする。

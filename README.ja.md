@@ -54,7 +54,8 @@ editor.toScss();
 ### 現在のエディタ機能
 
 - `id`、`duration`、translate 出力設定の編集
-- キーフレーム `time`、`x`、`y`、`scale`、`rotate`、`opacity` の編集
+- キーフレーム `time`、`opacity`、順序付き transform の編集
+- `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
 - キーフレームの追加、複製、削除
 - 生成された JSON / SCSS のエディタ内プレビュー
 - 同じ `animation-name` を使っている実 DOM 要素に対する軽量 preview
@@ -100,23 +101,27 @@ editor.toScss();
   "keyframes": [
     {
       "time": 0,
-      "x": 0,
-      "y": 40,
-      "scale": 1,
-      "rotate": 0,
-      "opacity": 0
+      "opacity": 0,
+      "transforms": [
+        { "kind": "translate", "x": 0, "y": 40 },
+        { "kind": "scale", "value": 1 },
+        { "kind": "rotate", "value": 0 }
+      ]
     },
     {
       "time": 1200,
-      "x": 0,
-      "y": 0,
-      "scale": 1,
-      "rotate": 0,
-      "opacity": 1
+      "opacity": 1,
+      "transforms": [
+        { "kind": "translate", "x": 0, "y": 0 },
+        { "kind": "scale", "value": 1 },
+        { "kind": "rotate", "value": 0 }
+      ]
     }
   ]
 }
 ```
+
+従来の `x`、`y`、`scale`、`rotate` をトップレベルに持つキーフレーム JSON も引き続き受け付け、内部で順序付き `transforms` 配列へ正規化します。
 
 ## CLI
 
@@ -156,6 +161,7 @@ web-keyframes to-scss \
 
 `translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 `translate.functionName` は任意で、指定すると `40px` ではなく `customFn(40px)` のように出力されます。
+transform 配列の順番は `generateScss()` と `generatePreviewCss()` の両方でそのまま維持されます。
 `generateScss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 `generatePreviewCss()` は preview 用の browser-safe な CSS を出力し、`translate.functionName` は意図的に無視します。
 

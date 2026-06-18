@@ -54,7 +54,8 @@ editor.toScss();
 ### Current editor features
 
 - Edit `id`, `duration`, and translate output settings
-- Edit keyframe `time`, `x`, `y`, `scale`, `rotate`, and `opacity`
+- Edit keyframe `time`, `opacity`, and ordered transform entries
+- Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
 - Add, duplicate, and delete keyframes
 - View generated JSON and SCSS inside the editor
 - Run a lightweight preview against real DOM elements already using the same `animation-name`
@@ -100,23 +101,27 @@ value for matched elements.
   "keyframes": [
     {
       "time": 0,
-      "x": 0,
-      "y": 40,
-      "scale": 1,
-      "rotate": 0,
-      "opacity": 0
+      "opacity": 0,
+      "transforms": [
+        { "kind": "translate", "x": 0, "y": 40 },
+        { "kind": "scale", "value": 1 },
+        { "kind": "rotate", "value": 0 }
+      ]
     },
     {
       "time": 1200,
-      "x": 0,
-      "y": 0,
-      "scale": 1,
-      "rotate": 0,
-      "opacity": 1
+      "opacity": 1,
+      "transforms": [
+        { "kind": "translate", "x": 0, "y": 0 },
+        { "kind": "scale", "value": 1 },
+        { "kind": "rotate", "value": 0 }
+      ]
     }
   ]
 }
 ```
+
+Legacy keyframes using top-level `x`, `y`, `scale`, and `rotate` are still accepted and normalized into the ordered `transforms` list.
 
 ## CLI
 
@@ -156,6 +161,7 @@ When the input is a directory, files are read in filename order and joined with 
 
 `translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 `translate.functionName` is optional. When present, values are emitted like `customFn(40px)` rather than `40px`.
+Transform array order is preserved exactly in both `generateScss()` and `generatePreviewCss()`.
 `generateScss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 `generatePreviewCss()` emits browser-safe preview CSS and intentionally ignores `translate.functionName`.
 

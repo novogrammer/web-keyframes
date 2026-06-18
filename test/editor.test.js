@@ -209,12 +209,13 @@ test("keyframe editor updates selected frame values", () => {
   editor.mount();
 
   setNumberValue(window.document, "time", 300, 1);
-  setNumberValue(window.document, "x", 24);
+  setNumberValue(window.document, "transform-x-0", 24);
   setNumberValue(window.document, "opacity", 0.45);
 
   const [firstKeyframe] = editor.getData().keyframes;
   assert.equal(firstKeyframe.time, 300);
-  assert.equal(firstKeyframe.x, 24);
+  assert.equal(firstKeyframe.transforms[0].kind, "translate");
+  assert.equal(firstKeyframe.transforms[0].x, 24);
   assert.equal(firstKeyframe.opacity, 0.45);
 });
 
@@ -248,9 +249,9 @@ test("duplicate keyframe action inserts a copied frame and keeps timeline percen
 
   const data = editor.getData();
   assert.equal(data.keyframes.length, 3);
-  assert.equal(data.keyframes[1].time, 600);
-  assert.equal(data.keyframes[1].x, data.keyframes[0].x);
-  assert.match(window.document.body.textContent ?? "", /50% of timeline/);
+  assert.equal(data.keyframes[1].time, 120);
+  assert.deepEqual(data.keyframes[1].transforms, data.keyframes[0].transforms);
+  assert.match(window.document.body.textContent ?? "", /10% of timeline/);
 });
 
 test("copy actions write JSON and SCSS to the clipboard", async () => {
@@ -373,14 +374,33 @@ test("reset restores default data after edits", async () => {
 
   editor.mount();
   setInputValue(window.document, "id", "custom-id");
-  setNumberValue(window.document, "x", 48);
+  setNumberValue(window.document, "transform-x-0", 48);
 
   await clickAction(window.document, "reset");
 
   const data = editor.getData();
   assert.equal(data.id, "new-animation");
-  assert.equal(data.keyframes[0].x, 0);
+  assert.equal(data.keyframes[0].transforms[0].kind, "translate");
+  assert.equal(data.keyframes[0].transforms[0].x, 0);
   assert.match(getStatusText(window.document), /Reset editor data to defaults/);
+});
+
+test("transform controls can reorder and retarget transform operations", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "move-transform-down");
+  setSelectValue(window.document, "transform-kind-0", "skew");
+  setNumberValue(window.document, "transform-x-0", 12);
+  setNumberValue(window.document, "transform-y-0", -6);
+
+  const [firstKeyframe] = editor.getData().keyframes;
+  assert.equal(firstKeyframe.transforms[0].kind, "skew");
+  assert.equal(firstKeyframe.transforms[0].x, 12);
+  assert.equal(firstKeyframe.transforms[0].y, -6);
+  assert.equal(firstKeyframe.transforms[1].kind, "translate");
 });
 
 test("view actions surface validation errors when output cannot be generated", async () => {

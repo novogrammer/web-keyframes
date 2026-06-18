@@ -1,11 +1,25 @@
 import {
+  addTransform,
+  cloneTransform,
+  createDefaultTransform,
   DEFAULT_TRANSLATE_CONFIG,
+  duplicateKeyframes,
   generatePreviewCss,
   generateScss,
+  moveTransform,
+  normalizeTransforms,
   normalizeWebKeyframesData,
-  validateWebKeyframesData,
+  removeTransform,
+  replaceTransformKind,
+  setTransformFieldValue,
 } from "../core/index.js";
-import type { TranslateUnit, WebKeyframesData } from "../core/index.js";
+import type {
+  NormalizedWebKeyframe,
+  TransformKind,
+  TransformOperation,
+  TranslateUnit,
+  WebKeyframesData,
+} from "../core/index.js";
 
 export type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -21,8 +35,24 @@ export const DEFAULT_EDITOR_DATA: WebKeyframesData = {
     functionName: DEFAULT_TRANSLATE_CONFIG.functionName ?? undefined,
   },
   keyframes: [
-    { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
-    { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+    {
+      time: 0,
+      opacity: 0,
+      transforms: [
+        { kind: "translate", x: 0, y: 40 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ],
+    },
+    {
+      time: 1200,
+      opacity: 1,
+      transforms: [
+        { kind: "translate", x: 0, y: 0 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ],
+    },
   ],
 };
 
@@ -40,8 +70,9 @@ type RenderTranslateConfig = {
   customUnit: string;
 };
 
-type RenderWebKeyframesData = Omit<WebKeyframesData, "translate"> & {
+type RenderWebKeyframesData = Omit<WebKeyframesData, "translate" | "keyframes"> & {
   translate: RenderTranslateConfig;
+  keyframes: NormalizedWebKeyframe[];
 };
 
 type FocusSnapshot = {
@@ -82,7 +113,7 @@ export class WebKeyframesEditor {
   private mounted = false;
   private data: WebKeyframesData;
   private selectedKeyframeIndex = 0;
-  private statusMessage = "Core data updates are live. Copy actions and richer timeline controls are next.";
+  private statusMessage = "Transform order is explicit. Preview and SCSS now use the same sequence.";
   private statusTone: "info" | "success" | "error" = "info";
   private previewTitle: string | null = null;
   private previewContent = "";
@@ -280,11 +311,19 @@ export class WebKeyframesEditor {
               </div>
               <div class="__wkf-grid __wkf-grid--editor">
                 ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
-                ${renderNumberField("x", "X", selectedKeyframe.x)}
-                ${renderNumberField("y", "Y", selectedKeyframe.y)}
-                ${renderNumberField("scale", "Scale", selectedKeyframe.scale, 0.001, 0.001)}
-                ${renderNumberField("rotate", "Rotate", selectedKeyframe.rotate, 1, 0.1)}
                 ${renderNumberField("opacity", "Opacity", selectedKeyframe.opacity, 0, 0.01, 1)}
+              </div>
+              <div class="__wkf-section-head">
+                <div class="__wkf-section-title">Transforms</div>
+                <div class="__wkf-inline-actions">
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+                </div>
+              </div>
+              <div class="__wkf-transform-list">
+                ${selectedKeyframe.transforms.map((transform, index) => renderTransformEditor(transform, index, selectedKeyframe.transforms.length)).join("")}
               </div>
             </div>
           </div>
@@ -319,25 +358,19 @@ export class WebKeyframesEditor {
       </div>
     `;
 
-    const hideButton = this.container.querySelector<HTMLElement>("[data-wkf-action='hide']");
-    hideButton?.addEventListener("click", () => {
-      this.hide();
-    });
-    this.container.querySelector<HTMLElement>("[data-wkf-action='reset']")?.addEventListener("click", () => {
-      this.reset();
-    });
+    this.container.querySelector<HTMLElement>("[data-wkf-action='hide']")?.addEventListener("click", () => this.hide());
+    this.container.querySelector<HTMLElement>("[data-wkf-action='reset']")?.addEventListener("click", () => this.reset());
 
     this.bindDragging();
     this.bindMetaFields();
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
+    this.bindTransformEditor(selectedKeyframe);
     this.bindKeyframeActions();
     this.bindCopyActions();
     this.bindPreviewActions();
     this.applyPanelPosition();
-    queueMicrotask(() => {
-      this.restoreFocus();
-    });
+    queueMicrotask(() => this.restoreFocus());
   }
 
   private bindDragging(): void {
@@ -346,9 +379,7 @@ export class WebKeyframesEditor {
       return;
     }
 
-    handle.addEventListener("mousedown", (event) => {
-      this.startDragging(event);
-    });
+    handle.addEventListener("mousedown", (event) => this.startDragging(event));
   }
 
   private bindMetaFields(): void {
@@ -398,26 +429,6 @@ export class WebKeyframesEditor {
         keyframe.time = clampNumber(Math.round(value), 0, this.data.duration);
       });
     });
-    this.bindInputNumber("x", (value) => {
-      this.updateSelectedKeyframe((keyframe) => {
-        keyframe.x = value;
-      });
-    });
-    this.bindInputNumber("y", (value) => {
-      this.updateSelectedKeyframe((keyframe) => {
-        keyframe.y = value;
-      });
-    });
-    this.bindInputNumber("scale", (value) => {
-      this.updateSelectedKeyframe((keyframe) => {
-        keyframe.scale = value;
-      });
-    });
-    this.bindInputNumber("rotate", (value) => {
-      this.updateSelectedKeyframe((keyframe) => {
-        keyframe.rotate = value;
-      });
-    });
     this.bindInputNumber("opacity", (value) => {
       this.updateSelectedKeyframe((keyframe) => {
         keyframe.opacity = clampNumber(value, 0, 1);
@@ -425,19 +436,80 @@ export class WebKeyframesEditor {
     });
   }
 
+  private bindTransformEditor(selectedKeyframe: NormalizedWebKeyframe): void {
+    selectedKeyframe.transforms.forEach((transform, index) => {
+      this.bindInputValue(`transform-kind-${index}`, (value) => {
+        this.data = normalizeForEditor(replaceTransformKind(this.data, this.selectedKeyframeIndex, index, value as TransformKind));
+      });
+
+      switch (transform.kind) {
+        case "translate":
+          this.bindInputNumber(`transform-x-${index}`, (value) => {
+            this.data = normalizeForEditor(setTransformFieldValue(this.data, this.selectedKeyframeIndex, index, "x", value));
+          });
+          this.bindInputNumber(`transform-y-${index}`, (value) => {
+            this.data = normalizeForEditor(setTransformFieldValue(this.data, this.selectedKeyframeIndex, index, "y", value));
+          });
+          break;
+        case "scale":
+        case "rotate":
+          this.bindInputNumber(`transform-value-${index}`, (value) => {
+            this.data = normalizeForEditor(setTransformFieldValue(this.data, this.selectedKeyframeIndex, index, "value", value));
+          });
+          break;
+        case "skew":
+          this.bindInputNumber(`transform-x-${index}`, (value) => {
+            this.data = normalizeForEditor(setTransformFieldValue(this.data, this.selectedKeyframeIndex, index, "x", value));
+          });
+          this.bindInputNumber(`transform-y-${index}`, (value) => {
+            this.data = normalizeForEditor(setTransformFieldValue(this.data, this.selectedKeyframeIndex, index, "y", value));
+          });
+          break;
+      }
+    });
+
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-up']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.dataset.wkfIndex ?? "0");
+        this.data = normalizeForEditor(moveTransform(this.data, this.selectedKeyframeIndex, index, -1));
+        this.setStatus("info", "Reordered transforms.");
+        this.render();
+      });
+    });
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-down']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.dataset.wkfIndex ?? "0");
+        this.data = normalizeForEditor(moveTransform(this.data, this.selectedKeyframeIndex, index, 1));
+        this.setStatus("info", "Reordered transforms.");
+        this.render();
+      });
+    });
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='delete-transform']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.dataset.wkfIndex ?? "0");
+        this.data = normalizeForEditor(removeTransform(this.data, this.selectedKeyframeIndex, index));
+        this.setStatus("info", "Removed transform.");
+        this.render();
+      });
+    });
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='add-transform']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const kind = (button.dataset.wkfKind ?? "translate") as TransformKind;
+        this.data = normalizeForEditor(addTransform(this.data, this.selectedKeyframeIndex, kind));
+        this.setStatus("info", `Added ${kind} transform.`);
+        this.render();
+      });
+    });
+  }
+
   private bindKeyframeActions(): void {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='add-keyframe']")?.addEventListener("click", () => {
       const nextFrame = createNextKeyframe(this.data.keyframes, this.selectedKeyframeIndex, this.data.duration);
-      const nextKeyframes = [...this.data.keyframes, nextFrame];
-      this.data = {
+      this.data = normalizeForEditor({
         ...this.data,
-        keyframes: nextKeyframes,
-      };
-      this.data = normalizeForEditor(this.data);
-      this.selectedKeyframeIndex = this.data.keyframes.findIndex((keyframe) => keyframe === nextFrame);
-      if (this.selectedKeyframeIndex === -1) {
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, nextFrame.time);
-      }
+        keyframes: [...this.data.keyframes, nextFrame],
+      });
+      this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, nextFrame.time);
       this.render();
     });
 
@@ -446,23 +518,21 @@ export class WebKeyframesEditor {
         return;
       }
 
-      this.data = {
+      this.data = normalizeForEditor({
         ...this.data,
         keyframes: this.data.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex),
-      };
-      this.data = normalizeForEditor(this.data);
+      });
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.data.keyframes.length);
       this.render();
     });
 
     this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-keyframe']")?.addEventListener("click", () => {
-      const duplicatedFrame = duplicateKeyframe(this.data.keyframes, this.selectedKeyframeIndex, this.data.duration);
-      this.data = {
-        ...this.data,
-        keyframes: [...this.data.keyframes, duplicatedFrame],
-      };
-      this.data = normalizeForEditor(this.data);
-      this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, duplicatedFrame.time, duplicatedFrame);
+      this.data = normalizeForEditor(duplicateKeyframes(this.data, [this.selectedKeyframeIndex]));
+      const targetTime = Math.min(
+        this.data.duration,
+        (this.data.keyframes[this.selectedKeyframeIndex]?.time ?? 0) + Math.max(1, Math.round(this.data.duration * 0.1)),
+      );
+      this.selectedKeyframeIndex = findClosestKeyframeIndex(this.data.keyframes, targetTime);
       this.setStatus("info", "Duplicated selected keyframe.");
       this.render();
     });
@@ -500,8 +570,11 @@ export class WebKeyframesEditor {
     });
   }
 
-  private updateSelectedKeyframe(update: (keyframe: NonNullable<WebKeyframesData["keyframes"][number]>) => void): void {
-    const keyframes = this.data.keyframes.map((keyframe) => ({ ...keyframe }));
+  private updateSelectedKeyframe(update: (keyframe: NormalizedWebKeyframe) => void): void {
+    const keyframes = normalizeWebKeyframesData(this.data).keyframes.map((keyframe) => ({
+      ...keyframe,
+      transforms: keyframe.transforms.map(cloneTransform),
+    }));
     const selected = keyframes[this.selectedKeyframeIndex];
     if (!selected) {
       return;
@@ -510,10 +583,10 @@ export class WebKeyframesEditor {
     update(selected);
     keyframes.sort((left, right) => left.time - right.time);
     this.selectedKeyframeIndex = keyframes.indexOf(selected);
-    this.data = {
+    this.data = normalizeForEditor({
       ...this.data,
       keyframes,
-    };
+    });
     this.setStatus("info", "Editing timeline data.");
     this.render();
   }
@@ -522,19 +595,14 @@ export class WebKeyframesEditor {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-json']")?.addEventListener("click", () => {
       void this.copyPayload("json");
     });
-
     this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-scss']")?.addEventListener("click", () => {
       void this.copyPayload("scss");
     });
   }
 
   private bindPreviewActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='run-preview']")?.addEventListener("click", () => {
-      this.runPreview();
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='reset-preview']")?.addEventListener("click", () => {
-      this.resetAppliedPreview();
-    });
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='run-preview']")?.addEventListener("click", () => this.runPreview());
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='reset-preview']")?.addEventListener("click", () => this.resetAppliedPreview());
     this.container?.querySelector<HTMLElement>("[data-wkf-action='view-json']")?.addEventListener("click", () => {
       this.openPreview("JSON Preview", () => this.toJson());
     });
@@ -634,7 +702,11 @@ export class WebKeyframesEditor {
         styleElement,
         targets: appliedTargets,
       };
-      this.setStatus("success", `Applied preview to ${appliedTargets.length} element${appliedTargets.length === 1 ? "" : "s"}.`);
+
+      this.setStatus(
+        "success",
+        `Applied preview to ${appliedTargets.length} element${appliedTargets.length === 1 ? "" : "s"} with the current transform order.`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.setStatus("error", message);
@@ -714,10 +786,7 @@ export class WebKeyframesEditor {
     }
 
     const rect = panel.getBoundingClientRect();
-    this.panelPosition = {
-      left: rect.left,
-      top: rect.top,
-    };
+    this.panelPosition = { left: rect.left, top: rect.top };
     this.dragState = {
       pointerOffsetX: event.clientX - rect.left,
       pointerOffsetY: event.clientY - rect.top,
@@ -841,46 +910,52 @@ function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): bo
   );
 }
 
-function cloneData(data: WebKeyframesData): WebKeyframesData {
-  return {
-    ...data,
-    translate: data.translate ? { ...data.translate } : undefined,
-    keyframes: data.keyframes.map((keyframe) => ({ ...keyframe })),
-  };
+function cloneData(data: WebKeyframesData | ReturnType<typeof normalizeWebKeyframesData>): WebKeyframesData {
+  return sanitizeEditorData(data);
 }
 
-function normalizeForEditor(data: WebKeyframesData): WebKeyframesData {
-  const normalized = normalizeWebKeyframesData(cloneData(validateWebKeyframesData(data)));
-  return {
-    ...normalized,
-    translate: {
-      unit: normalized.translate.unit,
-      functionName: normalized.translate.functionName ?? undefined,
-      customUnit: normalized.translate.customUnit ?? undefined,
-    },
-    keyframes: normalized.keyframes.map((keyframe) => ({ ...keyframe })),
-  };
+function normalizeForEditor(data: WebKeyframesData | ReturnType<typeof normalizeWebKeyframesData>): WebKeyframesData {
+  return cloneData(data);
 }
 
 function getRenderData(data: WebKeyframesData): RenderWebKeyframesData {
-  const cloned = cloneData(data);
+  const normalized = sanitizeEditorData(data);
   return {
-    ...cloned,
-    duration: Number.isFinite(cloned.duration) && cloned.duration > 0 ? Math.round(cloned.duration) : 1,
+    ...normalized,
+    duration: Number.isFinite(normalized.duration) && normalized.duration > 0 ? Math.round(normalized.duration) : 1,
     translate: {
-      unit: cloned.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      functionName: cloned.translate?.functionName?.trim() || "",
-      customUnit: cloned.translate?.unit === "custom" ? cloned.translate.customUnit?.trim() || "" : "",
+      unit: normalized.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      functionName: normalized.translate?.functionName?.trim() || "",
+      customUnit: normalized.translate?.unit === "custom" ? normalized.translate.customUnit?.trim() || "" : "",
     },
-    keyframes: cloned.keyframes
+    keyframes: normalized.keyframes.map((keyframe) => ({
+      ...keyframe,
+      transforms: normalizeTransforms(keyframe).map(cloneTransform),
+    })),
+  };
+}
+
+function sanitizeEditorData(data: WebKeyframesData | ReturnType<typeof normalizeWebKeyframesData>): WebKeyframesData {
+  const candidate = data as Partial<WebKeyframesData>;
+  const keyframes = Array.isArray(candidate.keyframes) && candidate.keyframes.length > 0
+    ? candidate.keyframes
+    : DEFAULT_EDITOR_DATA.keyframes;
+
+  return {
+    id: typeof candidate.id === "string" ? candidate.id : DEFAULT_EDITOR_DATA.id,
+    duration: typeof candidate.duration === "number" && Number.isFinite(candidate.duration) && candidate.duration > 0
+      ? Math.round(candidate.duration)
+      : DEFAULT_EDITOR_DATA.duration,
+    translate: {
+      unit: isTranslateUnit(candidate.translate?.unit) ? candidate.translate.unit : DEFAULT_TRANSLATE_CONFIG.unit,
+      functionName: typeof candidate.translate?.functionName === "string" ? candidate.translate.functionName : undefined,
+      customUnit: typeof candidate.translate?.customUnit === "string" ? candidate.translate.customUnit : undefined,
+    },
+    keyframes: keyframes
       .map((keyframe) => ({
-        ...keyframe,
-        time: Number.isFinite(keyframe.time) ? keyframe.time : 0,
-        x: Number.isFinite(keyframe.x) ? keyframe.x : 0,
-        y: Number.isFinite(keyframe.y) ? keyframe.y : 0,
-        scale: Number.isFinite(keyframe.scale) ? keyframe.scale : 1,
-        rotate: Number.isFinite(keyframe.rotate) ? keyframe.rotate : 0,
-        opacity: Number.isFinite(keyframe.opacity) ? keyframe.opacity : 1,
+        time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
+        opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity) ? keyframe.opacity : 1,
+        transforms: normalizeTransforms(keyframe).map(cloneTransform),
       }))
       .sort((left, right) => left.time - right.time),
   };
@@ -902,10 +977,15 @@ function createNextKeyframe(
   keyframes: WebKeyframesData["keyframes"],
   selectedIndex: number,
   duration: number,
-) {
-  const selected = keyframes[selectedIndex] ?? keyframes[keyframes.length - 1];
-  const next = keyframes[selectedIndex + 1];
-  const previous = keyframes[selectedIndex - 1];
+): WebKeyframesData["keyframes"][number] {
+  const normalizedKeyframes = normalizeWebKeyframesData({
+    id: "preview",
+    duration,
+    keyframes,
+  }).keyframes;
+  const selected = normalizedKeyframes[selectedIndex] ?? normalizedKeyframes[normalizedKeyframes.length - 1];
+  const next = normalizedKeyframes[selectedIndex + 1];
+  const previous = normalizedKeyframes[selectedIndex - 1];
   let time = duration;
 
   if (selected && next) {
@@ -917,43 +997,27 @@ function createNextKeyframe(
   }
 
   return {
-    ...selected,
     time,
+    opacity: selected?.opacity ?? 1,
+    transforms: (selected?.transforms ?? [createDefaultTransform("translate")]).map(cloneTransform),
   };
 }
 
 function findClosestKeyframeIndex(
   keyframes: WebKeyframesData["keyframes"],
   time: number,
-  preferredFrame?: WebKeyframesData["keyframes"][number],
 ): number {
-  if (preferredFrame) {
-    const exactIndex = keyframes.indexOf(preferredFrame);
-    if (exactIndex !== -1) {
-      return exactIndex;
-    }
-  }
+  const normalized = normalizeWebKeyframesData({
+    id: "preview",
+    duration: Math.max(1, ...keyframes.map((keyframe) => keyframe.time)),
+    keyframes,
+  }).keyframes;
 
-  return keyframes.reduce((closestIndex, keyframe, index) => {
-    const currentDistance = Math.abs(keyframes[closestIndex].time - time);
+  return normalized.reduce((closestIndex, keyframe, index) => {
+    const currentDistance = Math.abs(normalized[closestIndex].time - time);
     const nextDistance = Math.abs(keyframe.time - time);
     return nextDistance < currentDistance ? index : closestIndex;
   }, 0);
-}
-
-function duplicateKeyframe(
-  keyframes: WebKeyframesData["keyframes"],
-  selectedIndex: number,
-  duration: number,
-) {
-  const selected = keyframes[selectedIndex] ?? keyframes[keyframes.length - 1];
-  const next = keyframes[selectedIndex + 1];
-  const nextTime = next ? Math.round((selected.time + next.time) / 2) : Math.min(duration, selected.time + Math.max(1, Math.round(duration * 0.1)));
-
-  return {
-    ...selected,
-    time: clampNumber(nextTime, 0, duration),
-  };
 }
 
 function renderTextField(field: string, label: string, value: string): string {
@@ -1031,27 +1095,49 @@ function renderRangeField(field: string, label: string, value: number, min: numb
     <div class="__wkf-field __wkf-field--time">
       <span class="__wkf-label">${escapeHtml(label)}</span>
       <div class="__wkf-time-row">
-        <input
-          class="__wkf-range"
-          type="range"
-          data-wkf-field="${escapeHtml(field)}"
-          value="${escapeHtml(String(value))}"
-          min="${min}"
-          max="${max}"
-          step="1"
-        >
-        <input
-          class="__wkf-input"
-          type="number"
-          data-wkf-field="${escapeHtml(field)}"
-          value="${escapeHtml(String(value))}"
-          min="${min}"
-          max="${max}"
-          step="1"
-        >
+        <input class="__wkf-range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
+        <input class="__wkf-input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
       </div>
     </div>
   `;
+}
+
+function renderTransformEditor(transform: TransformOperation, index: number, total: number): string {
+  return `
+    <div class="__wkf-field">
+      <div class="__wkf-section-head">
+        <div class="__wkf-inline-actions">
+          ${renderSelectField(`transform-kind-${index}`, `Transform ${index + 1}`, transform.kind, [
+            { value: "translate", label: "translate" },
+            { value: "scale", label: "scale" },
+            { value: "rotate", label: "rotate" },
+            { value: "skew", label: "skew" },
+          ])}
+        </div>
+        <div class="__wkf-inline-actions">
+          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="move-transform-up" data-wkf-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
+          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="move-transform-down" data-wkf-index="${index}" ${index === total - 1 ? "disabled" : ""}>Down</button>
+          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}" ${total <= 1 ? "disabled" : ""}>Delete</button>
+        </div>
+      </div>
+      <div class="__wkf-grid __wkf-grid--editor">
+        ${renderTransformFields(transform, index)}
+      </div>
+    </div>
+  `;
+}
+
+function renderTransformFields(transform: TransformOperation, index: number): string {
+  switch (transform.kind) {
+    case "translate":
+      return `${renderNumberField(`transform-x-${index}`, "X", transform.x)}${renderNumberField(`transform-y-${index}`, "Y", transform.y)}`;
+    case "scale":
+      return renderNumberField(`transform-value-${index}`, "Scale", transform.value, 0.001, 0.001);
+    case "rotate":
+      return renderNumberField(`transform-value-${index}`, "Rotate", transform.value, undefined, 0.1);
+    case "skew":
+      return `${renderNumberField(`transform-x-${index}`, "Skew X", transform.x, undefined, 0.1)}${renderNumberField(`transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1)}`;
+  }
 }
 
 function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
@@ -1094,8 +1180,21 @@ function replaceAnimationName(value: string, currentName: string, nextName: stri
   return names.map((name) => (name === currentName ? nextName : name)).join(", ");
 }
 
-function formatKeyframeSummary(keyframe: WebKeyframesData["keyframes"][number]): string {
-  return `x ${keyframe.x}, y ${keyframe.y}, opacity ${keyframe.opacity}`;
+function formatKeyframeSummary(keyframe: NormalizedWebKeyframe): string {
+  return `${keyframe.transforms.map(formatTransformSummary).join(" | ")}, opacity ${formatNumber(keyframe.opacity)}`;
+}
+
+function formatTransformSummary(transform: TransformOperation): string {
+  switch (transform.kind) {
+    case "translate":
+      return `translate(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
+    case "scale":
+      return `scale(${formatNumber(transform.value)})`;
+    case "rotate":
+      return `rotate(${formatNumber(transform.value)})`;
+    case "skew":
+      return `skew(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
+  }
 }
 
 function formatPercentLabel(time: number, duration: number): string {
@@ -1110,6 +1209,10 @@ function formatNumber(value: number): string {
   }
 
   return value.toFixed(3).replace(/\.?0+$/, "");
+}
+
+function isTranslateUnit(value: unknown): value is TranslateUnit {
+  return value === "px" || value === "vw" || value === "vh" || value === "%" || value === "custom";
 }
 
 async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {
