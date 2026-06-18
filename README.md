@@ -171,7 +171,7 @@ Transform array order is preserved exactly in both `generateScss()` and `generat
 npm install
 npm run build
 npm run typecheck
-node --test
+npm test
 ```
 
 ## Release

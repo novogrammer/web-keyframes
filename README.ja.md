@@ -171,7 +171,7 @@ transform 配列の順番は `generateScss()` と `generatePreviewCss()` の両�
 npm install
 npm run build
 npm run typecheck
-node --test
+npm test
 ```
 
 ## リリース
