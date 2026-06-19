@@ -1,4 +1,12 @@
 .wkf {
+  $wkf-breakpoint-single-column: 800px;
+
+  @mixin wkf-mq-single-column {
+    @media screen and (max-width: $wkf-breakpoint-single-column) {
+      @content;
+    }
+  }
+
   position: fixed;
   inset: 0;
   z-index: 2147483647;
@@ -8,6 +16,10 @@
   color: #f5f7fb;
   font: 11px/1.35 system-ui, sans-serif;
   box-sizing: border-box;
+
+  @include wkf-mq-single-column {
+    padding: 6px;
+  }
 
   &,
   *,
@@ -39,6 +51,11 @@
     overflow: hidden;
     pointer-events: auto;
 
+    @include wkf-mq-single-column {
+      width: calc(100vw - 12px);
+      max-height: calc(100vh - 12px);
+    }
+
     &--dragging {
       user-select: none;
 
@@ -68,11 +85,19 @@
 
     &--meta {
       grid-template-columns: repeat(5, minmax(0, 1fr));
+
+      @include wkf-mq-single-column {
+        grid-template-columns: 1fr;
+      }
     }
 
     &--editor {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin-top: 8px;
+
+      @include wkf-mq-single-column {
+        grid-template-columns: 1fr;
+      }
     }
   }
 
@@ -183,6 +208,10 @@
     &--stacked {
       grid-template-columns: 1fr;
     }
+
+    @include wkf-mq-single-column {
+      grid-template-columns: 1fr;
+    }
   }
 
   &__section {
@@ -231,6 +260,10 @@
     grid-template-columns: minmax(0, 1fr) 120px;
     gap: 8px;
     margin-top: 6px;
+
+    @include wkf-mq-single-column {
+      grid-template-columns: 1fr;
+    }
   }
 
   &__range {
@@ -321,22 +354,6 @@
 
     &--error {
       color: #ff9f9f;
-    }
-  }
-
-  @media (max-width: 800px) {
-    padding: 6px;
-
-    &__panel {
-      width: calc(100vw - 12px);
-      max-height: calc(100vh - 12px);
-    }
-
-    &__grid--meta,
-    &__grid--editor,
-    &__columns,
-    &__time-row {
-      grid-template-columns: 1fr;
     }
   }
 }
