@@ -385,16 +385,31 @@ export class WebKeyframesEditor {
                   <div class="wkf__section-head wkf__section-head--properties">
                     <div class="wkf__section-title">Properties</div>
                   </div>
+                  ${
+                    opacitySourceState === "unset" || transformSourceState === "unset"
+                      ? `
+                        <div class="wkf__property-add">
+                          <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                            ${
+                              opacitySourceState === "unset"
+                                ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
+                                : ""
+                            }
+                            ${
+                              transformSourceState === "unset"
+                                ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
+                                : ""
+                            }
+                          </div>
+                        </div>
+                      `
+                      : ""
+                  }
                   <div class="wkf__property-list">
-                    <div class="wkf__property">
-                      ${
-                        opacitySourceState === "unset"
-                          ? `
-                            <div class="wkf__inline-actions">
-                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>
-                            </div>
-                          `
-                          : `
+                    ${
+                      opacitySourceState === "explicit"
+                        ? `
+                          <div class="wkf__property">
                             <div class="wkf__section-head">
                               <div>
                                 <div class="wkf__section-title">Opacity</div>
@@ -410,19 +425,20 @@ export class WebKeyframesEditor {
                             </div>
                             ${renderNullableNumberField("opacity", "Opacity", selectedSourceOpacity, 0, 0.01, 1, true)}
                           `
-                      }
-                    </div>
-                    <div class="wkf__property">
-                      <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
-                      </div>
-                      ${
-                        transformSourceState === "unset"
-                          ? ``
-                          : transformSourceState === "none"
+                        : ""
+                    }
+                    ${
+                      transformSourceState !== "unset"
+                        ? `
+                          <div class="wkf__property">
+                            <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+                            </div>
+                            ${
+                              transformSourceState === "none"
                             ? `
                               <div class="wkf__section-head">
                                 <div>
@@ -438,11 +454,11 @@ export class WebKeyframesEditor {
                                 </div>
                               </div>
                             `
-                            : ""
-                      }
-                      ${
-                        transformSourceState === "explicit"
-                          ? `
+                              : ""
+                            }
+                            ${
+                              transformSourceState === "explicit"
+                                ? `
                             <div class="wkf__section-head">
                               <div>
                                 <div class="wkf__section-title">Transforms</div>
@@ -462,12 +478,15 @@ export class WebKeyframesEditor {
                               </div>
                             </div>
                           `
-                          : ""
-                      }
-                      <div class="wkf__transform-list">
-                        ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
-                      </div>
-                    </div>
+                                : ""
+                            }
+                            <div class="wkf__transform-list">
+                              ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
+                            </div>
+                          </div>
+                        `
+                        : ""
+                    }
                   </div>
                 </div>
               </div>
