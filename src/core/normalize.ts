@@ -18,6 +18,12 @@ export const DEFAULT_TRANSLATE_CONFIG: NormalizedTranslateConfig = {
 export function normalizeWebKeyframesData(data: WebKeyframesData): NormalizedWebKeyframesData {
   const validated = validateWebKeyframesData(data);
   const translate = validated.translate;
+  const sortedKeyframes = [...validated.keyframes].sort((left, right) => left.time - right.time);
+  const keyframes = sortedKeyframes.reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
+    const previous = accumulator[accumulator.length - 1];
+    accumulator.push(normalizeKeyframe(keyframe, previous));
+    return accumulator;
+  }, []);
 
   return {
     ...validated,
@@ -28,22 +34,29 @@ export function normalizeWebKeyframesData(data: WebKeyframesData): NormalizedWeb
         : DEFAULT_TRANSLATE_CONFIG.functionName,
       customUnit: translate?.unit === "custom" ? translate.customUnit?.trim() || null : null,
     },
-    keyframes: validated.keyframes
-      .map((keyframe) => normalizeKeyframe(keyframe))
-      .sort((left, right) => left.time - right.time),
+    keyframes,
   };
 }
 
-export function normalizeKeyframe(keyframe: WebKeyframe): NormalizedWebKeyframe {
+export function normalizeKeyframe(
+  keyframe: WebKeyframe,
+  previous?: NormalizedWebKeyframe,
+): NormalizedWebKeyframe {
   return {
     time: keyframe.time,
-    opacity: keyframe.opacity,
-    transforms: normalizeTransforms(keyframe),
+    opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)
+      ? keyframe.opacity
+      : previous?.opacity ?? 1,
+    transforms: normalizeTransforms(keyframe, previous?.transforms ?? []),
   };
 }
 
-export function normalizeTransforms(keyframe: WebKeyframe): TransformOperation[] {
-  return keyframe.transforms.map(cloneTransform);
+export function normalizeTransforms(keyframe: WebKeyframe, fallback: TransformOperation[] = []): TransformOperation[] {
+  if (Array.isArray(keyframe.transforms)) {
+    return keyframe.transforms.map(cloneTransform);
+  }
+
+  return fallback.map(cloneTransform);
 }
 
 export function cloneTransform(transform: TransformOperation): TransformOperation {

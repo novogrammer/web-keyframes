@@ -121,7 +121,15 @@ editor.toScss();
 }
 ```
 
-各キーフレームは、順序付きの `transforms` 配列を明示的に持つ必要があります。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
+各キーフレームで `transforms` を指定する場合は、順序付き配列で表現します。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
+
+`opacity` と `transforms` は、CSS の sparse keyframe に合わせて、キーフレームごとに省略または `null` を許容します。
+
+- `opacity` が省略または `null`: そのキーフレームでは `opacity` を出力しません
+- `transforms` が省略または `null`: そのキーフレームでは `transform` を出力しません
+- `transforms: []`: `transform: none;` を出力します
+
+一方、エディタ内部の編集 helper では操作を安定させるため、省略値は直前キーフレームから解決して扱います。
 
 ## CLI
 

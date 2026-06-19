@@ -1,22 +1,31 @@
 import { formatScss } from "./formatScss.js";
+import { validateWebKeyframesData } from "./validate.js";
 import { normalizeWebKeyframesData } from "./normalize.js";
 import type { TransformOperation, WebKeyframesData } from "./types.js";
 
 export function generateScss(data: WebKeyframesData): string {
+  const validated = validateWebKeyframesData(data);
   const normalized = normalizeWebKeyframesData(data);
+  const keyframesByTime = [...validated.keyframes].sort((left, right) => left.time - right.time);
 
-  const keyframeBlocks = normalized.keyframes.map((keyframe) => {
-    const percent = formatPercent((keyframe.time / normalized.duration) * 100);
-    const transform = keyframe.transforms
-      .map((item) => renderTransform(item, normalized.translate, false))
-      .join(" ");
+  const keyframeBlocks = keyframesByTime.map((keyframe, index) => {
+    const percent = formatPercent((normalized.keyframes[index].time / normalized.duration) * 100);
+    const lines = [`  ${percent} {`];
 
-    return [
-      `  ${percent} {`,
-      `    transform: ${transform};`,
-      `    opacity: ${formatNumber(keyframe.opacity)};`,
-      "  }",
-    ].join("\n");
+    if (Array.isArray(keyframe.transforms)) {
+      lines.push(
+        keyframe.transforms.length > 0
+          ? `    transform: ${keyframe.transforms.map((item) => renderTransform(item, normalized.translate, false)).join(" ")};`
+          : "    transform: none;",
+      );
+    }
+
+    if (typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)) {
+      lines.push(`    opacity: ${formatNumber(keyframe.opacity)};`);
+    }
+
+    lines.push("  }");
+    return lines.join("\n");
   });
 
   const keyframes = ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");

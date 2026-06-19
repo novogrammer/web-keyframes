@@ -135,6 +135,37 @@ test("generateScss rounds percentages to at most 3 decimals", () => {
   assert.match(scss, /33\.333%/);
 });
 
+test("normalizeWebKeyframesData resolves sparse opacity and transforms values", () => {
+  const normalized = normalizeWebKeyframesData({
+    ...baseData,
+    keyframes: [
+      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
+      { time: 600, opacity: null, transforms: null },
+      { time: 1200, transforms: [] },
+    ],
+  });
+
+  assert.equal(normalized.keyframes[1].opacity, 0);
+  assert.deepEqual(normalized.keyframes[1].transforms, [{ kind: "translate", x: 0, y: 40 }]);
+  assert.equal(normalized.keyframes[2].opacity, 0);
+  assert.deepEqual(normalized.keyframes[2].transforms, []);
+});
+
+test("generateScss omits nullable fields and renders empty transforms as none", () => {
+  const scss = generateScss({
+    ...baseData,
+    keyframes: [
+      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
+      { time: 600, opacity: null, transforms: null },
+      { time: 1200, transforms: [] },
+    ],
+  });
+
+  assert.match(scss, /0% {\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\);\n    opacity: 0;\n  }/);
+  assert.match(scss, /50% {\n  }/);
+  assert.match(scss, /100% {\n    transform: none;\n  }/);
+});
+
 test("validateWebKeyframesData rejects missing and invalid required fields", () => {
   assert.throws(
     () =>
@@ -189,20 +220,17 @@ test("validateWebKeyframesData rejects invalid transform entries", () => {
   );
 });
 
-test("validateWebKeyframesData requires transforms arrays on every keyframe", () => {
-  assert.throws(
-    () =>
-      validateWebKeyframesData({
-        ...baseData,
-        keyframes: [
-          { time: 0, opacity: 0 },
-          baseData.keyframes[1],
-        ],
-      }),
-    (error) =>
-      error instanceof WebKeyframesValidationError &&
-      error.issues.includes("keyframes[0].transforms must be an array."),
-  );
+test("validateWebKeyframesData allows nullable sparse fields", () => {
+  const validated = validateWebKeyframesData({
+    ...baseData,
+    keyframes: [
+      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+      { time: 600, opacity: null, transforms: null },
+      { time: 1200 },
+    ],
+  });
+
+  assert.equal(validated.keyframes.length, 3);
 });
 
 test("edit helpers support duplicate, nudge, spread, and stagger workflows", () => {

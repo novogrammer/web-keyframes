@@ -274,7 +274,7 @@ export function removeTransform(
   const normalized = normalizeEditableData(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
-  if (!keyframe || keyframe.transforms.length <= 1) {
+  if (!keyframe) {
     return normalized;
   }
 

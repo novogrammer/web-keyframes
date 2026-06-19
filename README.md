@@ -121,7 +121,15 @@ value for matched elements.
 }
 ```
 
-Each keyframe must provide its ordered `transforms` array explicitly. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
+When a keyframe specifies `transforms`, it uses an ordered array. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
+
+`opacity` and `transforms` may be omitted or set to `null` on individual keyframes to match CSS-style sparse keyframe authoring.
+
+- omitted or `null` `opacity`: no `opacity` declaration is emitted for that keyframe
+- omitted or `null` `transforms`: no `transform` declaration is emitted for that keyframe
+- `transforms: []`: emits `transform: none;`
+
+Internal editing helpers still resolve sparse values against the previous keyframe so editor interactions stay deterministic.
 
 ## CLI
 

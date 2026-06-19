@@ -105,17 +105,13 @@ function validateKeyframe(
     issues.push(`keyframes[${index}].time must be a finite number.`);
   }
 
-  if (!isFiniteNumber(candidate.opacity)) {
+  if (candidate.opacity !== undefined && candidate.opacity !== null && !isFiniteNumber(candidate.opacity)) {
     issues.push(`keyframes[${index}].opacity must be a finite number.`);
   }
 
-  if (!Array.isArray(candidate.transforms)) {
+  if (candidate.transforms !== undefined && candidate.transforms !== null && !Array.isArray(candidate.transforms)) {
     issues.push(`keyframes[${index}].transforms must be an array.`);
-  } else {
-    if (candidate.transforms.length === 0) {
-      issues.push(`keyframes[${index}].transforms must contain at least 1 item.`);
-    }
-
+  } else if (Array.isArray(candidate.transforms)) {
     candidate.transforms.forEach((transform, transformIndex) => {
       issues.push(...validateTransform(transform, index, transformIndex));
     });

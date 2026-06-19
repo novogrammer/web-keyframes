@@ -30,8 +30,8 @@ export type TransformOperation =
 
 export type WebKeyframe = {
   time: number;
-  opacity: number;
-  transforms: TransformOperation[];
+  opacity?: number | null;
+  transforms?: TransformOperation[] | null;
 };
 
 export type NormalizedWebKeyframe = {

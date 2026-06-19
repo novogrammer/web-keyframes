@@ -235,6 +235,38 @@ test("keyframe editor updates selected frame values", () => {
   assert.equal(firstKeyframe.opacity, 0.45);
 });
 
+test("sparse keyframe actions can unset opacity and clear transforms", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  clickActionSync(window.document, "unset-opacity");
+  assert.doesNotMatch(editor.toScss(), /0% \{\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\) scale\(1\) rotate\(0deg\);\n    opacity: 0;/);
+  assert.match(editor.toScss(), /0% \{\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\) scale\(1\) rotate\(0deg\);\n  \}/);
+
+  clickActionSync(window.document, "clear-transforms");
+  assert.match(editor.toScss(), /0% \{\n    transform: none;\n  \}/);
+
+  clickActionSync(window.document, "unset-transforms");
+  assert.match(editor.toScss(), /0% \{\n  \}/);
+  assert.match(getStatusText(window.document), /Unset transforms/);
+});
+
+test("deleting the last transform sets transform to none", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "delete-transform");
+  await clickAction(window.document, "delete-transform");
+  await clickAction(window.document, "delete-transform");
+
+  assert.deepEqual(editor.getData().keyframes[0].transforms, []);
+  assert.match(editor.toScss(), /0% \{\n    transform: none;\n    opacity: 0;\n  \}/);
+});
+
 test("add and delete keyframe actions update the list", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -479,6 +511,11 @@ function setNumberValue(document, field, value, index = 0) {
   const input = inputs[index];
   input.value = String(value);
   input.dispatchEvent(new Event(input.type === "range" ? "input" : "change", { bubbles: true }));
+}
+
+function clickActionSync(document, action) {
+  const button = document.querySelector(`[data-wkf-action='${action}']`);
+  button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 }
 
 async function clickAction(document, action) {

@@ -236,6 +236,7 @@ export class WebKeyframesEditor {
 
     const renderData = getRenderData(this.data);
     const selectedKeyframe = renderData.keyframes[this.selectedKeyframeIndex] ?? renderData.keyframes[0];
+    const selectedSourceKeyframe = this.data.keyframes[this.selectedKeyframeIndex] ?? this.data.keyframes[0];
     this.selectedKeyframeIndex = renderData.keyframes.indexOf(selectedKeyframe);
 
     this.container.innerHTML = `
@@ -308,6 +309,14 @@ export class WebKeyframesEditor {
                   <div class="wkf__section-title">Selected Keyframe</div>
                   <p class="wkf__subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, renderData.duration))} of timeline</p>
                 </div>
+                <div class="wkf__inline-actions">
+                  <button
+                    type="button"
+                    class="wkf__button wkf__button--small wkf__button--ghost"
+                    data-wkf-action="unset-opacity"
+                    ${selectedSourceKeyframe?.opacity == null ? "disabled" : ""}
+                  >Unset Opacity</button>
+                </div>
               </div>
               <div class="wkf__grid wkf__grid--editor">
                 ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
@@ -316,6 +325,18 @@ export class WebKeyframesEditor {
               <div class="wkf__section-head">
                 <div class="wkf__section-title">Transforms</div>
                 <div class="wkf__inline-actions">
+                  <button
+                    type="button"
+                    class="wkf__button wkf__button--small wkf__button--ghost"
+                    data-wkf-action="unset-transforms"
+                    ${selectedSourceKeyframe?.transforms == null ? "disabled" : ""}
+                  >Unset</button>
+                  <button
+                    type="button"
+                    class="wkf__button wkf__button--small wkf__button--ghost"
+                    data-wkf-action="clear-transforms"
+                    ${Array.isArray(selectedSourceKeyframe?.transforms) && selectedSourceKeyframe.transforms.length === 0 ? "disabled" : ""}
+                  >Set to none</button>
                   <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
                   <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
                   <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
@@ -366,6 +387,7 @@ export class WebKeyframesEditor {
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
     this.bindTransformEditor(selectedKeyframe);
+    this.bindSparseKeyframeActions();
     this.bindKeyframeActions();
     this.bindCopyActions();
     this.bindPreviewActions();
@@ -499,6 +521,41 @@ export class WebKeyframesEditor {
         this.setStatus("info", `Added ${kind} transform.`);
         this.render();
       });
+    });
+  }
+
+  private bindSparseKeyframeActions(): void {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='unset-opacity']")?.addEventListener("click", () => {
+      const keyframe = this.data.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      keyframe.opacity = null;
+      this.setStatus("info", "Unset opacity for the selected keyframe.");
+      this.render();
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='unset-transforms']")?.addEventListener("click", () => {
+      const keyframe = this.data.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      keyframe.transforms = null;
+      this.setStatus("info", "Unset transforms for the selected keyframe.");
+      this.render();
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-transforms']")?.addEventListener("click", () => {
+      const keyframe = this.data.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      keyframe.transforms = [];
+      this.setStatus("info", "Cleared transforms to none for the selected keyframe.");
+      this.render();
     });
   }
 
@@ -928,8 +985,9 @@ function getRenderData(data: WebKeyframesData): RenderWebKeyframesData {
       functionName: normalized.translate?.functionName?.trim() || "",
       customUnit: normalized.translate?.unit === "custom" ? normalized.translate.customUnit?.trim() || "" : "",
     },
-    keyframes: normalized.keyframes.map((keyframe) => ({
-      ...keyframe,
+    keyframes: normalized.keyframes.map<NormalizedWebKeyframe>((keyframe) => ({
+      time: keyframe.time,
+      opacity: keyframe.opacity ?? 1,
       transforms: normalizeTransforms(keyframe).map(cloneTransform),
     })),
   };
@@ -940,6 +998,23 @@ function sanitizeEditorData(data: WebKeyframesData | ReturnType<typeof normalize
   const keyframes = Array.isArray(candidate.keyframes) && candidate.keyframes.length > 0
     ? candidate.keyframes
     : DEFAULT_EDITOR_DATA.keyframes;
+  const resolvedKeyframes = [...keyframes]
+    .sort((left, right) => {
+      const leftTime = typeof left.time === "number" && Number.isFinite(left.time) ? left.time : 0;
+      const rightTime = typeof right.time === "number" && Number.isFinite(right.time) ? right.time : 0;
+      return leftTime - rightTime;
+    })
+    .reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
+      const previous = accumulator[accumulator.length - 1];
+      accumulator.push({
+        time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
+        opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)
+          ? keyframe.opacity
+          : previous?.opacity ?? 1,
+        transforms: normalizeTransforms(keyframe, previous?.transforms ?? []).map(cloneTransform),
+      });
+      return accumulator;
+    }, []);
 
   return {
     id: typeof candidate.id === "string" ? candidate.id : DEFAULT_EDITOR_DATA.id,
@@ -951,13 +1026,7 @@ function sanitizeEditorData(data: WebKeyframesData | ReturnType<typeof normalize
       functionName: typeof candidate.translate?.functionName === "string" ? candidate.translate.functionName : undefined,
       customUnit: typeof candidate.translate?.customUnit === "string" ? candidate.translate.customUnit : undefined,
     },
-    keyframes: keyframes
-      .map((keyframe) => ({
-        time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
-        opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity) ? keyframe.opacity : 1,
-        transforms: normalizeTransforms(keyframe).map(cloneTransform),
-      }))
-      .sort((left, right) => left.time - right.time),
+    keyframes: resolvedKeyframes,
   };
 }
 
@@ -1117,7 +1186,7 @@ function renderTransformEditor(transform: TransformOperation, index: number, tot
         <div class="wkf__inline-actions">
           <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-up" data-wkf-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
           <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-down" data-wkf-index="${index}" ${index === total - 1 ? "disabled" : ""}>Down</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}" ${total <= 1 ? "disabled" : ""}>Delete</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}">Delete</button>
         </div>
       </div>
       <div class="wkf__grid wkf__grid--editor">
