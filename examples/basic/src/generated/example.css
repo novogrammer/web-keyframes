@@ -123,8 +123,10 @@ body {
   letter-spacing: 0.08em;
   opacity: 0;
   text-transform: uppercase;
+}
+.js-hero-logo--01 {
   animation: hero-logo 1200ms ease-out 240ms forwards, hero-logo-idle 2000ms ease-in-out 1440ms infinite;
 }
-.js-hero-logo--delayed {
+.js-hero-logo--02 {
   animation: hero-logo 1200ms ease-out 720ms forwards, hero-logo-idle 2000ms ease-in-out 1920ms infinite;
 }

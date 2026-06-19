@@ -115,11 +115,14 @@ body {
   letter-spacing: 0.08em;
   opacity: 0;
   text-transform: uppercase;
-  animation:
-    hero-logo $wkf-intro-duration ease-out $wkf-intro-delay forwards,
-    hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration) infinite;
 
-  &--delayed {
+  &--01 {
+    animation:
+      hero-logo $wkf-intro-duration ease-out $wkf-intro-delay forwards,
+      hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration) infinite;
+  }
+
+  &--02 {
     animation:
       hero-logo $wkf-intro-duration ease-out ($wkf-intro-delay + $wkf-delay-offset) forwards,
       hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration + $wkf-delay-offset) infinite;
