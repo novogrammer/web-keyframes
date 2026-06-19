@@ -22,7 +22,6 @@ test("CLI converts a single JSON file to SCSS", async () => {
           duration: 1200,
           translate: {
             unit: "px",
-            functionName: "global.vw",
           },
           keyframes: [
             {

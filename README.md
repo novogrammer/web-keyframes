@@ -71,7 +71,6 @@ editor.toScss();
 ### Current editor limitations
 
 - Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the selected timeline `id`
-- Preview ignores `translate.functionName` and uses plain unit values for browser-safe CSS
 - No file import or auto-save
 - No easing editor yet
 
@@ -98,8 +97,7 @@ value for matched elements.
       "id": "hero-logo",
       "duration": 1200,
       "translate": {
-        "unit": "px",
-        "functionName": "global.vw"
+        "unit": "px"
       },
       "keyframes": [
         {
@@ -175,10 +173,9 @@ Each input file may contain one or more timelines. When the input is a directory
 ```
 
 `translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
-`translate.functionName` is optional. When present, values are emitted like `customFn(40px)` rather than `40px`.
 Transform array order is preserved exactly in both `generateScss()` and `generatePreviewCss()`.
 `generateScss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
-`generatePreviewCss()` emits browser-safe preview CSS and intentionally ignores `translate.functionName`.
+`generatePreviewCss()` emits browser-safe preview CSS.
 
 ## Development
 

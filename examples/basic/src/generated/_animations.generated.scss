@@ -1,17 +1,17 @@
 @keyframes hero-logo-intro {
 
   0% {
-    transform: translate(wkf-px(0px), wkf-px(40px)) scale(0.88) rotate(-6deg);
+    transform: translate(0px, 40px) scale(0.88) rotate(-6deg);
     opacity: 0;
   }
 
   58.333% {
-    transform: translate(wkf-px(0px), wkf-px(-8px)) scale(1.04) rotate(2deg);
+    transform: translate(0px, -8px) scale(1.04) rotate(2deg);
     opacity: 1;
   }
 
   100% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 
@@ -20,17 +20,17 @@
 @keyframes hero-logo-idle {
 
   0% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 
   50% {
-    transform: translate(wkf-px(0px), wkf-px(-2px)) scale(1.01) rotate(1deg);
+    transform: translate(0px, -2px) scale(1.01) rotate(1deg);
     opacity: 1;
   }
 
   100% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 
@@ -39,17 +39,17 @@
 @keyframes hero-badge-intro {
 
   0% {
-    transform: translate(wkf-px(-28px), wkf-px(10px)) scale(0.92) rotate(-10deg);
+    transform: translate(-28px, 10px) scale(0.92) rotate(-10deg);
     opacity: 0;
   }
 
   57.778% {
-    transform: translate(wkf-px(4px), wkf-px(-2px)) scale(1.03) rotate(2deg);
+    transform: translate(4px, -2px) scale(1.03) rotate(2deg);
     opacity: 1;
   }
 
   100% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 
@@ -58,17 +58,17 @@
 @keyframes hero-badge-idle {
 
   0% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 
   50% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1.06) rotate(-3deg);
+    transform: translate(0px, 0px) scale(1.06) rotate(-3deg);
     opacity: 1;
   }
 
   100% {
-    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 

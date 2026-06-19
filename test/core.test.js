@@ -18,7 +18,7 @@ import {
 const baseTimeline = {
   id: "hero-logo",
   duration: 1200,
-  translate: { unit: "px", functionName: "global.vw" },
+  translate: { unit: "px" },
   keyframes: [
     {
       time: 0,
@@ -50,7 +50,7 @@ test("generateScss renders the expected SCSS for a document", () => {
 
   assert.equal(
     scss,
-    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
+    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(0px, 40px) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(0px, 0px) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
   );
 });
 
@@ -107,7 +107,7 @@ test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => 
   assert.deepEqual(normalized.timelines[0].keyframes[2].transforms, []);
 });
 
-test("generateScss supports direct units and optional wrapping functions", () => {
+test("generateScss supports direct units", () => {
   const scss = generateScss({
     timelines: [
       {
@@ -118,28 +118,15 @@ test("generateScss supports direct units and optional wrapping functions", () =>
   });
 
   assert.match(scss, /translate\(0vw, 40vw\)/);
-
-  const wrapped = generateScss({
-    timelines: [
-      {
-        ...baseTimeline,
-        translate: { unit: "%", functionName: "customFn" },
-      },
-    ],
-  });
-
-  assert.match(wrapped, /translate\(customFn\(0%\), customFn\(40%\)\)/);
 });
 
-test("generatePreviewCss ignores wrapping functions for browser preview", () => {
+test("generatePreviewCss emits browser-safe transforms", () => {
   const css = generatePreviewCss({
     ...baseTimeline,
-    translate: { unit: "px", functionName: "customFn" },
   }, "hero-logo__wkf_preview");
 
   assert.match(css, /@keyframes hero-logo__wkf_preview/);
   assert.match(css, /translate\(0px, 40px\)/);
-  assert.doesNotMatch(css, /customFn/);
 });
 
 test("generateScss preserves explicit transform order including skew", () => {
@@ -171,7 +158,7 @@ test("generateScss preserves explicit transform order including skew", () => {
     ],
   });
 
-  assert.match(scss, /transform: rotate\(-6deg\) translate\(global\.vw\(0px\), global\.vw\(40px\)\) skew\(8deg, -4deg\)/);
+  assert.match(scss, /transform: rotate\(-6deg\) translate\(0px, 40px\) skew\(8deg, -4deg\)/);
 });
 
 test("generateScss omits nullable fields and renders empty transforms as none", () => {
@@ -188,7 +175,7 @@ test("generateScss omits nullable fields and renders empty transforms as none", 
     ],
   });
 
-  assert.match(scss, /0% {\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\);\n    opacity: 0;\n  }/);
+  assert.match(scss, /0% {\n    transform: translate\(0px, 40px\);\n    opacity: 0;\n  }/);
   assert.match(scss, /50% {\n  }/);
   assert.match(scss, /100% {\n    transform: none;\n  }/);
 });
@@ -277,14 +264,12 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
             ...baseTimeline,
             translate: {
               unit: "custom",
-              functionName: 123,
             },
           },
         ],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
-      error.issues.includes("timelines[0].translate.functionName must be a string when provided.") &&
       error.issues.includes("timelines[0].translate.customUnit is required when translate.unit is custom."),
   );
 });

@@ -71,7 +71,6 @@ editor.toScss();
 ### 現在の制約
 
 - preview は `document` 内に対象要素が存在し、かつ選択中 timeline の `id` と同じ `animation-name` を使っている場合にだけ動作する
-- preview では `translate.functionName` を無視し、ブラウザでそのまま解釈できる値だけを使う
 - ファイル import や自動保存はしない
 - easing エディタはまだない
 
@@ -98,8 +97,7 @@ editor.toScss();
       "id": "hero-logo",
       "duration": 1200,
       "translate": {
-        "unit": "px",
-        "functionName": "global.vw"
+        "unit": "px"
       },
       "keyframes": [
         {
@@ -163,22 +161,21 @@ web-keyframes to-scss \
 ```scss
 @keyframes hero-logo {
   0% {
-    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);
+    transform: translate(0px, 40px) scale(1) rotate(0deg);
     opacity: 0;
   }
 
   100% {
-    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
     opacity: 1;
   }
 }
 ```
 
 `translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
-`translate.functionName` は任意で、指定すると `40px` ではなく `customFn(40px)` のように出力されます。
 transform 配列の順番は `generateScss()` と `generatePreviewCss()` の両方でそのまま維持されます。
 `generateScss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
-`generatePreviewCss()` は preview 用の browser-safe な CSS を出力し、`translate.functionName` は意図的に無視します。
+`generatePreviewCss()` は preview 用の browser-safe な CSS を出力します。
 
 ## 開発
 

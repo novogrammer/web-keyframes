@@ -133,13 +133,11 @@ test("timeline meta inputs update selected timeline data", () => {
 
   setInputValue(window.document, "id", "hero-title");
   setSelectValue(window.document, "translateUnit", "vw");
-  setInputValue(window.document, "translateFunctionName", "layout.wrap");
   setNumberValue(window.document, "duration", 1600);
 
   const data = editor.getData();
   assert.equal(data.timelines[0].id, "hero-title");
   assert.equal(data.timelines[0].translate?.unit, "vw");
-  assert.equal(data.timelines[0].translate?.functionName, "layout.wrap");
   assert.equal(data.timelines[0].duration, 1600);
 });
 
@@ -240,7 +238,7 @@ test("sparse keyframe actions can unset opacity and clear transforms", () => {
 
   clickActionSync(window.document, "unset-opacity");
   assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "");
-  assert.match(editor.toScss(), /0% \{\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\) scale\(1\) rotate\(0deg\);\n  \}/);
+  assert.match(editor.toScss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1\) rotate\(0deg\);\n  \}/);
 
   clickActionSync(window.document, "clear-transforms");
   assert.match(window.document.body.textContent ?? "", /None/);
@@ -301,7 +299,6 @@ test("keyframe list summary reflects translate settings and sparse fields withou
 
   editor.mount();
   setSelectValue(window.document, "translateUnit", "custom");
-  setInputValue(window.document, "translateFunctionName", "wkfPx");
   setInputValue(window.document, "translateCustomUnit", "rem");
   setNumberValue(window.document, "transform-x-0", 2);
   setNumberValue(window.document, "transform-y-0", 4);
@@ -313,7 +310,7 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   clickActionSync(window.document, "unset-transforms");
 
   const summaries = Array.from(window.document.querySelectorAll(".wkf__keyframe-meta")).slice(1).map((node) => node.textContent ?? "");
-  assert.match(summaries[0], /translate\(wkfPx\(2rem\), wkfPx\(4rem\)\) scale\(1\) rotate\(0deg\), opacity 0/);
+  assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1\) rotate\(0deg\), opacity 0/);
   assert.equal(summaries[1], "");
 });
 

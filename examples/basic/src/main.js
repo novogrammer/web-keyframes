@@ -5,7 +5,7 @@ const initialData = {
     {
       id: "hero-logo-intro",
       duration: 1200,
-      translate: { unit: "px", functionName: "wkf-px" },
+      translate: { unit: "px" },
       keyframes: [
         {
           time: 0,
@@ -39,7 +39,7 @@ const initialData = {
     {
       id: "hero-logo-idle",
       duration: 2000,
-      translate: { unit: "px", functionName: "wkf-px" },
+      translate: { unit: "px" },
       keyframes: [
         {
           time: 0,
@@ -73,7 +73,7 @@ const initialData = {
     {
       id: "hero-badge-intro",
       duration: 900,
-      translate: { unit: "px", functionName: "wkf-px" },
+      translate: { unit: "px" },
       keyframes: [
         {
           time: 0,
@@ -107,7 +107,7 @@ const initialData = {
     {
       id: "hero-badge-idle",
       duration: 1800,
-      translate: { unit: "px", functionName: "wkf-px" },
+      translate: { unit: "px" },
       keyframes: [
         {
           time: 0,

@@ -36,7 +36,6 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   duration: 1200,
   translate: {
     unit: DEFAULT_TRANSLATE_CONFIG.unit,
-    functionName: DEFAULT_TRANSLATE_CONFIG.functionName ?? undefined,
   },
   keyframes: [
     {
@@ -74,7 +73,6 @@ type ShortcutDescriptor = {
 
 type RenderTranslateConfig = {
   unit: TranslateUnit;
-  functionName: string;
   customUnit: string;
 };
 
@@ -318,7 +316,6 @@ export class WebKeyframesEditor {
                     { value: "%", label: "%" },
                     { value: "custom", label: "custom" },
                   ])}
-                  ${renderTextField("translateFunctionName", "Translate Function", selectedTimeline.translate.functionName ?? "")}
                   ${
                     selectedTimeline.translate.unit === "custom"
                       ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translate.customUnit ?? "")
@@ -515,14 +512,6 @@ export class WebKeyframesEditor {
     this.bindInputValue("id", (value) => {
       this.updateSelectedTimeline((timeline) => {
         timeline.id = value;
-      });
-    });
-    this.bindInputValue("translateFunctionName", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.translate = {
-          ...(timeline.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-          functionName: value,
-        };
       });
     });
     this.bindInputValue("translateCustomUnit", (value) => {
@@ -1229,7 +1218,6 @@ function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimel
     duration: Number.isFinite(timeline.duration) && timeline.duration > 0 ? Math.round(timeline.duration) : 1,
     translate: {
       unit: timeline.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      functionName: timeline.translate?.functionName?.trim() || "",
       customUnit: timeline.translate?.unit === "custom" ? timeline.translate.customUnit?.trim() || "" : "",
     },
     keyframes: timeline.keyframes.map<NormalizedWebKeyframe>((keyframe) => ({
@@ -1281,7 +1269,6 @@ function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: numb
       : fallback.duration,
     translate: {
       unit: isTranslateUnit(data.translate?.unit) ? data.translate.unit : DEFAULT_TRANSLATE_CONFIG.unit,
-      functionName: typeof data.translate?.functionName === "string" ? data.translate.functionName : undefined,
       customUnit: typeof data.translate?.customUnit === "string" ? data.translate.customUnit : undefined,
     },
     keyframes: resolvedKeyframes,
@@ -1648,8 +1635,7 @@ function formatTransformSummary(transform: TransformOperation, translate: Render
 
 function formatSummaryTranslateValue(value: number, translate: RenderTranslateConfig): string {
   const unit = translate.unit === "custom" ? translate.customUnit || "px" : translate.unit;
-  const dimension = `${formatNumber(value)}${unit}`;
-  return translate.functionName ? `${translate.functionName}(${dimension})` : dimension;
+  return `${formatNumber(value)}${unit}`;
 }
 
 function formatPercentLabel(time: number, duration: number): string {

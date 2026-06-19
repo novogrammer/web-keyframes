@@ -13,7 +13,6 @@ import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./va
 
 export const DEFAULT_TRANSLATE_CONFIG: NormalizedTranslateConfig = {
   unit: "px",
-  functionName: "global.vw",
   customUnit: null,
 };
 
@@ -38,9 +37,6 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
     ...validated,
     translate: {
       unit: translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      functionName: translate
-        ? translate.functionName?.trim() || null
-        : DEFAULT_TRANSLATE_CONFIG.functionName,
       customUnit: translate?.unit === "custom" ? translate.customUnit?.trim() || null : null,
     },
     keyframes,
@@ -88,7 +84,6 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
     translate: timeline.translate
       ? {
           unit: timeline.translate.unit,
-          functionName: timeline.translate.functionName ?? undefined,
           customUnit: timeline.translate.customUnit ?? undefined,
         }
       : undefined,

@@ -44,7 +44,6 @@ export type TranslateUnit = "px" | "vw" | "vh" | "%" | "custom";
 
 export type TranslateConfig = {
   unit: TranslateUnit;
-  functionName?: string;
   customUnit?: string;
 };
 
@@ -61,7 +60,6 @@ export type WebKeyframesDocument = {
 
 export type NormalizedTranslateConfig = {
   unit: TranslateUnit;
-  functionName: string | null;
   customUnit: string | null;
 };
 

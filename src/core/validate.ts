@@ -108,10 +108,6 @@ function validateTranslate(translate: unknown, prefix: string): string[] {
     issues.push(`${prefix}translate.unit must be one of px, vw, vh, %, or custom.`);
   }
 
-  if (candidate.functionName !== undefined && typeof candidate.functionName !== "string") {
-    issues.push(`${prefix}translate.functionName must be a string when provided.`);
-  }
-
   if (candidate.customUnit !== undefined && typeof candidate.customUnit !== "string") {
     issues.push(`${prefix}translate.customUnit must be a string when provided.`);
   }

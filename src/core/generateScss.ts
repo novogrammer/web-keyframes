@@ -75,13 +75,8 @@ function renderTranslateValue(
   previewMode: boolean,
 ): string {
   const unit = translate.unit === "custom" ? translate.customUnit ?? "px" : translate.unit;
-  const dimension = `${formatNumber(value)}${unit}`;
-
-  if (!previewMode && translate.functionName) {
-    return `${translate.functionName}(${dimension})`;
-  }
-
-  return dimension;
+  void previewMode;
+  return `${formatNumber(value)}${unit}`;
 }
 
 function formatPercent(value: number): string {
