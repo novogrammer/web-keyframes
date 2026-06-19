@@ -7,3 +7,7 @@
 .js-hero-logo {
   animation: hero-logo 1200ms ease-out forwards;
 }
+
+.js-hero-logo-idle {
+  animation: hero-logo-idle 2000ms ease-in-out infinite;
+}

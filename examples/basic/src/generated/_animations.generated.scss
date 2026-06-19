@@ -16,3 +16,22 @@
   }
 
 }
+
+@keyframes hero-logo-idle {
+
+  0% {
+    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translate(wkf-px(0px), wkf-px(-2px)) scale(1.01) rotate(1deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(wkf-px(0px), wkf-px(0px)) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+}

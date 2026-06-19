@@ -12,6 +12,24 @@
     opacity: 1;
   }
 }
+@keyframes hero-logo-idle {
+  0% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(0px, -2px) scale(1.01) rotate(1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
 .js-hero-logo {
   animation: hero-logo 1200ms ease-out forwards;
+}
+
+.js-hero-logo-idle {
+  animation: hero-logo-idle 2000ms ease-in-out infinite;
 }

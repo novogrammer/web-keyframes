@@ -108,14 +108,17 @@
         <code>Ctrl+Shift+K</code> shortcut to open the editor overlay.
       </p>
       <p class="hero-copy" style="margin-top: 12px;">
-        The <code>.js-hero-logo</code> card below is animated by the generated CSS output from
+        The cards below are animated by the generated CSS output from
         <code>src/animations/hero-logo.timeline.json</code>.
       </p>
       <div class="hero-actions">
         <button type="button" class="hero-button" data-example-action="toggle-editor">Toggle editor</button>
       </div>
       <div class="hero-card">
-        <div class="js-hero-logo">WKF</div>
+        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+          <div class="js-hero-logo">WKF</div>
+          <div class="js-hero-logo js-hero-logo-idle">IDLE</div>
+        </div>
       </div>
     </div>
 

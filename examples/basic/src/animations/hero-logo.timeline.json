@@ -36,6 +36,43 @@
           ]
         }
       ]
+    },
+    {
+      "id": "hero-logo-idle",
+      "duration": 2000,
+      "translate": {
+        "unit": "px",
+        "functionName": "wkf-px"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        },
+        {
+          "time": 1000,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": -2 },
+            { "kind": "scale", "value": 1.01 },
+            { "kind": "rotate", "value": 1 }
+          ]
+        },
+        {
+          "time": 2000,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        }
+      ]
     }
   ]
 }
