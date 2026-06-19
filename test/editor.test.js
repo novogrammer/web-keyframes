@@ -235,6 +235,22 @@ test("keyframe editor updates selected frame values", () => {
   assert.equal(firstKeyframe.opacity, 0.45);
 });
 
+test("time slider stays mounted while dragging and syncs the numeric field", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const range = window.document.querySelector("[data-wkf-field='time'][type='range']");
+  const number = window.document.querySelector("[data-wkf-field='time'][type='number']");
+  range.value = "240";
+  range.dispatchEvent(new Event("input", { bubbles: true }));
+
+  assert.equal(editor.getData().keyframes[0].time, 240);
+  assert.equal(range.isConnected, true);
+  assert.equal(number.isConnected, true);
+});
+
 test("sparse keyframe actions can unset opacity and clear transforms", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });

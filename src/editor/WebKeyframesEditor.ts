@@ -446,15 +446,15 @@ export class WebKeyframesEditor {
   }
 
   private bindKeyframeEditor(): void {
-    this.bindInputNumber("time", (value) => {
+    this.bindInputNumber("time", (value, shouldRender = true) => {
       this.updateSelectedKeyframe((keyframe) => {
         keyframe.time = clampNumber(Math.round(value), 0, this.data.duration);
-      });
+      }, shouldRender);
     });
-    this.bindInputNumber("opacity", (value) => {
+    this.bindInputNumber("opacity", (value, shouldRender = true) => {
       this.updateSelectedKeyframe((keyframe) => {
         keyframe.opacity = clampNumber(value, 0, 1);
-      });
+      }, shouldRender);
     });
   }
 
@@ -610,24 +610,49 @@ export class WebKeyframesEditor {
     });
   }
 
-  private bindInputNumber(field: string, assign: (value: number) => void): void {
+  private bindInputNumber(field: string, assign: (value: number, shouldRender?: boolean) => void): void {
     this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-      const eventName = input.type === "range" ? "input" : "change";
-      input.addEventListener(eventName, () => {
+      if (input.type === "range") {
+        input.addEventListener("input", () => {
+          const value = Number(input.value);
+          if (!Number.isFinite(value)) {
+            return;
+          }
+
+          assign(value, false);
+          syncNumberFieldValues(this.container, field, value, input);
+          this.setStatus("info", "Editing timeline data.");
+        });
+
+        input.addEventListener("change", () => {
+          const value = Number(input.value);
+          if (!Number.isFinite(value)) {
+            return;
+          }
+
+          this.pendingFocus = captureFocusSnapshot(this.container, field, input);
+          assign(value, true);
+          this.setStatus("info", "Editing timeline data.");
+          this.render();
+        });
+        return;
+      }
+
+      input.addEventListener("change", () => {
         const value = Number(input.value);
         if (!Number.isFinite(value)) {
           return;
         }
 
         this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-        assign(value);
+        assign(value, true);
         this.setStatus("info", "Editing timeline data.");
         this.render();
       });
     });
   }
 
-  private updateSelectedKeyframe(update: (keyframe: NormalizedWebKeyframe) => void): void {
+  private updateSelectedKeyframe(update: (keyframe: NormalizedWebKeyframe) => void, shouldRender = true): void {
     const keyframes = normalizeWebKeyframesData(this.data).keyframes.map((keyframe) => ({
       ...keyframe,
       transforms: keyframe.transforms.map(cloneTransform),
@@ -645,7 +670,9 @@ export class WebKeyframesEditor {
       keyframes,
     });
     this.setStatus("info", "Editing timeline data.");
-    this.render();
+    if (shouldRender) {
+      this.render();
+    }
   }
 
   private bindCopyActions(): void {
@@ -1133,6 +1160,21 @@ function captureFocusSnapshot(
     selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
     selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
   };
+}
+
+function syncNumberFieldValues(
+  container: HTMLElement | null,
+  field: string,
+  value: number,
+  source: HTMLInputElement,
+): void {
+  container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
+    if (input === source) {
+      return;
+    }
+
+    input.value = String(value);
+  });
 }
 
 function renderNumberField(
