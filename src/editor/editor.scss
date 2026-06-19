@@ -59,7 +59,8 @@
     &--dragging {
       user-select: none;
 
-      .wkf__header {
+      .wkf__header,
+      .wkf__footer {
         cursor: grabbing;
       }
     }
@@ -76,6 +77,18 @@
 
   &__header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: grab;
+  }
+
+  &__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    flex: 0 0 auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(180deg, rgba(20, 26, 44, 0.94), rgba(14, 17, 30, 0.98)),
+      #111;
     cursor: grab;
   }
 
