@@ -13,6 +13,9 @@ $wkf-intro-duration: 1200ms;
 $wkf-idle-duration: 2000ms;
 $wkf-intro-delay: 240ms;
 $wkf-delay-offset: 480ms;
+$wkf-badge-intro-duration: 900ms;
+$wkf-badge-idle-duration: 1800ms;
+$wkf-badge-intro-delay: 420ms;
 
 :root {
   color-scheme: light;
@@ -102,6 +105,12 @@ body {
   flex-wrap: wrap;
 }
 
+.hero-badge-row {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+}
+
 .js-hero-logo {
   display: inline-flex;
   align-items: center;
@@ -127,4 +136,25 @@ body {
       hero-logo $wkf-intro-duration ease-out ($wkf-intro-delay + $wkf-delay-offset) forwards,
       hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration + $wkf-delay-offset) infinite;
   }
+}
+
+.js-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff4c4, #f7d46b);
+  color: #4b2e09;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  animation:
+    hero-badge $wkf-badge-intro-duration cubic-bezier(0.2, 0.8, 0.2, 1) $wkf-badge-intro-delay forwards,
+    hero-badge-idle $wkf-badge-idle-duration ease-in-out ($wkf-badge-intro-delay + $wkf-badge-intro-duration) infinite;
 }

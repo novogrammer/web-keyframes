@@ -73,6 +73,80 @@
           ]
         }
       ]
+    },
+    {
+      "id": "hero-badge",
+      "duration": 900,
+      "translate": {
+        "unit": "px",
+        "functionName": "wkf-px"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "opacity": 0,
+          "transforms": [
+            { "kind": "translate", "x": -28, "y": 10 },
+            { "kind": "scale", "value": 0.92 },
+            { "kind": "rotate", "value": -10 }
+          ]
+        },
+        {
+          "time": 520,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 4, "y": -2 },
+            { "kind": "scale", "value": 1.03 },
+            { "kind": "rotate", "value": 2 }
+          ]
+        },
+        {
+          "time": 900,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hero-badge-idle",
+      "duration": 1800,
+      "translate": {
+        "unit": "px",
+        "functionName": "wkf-px"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        },
+        {
+          "time": 900,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1.06 },
+            { "kind": "rotate", "value": -3 }
+          ]
+        },
+        {
+          "time": 1800,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        }
+      ]
     }
   ]
 }
