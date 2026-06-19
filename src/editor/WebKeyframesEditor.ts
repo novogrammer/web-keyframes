@@ -7,8 +7,8 @@ import {
   DEFAULT_TRANSLATE_CONFIG,
   duplicateKeyframes,
   formatNumber,
+  generateCss,
   generatePreviewCss,
-  generateScss,
   moveTransform,
   normalizeTransforms,
   normalizeWebKeyframesTimeline,
@@ -123,7 +123,7 @@ export class WebKeyframesEditor {
   private data: WebKeyframesDocument;
   private selectedTimelineIndex = 0;
   private selectedKeyframeIndex = 0;
-  private statusMessage = "Timeline order is explicit. Preview and SCSS use the selected timeline or the full document consistently.";
+  private statusMessage = "Timeline order is explicit. Preview and CSS use the selected timeline or the full document consistently.";
   private statusTone: "info" | "success" | "error" = "info";
   private previewTitle: string | null = null;
   private previewContent = "";
@@ -230,8 +230,8 @@ export class WebKeyframesEditor {
     return JSON.stringify(this.getNormalizedDocumentData(), null, 2);
   }
 
-  toScss(): string {
-    return generateScss(this.data);
+  toCss(): string {
+    return generateCss(this.data);
   }
 
   private ensureMounted(): void {
@@ -423,9 +423,9 @@ export class WebKeyframesEditor {
             <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
             <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
             <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-json">View JSON</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-scss">View SCSS</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-css">View CSS</button>
             <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="copy-json">Copy JSON</button>
-            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-scss">Copy SCSS</button>
+            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-css">Copy CSS</button>
           </div>
         </div>
       </div>
@@ -878,8 +878,8 @@ export class WebKeyframesEditor {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-json']")?.addEventListener("click", () => {
       void this.copyPayload("json");
     });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-scss']")?.addEventListener("click", () => {
-      void this.copyPayload("scss");
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-css']")?.addEventListener("click", () => {
+      void this.copyPayload("css");
     });
   }
 
@@ -889,19 +889,19 @@ export class WebKeyframesEditor {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='view-json']")?.addEventListener("click", () => {
       this.openPreview("JSON Preview", () => this.toJson());
     });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-scss']")?.addEventListener("click", () => {
-      this.openPreview("SCSS Preview", () => this.toScss());
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-css']")?.addEventListener("click", () => {
+      this.openPreview("CSS Preview", () => this.toCss());
     });
     this.container?.querySelector<HTMLElement>("[data-wkf-action='close-preview']")?.addEventListener("click", () => {
       this.closePreview("Closed preview.");
     });
   }
 
-  private async copyPayload(kind: "json" | "scss"): Promise<void> {
+  private async copyPayload(kind: "json" | "css"): Promise<void> {
     try {
-      const text = kind === "json" ? this.toJson() : this.toScss();
+      const text = kind === "json" ? this.toJson() : this.toCss();
       await writeClipboardText(this.root.ownerDocument.defaultView, text);
-      this.setStatus("success", kind === "json" ? "Copied JSON to clipboard." : "Copied SCSS to clipboard.");
+      this.setStatus("success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.setStatus("error", message);

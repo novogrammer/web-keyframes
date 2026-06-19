@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "gen:scss": "web-keyframes to-scss --input src/animations --output src/generated/_animations.generated.scss",
-    "gen:css": "sass src/styles/example.scss src/generated/example.css --no-source-map --silence-deprecation=import",
-    "build:styles": "npm run gen:scss && npm run gen:css",
+    "gen:keyframes": "web-keyframes to-css --input src/animations --output src/generated/animations.css",
+    "gen:page": "sass src/styles/example.scss src/generated/example.css --no-source-map",
+    "build:styles": "npm run gen:keyframes && npm run gen:page",
     "dev": "npm run build:styles && serve ."
   },
   "devDependencies": {

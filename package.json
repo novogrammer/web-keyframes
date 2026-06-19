@@ -1,7 +1,7 @@
 {
   "name": "web-keyframes",
   "version": "0.1.0",
-  "description": "Lightweight keyframe editor core and SCSS generator for web animations.",
+  "description": "Lightweight keyframe editor core and CSS generator for web animations.",
   "type": "module",
   "files": [
     "dist",

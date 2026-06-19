@@ -1,7 +1,7 @@
-import { formatScss } from "./formatScss.js";
+import { formatCss } from "./formatCss.js";
 import { normalizeWebKeyframesTimeline } from "./normalize.js";
 import { validateWebKeyframesTimeline } from "./validate.js";
-import { formatNumber, renderTransform } from "./generateScss.js";
+import { formatNumber, renderTransform } from "./generateCss.js";
 import type { WebKeyframesTimeline } from "./types.js";
 
 export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: string): string {
@@ -30,7 +30,7 @@ export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: s
     return lines.join("\n");
   });
 
-  return formatScss([["@keyframes " + animationName + " {", ...keyframeBlocks, "}"].join("\n\n")]);
+  return formatCss([["@keyframes " + animationName + " {", ...keyframeBlocks, "}"].join("\n\n")]);
 }
 
 function formatPercent(value: number): string {

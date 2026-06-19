@@ -87,7 +87,7 @@ test("data helpers stay available before and after mount", () => {
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
   assert.match(editor.toJson(), /"timelines"/);
-  assert.match(editor.toScss(), /@keyframes new-animation/);
+  assert.match(editor.toCss(), /@keyframes new-animation/);
 
   editor.mount();
   editor.setData({
@@ -120,7 +120,7 @@ test("data helpers stay available before and after mount", () => {
   });
 
   assert.equal(editor.getData().timelines[0].id, "hero-logo");
-  assert.match(editor.toScss(), /@keyframes hero-logo/);
+  assert.match(editor.toCss(), /@keyframes hero-logo/);
   const idInput = window.document.querySelector("[data-wkf-field='id']");
   assert.equal(idInput?.value, "hero-logo");
 });
@@ -177,8 +177,8 @@ test("timeline selection switches the visible editor", async () => {
 
   const idInput = window.document.querySelector("[data-wkf-field='id']");
   assert.equal(idInput?.value, "hero-out");
-  assert.match(editor.toScss(), /@keyframes hero-in/);
-  assert.match(editor.toScss(), /@keyframes hero-out/);
+  assert.match(editor.toCss(), /@keyframes hero-in/);
+  assert.match(editor.toCss(), /@keyframes hero-out/);
 });
 
 test("custom unit input keeps focus while typing", async () => {
@@ -238,7 +238,7 @@ test("sparse keyframe actions can unset opacity and clear transforms", () => {
 
   clickActionSync(window.document, "unset-opacity");
   assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "");
-  assert.match(editor.toScss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1\) rotate\(0deg\);\n  \}/);
+  assert.match(editor.toCss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1\) rotate\(0deg\);\n  \}/);
 
   clickActionSync(window.document, "clear-transforms");
   assert.match(window.document.body.textContent ?? "", /None/);
@@ -260,7 +260,7 @@ test("deleting the last transform sets transform to none", async () => {
   await clickAction(window.document, "delete-transform");
 
   assert.deepEqual(editor.getData().timelines[0].keyframes[0].transforms, []);
-  assert.match(editor.toScss(), /transform: none;/);
+  assert.match(editor.toCss(), /transform: none;/);
 });
 
 test("add and delete keyframe actions update the list", async () => {
@@ -314,14 +314,14 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   assert.equal(summaries[1], "");
 });
 
-test("copy actions write JSON and SCSS to the clipboard", async () => {
+test("copy actions write JSON and CSS to the clipboard", async () => {
   const { window, clipboardWrites } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
   editor.mount();
 
   await clickAction(window.document, "copy-json");
-  await clickAction(window.document, "copy-scss");
+  await clickAction(window.document, "copy-css");
 
   assert.match(clipboardWrites[0], /"timelines"/);
   assert.match(clipboardWrites[1], /@keyframes new-animation/);
@@ -356,7 +356,7 @@ test("preview applies generated keyframes to matching animation-name targets and
   assert.equal(target.style.animationName, "");
 });
 
-test("view actions open JSON and SCSS previews and can be closed", async () => {
+test("view actions open JSON and CSS previews and can be closed", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
@@ -365,7 +365,7 @@ test("view actions open JSON and SCSS previews and can be closed", async () => {
   await clickAction(window.document, "view-json");
   assert.match(getPreviewValue(window.document), /"timelines"/);
 
-  await clickAction(window.document, "view-scss");
+  await clickAction(window.document, "view-css");
   assert.match(getPreviewValue(window.document), /@keyframes new-animation/);
 
   await clickAction(window.document, "close-preview");

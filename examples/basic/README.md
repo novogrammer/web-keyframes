@@ -29,10 +29,10 @@ npm run build:styles
 
 This writes:
 
-- `src/generated/_animations.generated.scss`
+- `src/generated/animations.css`
 - `src/generated/example.css`
 
-The generated SCSS contains only `@keyframes`. The example's `animation` shorthand stays in
+The generated CSS contains only `@keyframes`. The example's `animation` shorthand stays in
 `src/styles/example.scss`.
 
 `npm run dev` runs this build step automatically before serving the page.

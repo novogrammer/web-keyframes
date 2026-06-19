@@ -1,4 +1,4 @@
-import { formatScss } from "./formatScss.js";
+import { formatCss } from "./formatCss.js";
 import { normalizeWebKeyframesDocument, normalizeWebKeyframesTimeline } from "./normalize.js";
 import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./validate.js";
 import type {
@@ -8,22 +8,22 @@ import type {
   WebKeyframesTimeline,
 } from "./types.js";
 
-export function generateScss(data: WebKeyframesDocument): string {
+export function generateCss(data: WebKeyframesDocument): string {
   const validated = validateWebKeyframesDocument(data);
   const normalized = normalizeWebKeyframesDocument(data);
 
-  return formatScss(
-    validated.timelines.map((timeline, index) => renderTimelineScss(timeline, normalized.timelines[index])),
+  return formatCss(
+    validated.timelines.map((timeline, index) => renderTimelineCss(timeline, normalized.timelines[index])),
   );
 }
 
-export function generateTimelineScss(data: WebKeyframesTimeline): string {
+export function generateTimelineCss(data: WebKeyframesTimeline): string {
   const validated = validateWebKeyframesTimeline(data);
   const normalized = normalizeWebKeyframesTimeline(data);
-  return formatScss([renderTimelineScss(validated, normalized)]);
+  return formatCss([renderTimelineCss(validated, normalized)]);
 }
 
-function renderTimelineScss(
+function renderTimelineCss(
   validated: WebKeyframesTimeline,
   normalized: ReturnType<typeof normalizeWebKeyframesTimeline>,
 ): string {

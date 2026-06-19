@@ -3,12 +3,12 @@
 English: [README.md](./README.md)  
 日本語: [README.ja.md](./README.ja.md)
 
-`web-keyframes` is a lightweight keyframe data editor and SCSS generator for web animation workflows.
+`web-keyframes` is a lightweight keyframe data editor and CSS generator for web animation workflows.
 
 It does two things:
 
 - Edit keyframe document JSON in a browser-side overlay editor
-- Convert that JSON into SCSS keyframes
+- Convert that JSON into CSS keyframes
 
 This package is intentionally narrow. It does not auto-save files or depend on a specific app bundler.
 
@@ -48,7 +48,7 @@ editor.getData();
 editor.setData(data);
 
 editor.toJson();
-editor.toScss();
+editor.toCss();
 ```
 
 ### Current editor features
@@ -59,11 +59,11 @@ editor.toScss();
 - Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
 - Add, duplicate, select, and delete timelines
 - Add, duplicate, and delete keyframes
-- View generated JSON and SCSS inside the editor
+- View generated JSON and CSS inside the editor
 - Run a lightweight preview against real DOM elements already using the same `animation-name`
 - Reset that preview back to the page's original animation name
 - Copy JSON
-- Copy SCSS
+- Copy CSS
 - Reset the editor back to default data
 - Toggle visibility with an optional shortcut
 - Close preview panels with `Escape`
@@ -141,24 +141,24 @@ Internal editing helpers still resolve sparse values against the previous keyfra
 Convert one file:
 
 ```bash
-web-keyframes to-scss \
+web-keyframes to-css \
   --input src/animations/hero-logo.timeline.json \
-  --output src/assets/css/generated/_hero-logo.scss
+  --output src/assets/css/generated/hero-logo.css
 ```
 
-Convert a directory of `*.timeline.json` files into one SCSS file:
+Convert a directory of `*.timeline.json` files into one CSS file:
 
 ```bash
-web-keyframes to-scss \
+web-keyframes to-css \
   --input src/animations \
-  --output src/assets/css/generated/_animations.generated.scss
+  --output src/assets/css/generated/animations.css
 ```
 
 Each input file may contain one or more timelines. When the input is a directory, files are read in filename order and joined with blank lines.
 
 ## Output example
 
-```scss
+```css
 @keyframes hero-logo {
   0% {
     transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);
@@ -173,8 +173,8 @@ Each input file may contain one or more timelines. When the input is a directory
 ```
 
 `translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
-Transform array order is preserved exactly in both `generateScss()` and `generatePreviewCss()`.
-`generateScss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
+Transform array order is preserved exactly in both `generateCss()` and `generatePreviewCss()`.
+`generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 `generatePreviewCss()` emits browser-safe preview CSS.
 
 ## Development

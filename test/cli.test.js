@@ -8,10 +8,10 @@ import { spawn } from "node:child_process";
 const repoRoot = path.resolve(process.cwd());
 const cliEntry = path.join(repoRoot, "dist", "cli", "index.js");
 
-test("CLI converts a single JSON file to SCSS", async () => {
+test("CLI converts a single JSON file to CSS", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wkf-cli-single-"));
   const inputPath = path.join(tempDir, "hero-logo.timeline.json");
-  const outputPath = path.join(tempDir, "generated", "_animations.scss");
+  const outputPath = path.join(tempDir, "generated", "animations.css");
 
   await writeFile(
     inputPath,
@@ -48,17 +48,17 @@ test("CLI converts a single JSON file to SCSS", async () => {
     }),
   );
 
-  const result = await runCli(["to-scss", "--input", inputPath, "--output", outputPath]);
+  const result = await runCli(["to-css", "--input", inputPath, "--output", outputPath]);
   const output = await readFile(outputPath, "utf8");
 
   assert.equal(result.code, 0);
-  assert.match(result.stdout, /Wrote SCSS/);
+  assert.match(result.stdout, /Wrote CSS/);
   assert.match(output, /@keyframes hero-logo/);
 });
 
 test("CLI converts only .timeline.json files from a directory and joins them with blank lines", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wkf-cli-directory-"));
-  const outputPath = path.join(tempDir, "generated.scss");
+  const outputPath = path.join(tempDir, "generated.css");
 
   await writeFile(
     path.join(tempDir, "a.timeline.json"),
@@ -124,7 +124,7 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
   );
   await writeFile(path.join(tempDir, "ignore.json"), "{}");
 
-  const result = await runCli(["to-scss", "--input", tempDir, "--output", outputPath]);
+  const result = await runCli(["to-css", "--input", tempDir, "--output", outputPath]);
   const output = await readFile(outputPath, "utf8");
 
   assert.equal(result.code, 0);
@@ -137,11 +137,11 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
 test("CLI reports invalid JSON with the file path", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wkf-cli-invalid-json-"));
   const inputPath = path.join(tempDir, "broken.timeline.json");
-  const outputPath = path.join(tempDir, "generated.scss");
+  const outputPath = path.join(tempDir, "generated.css");
 
   await writeFile(inputPath, "{invalid json");
 
-  const result = await runCli(["to-scss", "--input", inputPath, "--output", outputPath]);
+  const result = await runCli(["to-css", "--input", inputPath, "--output", outputPath]);
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /Invalid JSON/);
@@ -151,16 +151,16 @@ test("CLI reports invalid JSON with the file path", async () => {
 test("CLI fails for missing input paths", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wkf-cli-missing-input-"));
   const inputPath = path.join(tempDir, "missing.timeline.json");
-  const outputPath = path.join(tempDir, "generated.scss");
+  const outputPath = path.join(tempDir, "generated.css");
 
-  const result = await runCli(["to-scss", "--input", inputPath, "--output", outputPath]);
+  const result = await runCli(["to-css", "--input", inputPath, "--output", outputPath]);
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /Input path does not exist/);
 });
 
 test("CLI fails when --output is omitted", async () => {
-  const result = await runCli(["to-scss", "--input", "somewhere"]);
+  const result = await runCli(["to-css", "--input", "somewhere"]);
 
   assert.equal(result.code, 1);
   assert.match(result.stderr, /--output is required/);

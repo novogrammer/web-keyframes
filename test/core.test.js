@@ -5,8 +5,8 @@ import {
   DEFAULT_TRANSLATE_CONFIG,
   WebKeyframesValidationError,
   duplicateKeyframes,
+  generateCss,
   generatePreviewCss,
-  generateScss,
   nudgeTransforms,
   normalizeWebKeyframesDocument,
   normalizeWebKeyframesTimeline,
@@ -45,17 +45,17 @@ const baseDocument = {
   timelines: [baseTimeline],
 };
 
-test("generateScss renders the expected SCSS for a document", () => {
-  const scss = generateScss(baseDocument);
+test("generateCss renders the expected CSS for a document", () => {
+  const css = generateCss(baseDocument);
 
   assert.equal(
-    scss,
+    css,
     `@keyframes hero-logo {\n\n  0% {\n    transform: translate(0px, 40px) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(0px, 0px) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
   );
 });
 
-test("generateScss concatenates multiple timelines", () => {
-  const scss = generateScss({
+test("generateCss concatenates multiple timelines", () => {
+  const css = generateCss({
     timelines: [
       baseTimeline,
       {
@@ -65,9 +65,9 @@ test("generateScss concatenates multiple timelines", () => {
     ],
   });
 
-  assert.match(scss, /@keyframes hero-logo/);
-  assert.match(scss, /@keyframes hero-shadow/);
-  assert.match(scss, /}\n\n@keyframes hero-shadow/);
+  assert.match(css, /@keyframes hero-logo/);
+  assert.match(css, /@keyframes hero-shadow/);
+  assert.match(css, /}\n\n@keyframes hero-shadow/);
 });
 
 test("normalizeWebKeyframesTimeline applies default translate config and sorts keyframes", () => {
@@ -107,8 +107,8 @@ test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => 
   assert.deepEqual(normalized.timelines[0].keyframes[2].transforms, []);
 });
 
-test("generateScss supports direct units", () => {
-  const scss = generateScss({
+test("generateCss supports direct units", () => {
+  const css = generateCss({
     timelines: [
       {
         ...baseTimeline,
@@ -117,7 +117,7 @@ test("generateScss supports direct units", () => {
     ],
   });
 
-  assert.match(scss, /translate\(0vw, 40vw\)/);
+  assert.match(css, /translate\(0vw, 40vw\)/);
 });
 
 test("generatePreviewCss emits browser-safe transforms", () => {
@@ -129,8 +129,8 @@ test("generatePreviewCss emits browser-safe transforms", () => {
   assert.match(css, /translate\(0px, 40px\)/);
 });
 
-test("generateScss preserves explicit transform order including skew", () => {
-  const scss = generateScss({
+test("generateCss preserves explicit transform order including skew", () => {
+  const css = generateCss({
     timelines: [
       {
         ...baseTimeline,
@@ -158,11 +158,11 @@ test("generateScss preserves explicit transform order including skew", () => {
     ],
   });
 
-  assert.match(scss, /transform: rotate\(-6deg\) translate\(0px, 40px\) skew\(8deg, -4deg\)/);
+  assert.match(css, /transform: rotate\(-6deg\) translate\(0px, 40px\) skew\(8deg, -4deg\)/);
 });
 
-test("generateScss omits nullable fields and renders empty transforms as none", () => {
-  const scss = generateScss({
+test("generateCss omits nullable fields and renders empty transforms as none", () => {
+  const css = generateCss({
     timelines: [
       {
         ...baseTimeline,
@@ -175,9 +175,9 @@ test("generateScss omits nullable fields and renders empty transforms as none", 
     ],
   });
 
-  assert.match(scss, /0% {\n    transform: translate\(0px, 40px\);\n    opacity: 0;\n  }/);
-  assert.match(scss, /50% {\n  }/);
-  assert.match(scss, /100% {\n    transform: none;\n  }/);
+  assert.match(css, /0% {\n    transform: translate\(0px, 40px\);\n    opacity: 0;\n  }/);
+  assert.match(css, /50% {\n  }/);
+  assert.match(css, /100% {\n    transform: none;\n  }/);
 });
 
 test("validateWebKeyframesDocument rejects missing and invalid required fields", () => {

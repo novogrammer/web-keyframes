@@ -6,7 +6,7 @@
 - transform の順序を明示的に保持し、記述順をそのまま出力へ反映する。
 - `x / y / scale / rotate / opacity` スタイルのモデルから、リストベースの transform 表現へ移行した。
 - 最小 transform 項目セットとして `translate`, `scale`, `rotate`, `skew` を扱えるようにした。
-- transform の配列順をそのまま SCSS 出力順と preview の適用順に反映した。
+- transform の配列順をそのまま CSS 出力順と preview の適用順に反映した。
 - transform の内部表現を、JavaScript 側で扱いやすい小さなデータモデルとして明確にした。
 
 ## プレビュー

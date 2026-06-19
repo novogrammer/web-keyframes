@@ -3,12 +3,12 @@
 English: [README.md](./README.md)  
 日本語: [README.ja.md](./README.ja.md)
 
-`web-keyframes` は、Web アニメーション向けの軽量なキーフレームデータエディタ兼 SCSS 生成ツールです。
+`web-keyframes` は、Web アニメーション向けの軽量なキーフレームデータエディタ兼 CSS 生成ツールです。
 
 できることは 2 つです。
 
 - ブラウザ上のオーバーレイエディタで keyframe document JSON を編集する
-- その JSON から SCSS の keyframes を生成する
+- その JSON から CSS の keyframes を生成する
 
 このパッケージは意図的に役割を絞っています。自動保存や特定のビルドツールへの依存は持ちません。
 
@@ -48,7 +48,7 @@ editor.getData();
 editor.setData(data);
 
 editor.toJson();
-editor.toScss();
+editor.toCss();
 ```
 
 ### 現在のエディタ機能
@@ -59,11 +59,11 @@ editor.toScss();
 - `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
 - timeline の追加、複製、選択、削除
 - キーフレームの追加、複製、削除
-- 生成された JSON / SCSS のエディタ内プレビュー
+- 生成された JSON / CSS のエディタ内プレビュー
 - 同じ `animation-name` を使っている実 DOM 要素に対する軽量 preview
 - その preview の解除
 - JSON のコピー
-- SCSS のコピー
+- CSS のコピー
 - デフォルト状態へのリセット
 - 任意ショートカットによる表示切り替え
 - `Escape` によるプレビューのクローズ
@@ -141,24 +141,24 @@ document は `timelines[]` を持ち、各 timeline が自分の `id`、`duratio
 単一ファイルを変換する例:
 
 ```bash
-web-keyframes to-scss \
+web-keyframes to-css \
   --input src/animations/hero-logo.timeline.json \
-  --output src/assets/css/generated/_hero-logo.scss
+  --output src/assets/css/generated/hero-logo.css
 ```
 
 `*.timeline.json` をまとめて 1 ファイルへ出力する例:
 
 ```bash
-web-keyframes to-scss \
+web-keyframes to-css \
   --input src/animations \
-  --output src/assets/css/generated/_animations.generated.scss
+  --output src/assets/css/generated/animations.css
 ```
 
 各入力ファイルは 1 個以上の timeline を持てます。ディレクトリ入力時は、ファイル名順で読み込み、空行を挟んで結合します。
 
 ## 出力例
 
-```scss
+```css
 @keyframes hero-logo {
   0% {
     transform: translate(0px, 40px) scale(1) rotate(0deg);
@@ -173,8 +173,8 @@ web-keyframes to-scss \
 ```
 
 `translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
-transform 配列の順番は `generateScss()` と `generatePreviewCss()` の両方でそのまま維持されます。
-`generateScss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
+transform 配列の順番は `generateCss()` と `generatePreviewCss()` の両方でそのまま維持されます。
+`generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 `generatePreviewCss()` は preview 用の browser-safe な CSS を出力します。
 
 ## 開発

@@ -29,9 +29,9 @@ export {
   spreadKeyframeTimes,
   staggerKeyframes,
 } from "./edit.js";
-export { formatScss } from "./formatScss.js";
+export { formatCss } from "./formatCss.js";
 export { generatePreviewCss } from "./generatePreviewCss.js";
-export { formatNumber, generateScss, generateTimelineScss, renderTransform } from "./generateScss.js";
+export { formatNumber, generateCss, generateTimelineCss, renderTransform } from "./generateCss.js";
 export {
   cloneDocument,
   cloneTimeline,
