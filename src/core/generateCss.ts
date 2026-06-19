@@ -1,5 +1,10 @@
 import { formatCss } from "./formatCss.js";
-import { normalizeWebKeyframesDocument, normalizeWebKeyframesTimeline } from "./normalize.js";
+import {
+  getOpacityProperty,
+  getTransformProperty,
+  normalizeWebKeyframesDocument,
+  normalizeWebKeyframesTimeline,
+} from "./normalize.js";
 import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./validate.js";
 import type {
   NormalizedTranslateConfig,
@@ -32,17 +37,19 @@ function renderTimelineCss(
   const keyframeBlocks = keyframesByTime.map((keyframe, index) => {
     const percent = formatPercent((normalized.keyframes[index].time / normalized.duration) * 100);
     const lines = [`  ${percent} {`];
+    const transformProperty = getTransformProperty(keyframe);
+    const opacityProperty = getOpacityProperty(keyframe);
 
-    if (Array.isArray(keyframe.transforms)) {
+    if (transformProperty) {
       lines.push(
-        keyframe.transforms.length > 0
-          ? `    transform: ${keyframe.transforms.map((item) => renderTransform(item, normalized.translate, false)).join(" ")};`
+        transformProperty.value.length > 0
+          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translate, false)).join(" ")};`
           : "    transform: none;",
       );
     }
 
-    if (typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)) {
-      lines.push(`    opacity: ${formatNumber(keyframe.opacity)};`);
+    if (opacityProperty && Number.isFinite(opacityProperty.value)) {
+      lines.push(`    opacity: ${formatNumber(opacityProperty.value)};`);
     }
 
     lines.push("  }");

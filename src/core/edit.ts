@@ -1,8 +1,13 @@
 import {
   cloneTimeline,
   cloneTransform,
+  createOpacityProperty,
   createDefaultTransform,
+  createTransformProperty,
+  getOpacityValue,
+  getTransformOperations,
   normalizeWebKeyframesTimeline,
+  upsertKeyframeProperty,
 } from "./normalize.js";
 import type {
   NormalizedWebKeyframesTimeline,
@@ -33,7 +38,12 @@ export function duplicateKeyframes(
     const source = normalized.keyframes[index];
     return {
       ...source,
-      transforms: source.transforms.map(cloneTransform),
+      properties: source.properties.map((property) => {
+        if (property.kind === "transform") {
+          return createTransformProperty(property.value.map(cloneTransform));
+        }
+        return createOpacityProperty(property.value);
+      }),
       time: clampNumber(source.time + offset, 0, normalized.duration),
     };
   });
@@ -86,7 +96,11 @@ export function spreadKeyframeTimes(
 
   const nextKeyframes = normalized.keyframes.map((keyframe) => ({
     ...keyframe,
-    transforms: keyframe.transforms.map(cloneTransform),
+    properties: keyframe.properties.map((property) =>
+      property.kind === "transform"
+        ? createTransformProperty(property.value.map(cloneTransform))
+        : createOpacityProperty(property.value)
+    ),
   }));
 
   indexes.forEach((index, order) => {
@@ -118,7 +132,11 @@ export function staggerKeyframes(
   const step = Math.round(stepMs);
   const nextKeyframes = normalized.keyframes.map((keyframe) => ({
     ...keyframe,
-    transforms: keyframe.transforms.map(cloneTransform),
+    properties: keyframe.properties.map((property) =>
+      property.kind === "transform"
+        ? createTransformProperty(property.value.map(cloneTransform))
+        : createOpacityProperty(property.value)
+    ),
   }));
 
   indexes.forEach((index, order) => {
@@ -155,12 +173,18 @@ export function nudgeTransforms(
 
       return {
         ...keyframe,
-        transforms: keyframe.transforms.map((transform, transformIndex) => {
-          if (!selectedTransforms.has(transformIndex)) {
-            return cloneTransform(transform);
+        properties: keyframe.properties.map((property) => {
+          if (property.kind !== "transform") {
+            return createOpacityProperty(property.value);
           }
 
-          return updateTransformField(transform, field, amount);
+          return createTransformProperty(property.value.map((transform, transformIndex) => {
+            if (!selectedTransforms.has(transformIndex)) {
+              return cloneTransform(transform);
+            }
+
+            return updateTransformField(transform, field, amount);
+          }));
         }),
       };
     }),
@@ -190,12 +214,18 @@ export function mirrorTransforms(
 
     accumulator.keyframes[keyframeIndex] = {
       ...keyframe,
-      transforms: keyframe.transforms.map((transform, transformIndex) => {
-        if (!selectedTransforms.has(transformIndex)) {
-          return cloneTransform(transform);
+      properties: keyframe.properties.map((property) => {
+        if (property.kind !== "transform") {
+          return createOpacityProperty(property.value);
         }
 
-        return setTransformField(transform, field, origin - (readTransformField(transform, field) - origin));
+        return createTransformProperty(property.value.map((transform, transformIndex) => {
+          if (!selectedTransforms.has(transformIndex)) {
+            return cloneTransform(transform);
+          }
+
+          return setTransformField(transform, field, origin - (readTransformField(transform, field) - origin));
+        }));
       }),
     };
     return accumulator;
@@ -224,18 +254,31 @@ export function moveTransform(
     return normalized;
   }
 
-  const nextIndex = clampNumber(transformIndex + direction, 0, keyframe.transforms.length - 1);
+  const transforms = getTransformOperations(keyframe);
+  const nextIndex = clampNumber(transformIndex + direction, 0, transforms.length - 1);
   if (nextIndex === transformIndex) {
     return normalized;
   }
 
-  const transforms = keyframe.transforms.map(cloneTransform);
-  const [moved] = transforms.splice(transformIndex, 1);
-  transforms.splice(nextIndex, 0, moved);
+  const nextTransforms = transforms.map(cloneTransform);
+  const [moved] = nextTransforms.splice(transformIndex, 1);
+  nextTransforms.splice(nextIndex, 0, moved);
 
-  const keyframes = normalized.keyframes.map((item, index) =>
-    index === keyframeIndex ? { ...item, transforms } : item,
-  );
+  const keyframes = normalized.keyframes.map((item, index) => {
+    if (index !== keyframeIndex) {
+      return item;
+    }
+
+    const nextKeyframe = {
+      ...item,
+      properties: item.properties.map((property) =>
+        property.kind === "transform"
+          ? createTransformProperty(nextTransforms)
+          : createOpacityProperty(property.value)
+      ),
+    };
+    return nextKeyframe;
+  });
 
   return {
     ...normalized,
@@ -255,11 +298,20 @@ export function addTransform(
     return normalized;
   }
 
-  const keyframes = normalized.keyframes.map((item, index) =>
-    index === keyframeIndex
-      ? { ...item, transforms: [...item.transforms.map(cloneTransform), createDefaultTransform(kind)] }
-      : item,
-  );
+  const keyframes = normalized.keyframes.map((item, index) => {
+    if (index !== keyframeIndex) {
+      return item;
+    }
+
+    return {
+      ...item,
+      properties: item.properties.map((property) =>
+        property.kind === "transform"
+          ? createTransformProperty([...property.value.map(cloneTransform), createDefaultTransform(kind)])
+          : createOpacityProperty(property.value)
+      ),
+    };
+  });
 
   return {
     ...normalized,
@@ -279,11 +331,20 @@ export function removeTransform(
     return normalized;
   }
 
-  const keyframes = normalized.keyframes.map((item, index) =>
-    index === keyframeIndex
-      ? { ...item, transforms: item.transforms.filter((_, index2) => index2 !== transformIndex).map(cloneTransform) }
-      : item,
-  );
+  const keyframes = normalized.keyframes.map((item, index) => {
+    if (index !== keyframeIndex) {
+      return item;
+    }
+
+    return {
+      ...item,
+      properties: item.properties.map((property) =>
+        property.kind === "transform"
+          ? createTransformProperty(property.value.filter((_, index2) => index2 !== transformIndex).map(cloneTransform))
+          : createOpacityProperty(property.value)
+      ),
+    };
+  });
 
   return {
     ...normalized,
@@ -314,20 +375,29 @@ function updateSingleTransform(
   const normalized = normalizeEditableTimeline(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
-  if (!keyframe || !keyframe.transforms[transformIndex]) {
+  const transforms = keyframe ? getTransformOperations(keyframe) : [];
+  if (!keyframe || !transforms[transformIndex]) {
     return normalized;
   }
 
-  const keyframes = normalized.keyframes.map((item, index) =>
-    index === keyframeIndex
-      ? {
-          ...item,
-          transforms: item.transforms.map((transform, index2) =>
-            index2 === transformIndex ? update(transform) : cloneTransform(transform),
-          ),
+  const keyframes = normalized.keyframes.map((item, index) => {
+    if (index !== keyframeIndex) {
+      return item;
+    }
+
+    return {
+      ...item,
+      properties: item.properties.map((property) => {
+        if (property.kind !== "transform") {
+          return createOpacityProperty(property.value);
         }
-      : item,
-  );
+
+        return createTransformProperty(property.value.map((transform, index2) =>
+          index2 === transformIndex ? update(transform) : cloneTransform(transform),
+        ));
+      }),
+    };
+  });
 
   return {
     ...normalized,

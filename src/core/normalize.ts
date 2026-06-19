@@ -1,8 +1,12 @@
 import type {
+  KeyframeProperty,
   NormalizedTranslateConfig,
   NormalizedWebKeyframe,
   NormalizedWebKeyframesDocument,
   NormalizedWebKeyframesTimeline,
+  OpacityProperty,
+  PropertyKind,
+  TransformProperty,
   TransformKind,
   TransformOperation,
   WebKeyframe,
@@ -47,21 +51,30 @@ export function normalizeKeyframe(
   keyframe: WebKeyframe,
   previous?: NormalizedWebKeyframe,
 ): NormalizedWebKeyframe {
+  const opacityProperty = getOpacityProperty(keyframe);
+  const previousOpacity = previous ? (getOpacityValue(previous, 1) ?? 1) : 1;
+  const transformProperty = getTransformProperty(keyframe);
+  const previousTransforms = previous ? getTransformOperations(previous) : [];
+
   return {
     time: keyframe.time,
-    opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)
-      ? keyframe.opacity
-      : previous?.opacity ?? 1,
-    transforms: normalizeTransforms(keyframe, previous?.transforms ?? []),
+    properties: [
+      createOpacityProperty(
+        opacityProperty && Number.isFinite(opacityProperty.value)
+          ? opacityProperty.value
+          : previousOpacity,
+      ),
+      createTransformProperty(
+        transformProperty
+          ? transformProperty.value.map(cloneTransform)
+          : previousTransforms.map(cloneTransform),
+      ),
+    ],
   };
 }
 
 export function normalizeTransforms(keyframe: WebKeyframe, fallback: TransformOperation[] = []): TransformOperation[] {
-  if (Array.isArray(keyframe.transforms)) {
-    return keyframe.transforms.map(cloneTransform);
-  }
-
-  return fallback.map(cloneTransform);
+  return getTransformOperations(keyframe, fallback);
 }
 
 export function cloneTransform(transform: TransformOperation): TransformOperation {
@@ -89,8 +102,7 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
       : undefined,
     keyframes: timeline.keyframes.map((keyframe) => ({
       time: keyframe.time,
-      opacity: keyframe.opacity,
-      transforms: Array.isArray(keyframe.transforms) ? keyframe.transforms.map(cloneTransform) : keyframe.transforms,
+      properties: cloneProperties(keyframe.properties ?? []),
     })),
   };
 }
@@ -112,4 +124,99 @@ export function createDefaultTransform(kind: TransformKind): TransformOperation 
     case "skew":
       return { kind: "skew", x: 0, y: 0 };
   }
+}
+
+export function createOpacityProperty(value: number): OpacityProperty {
+  return { kind: "opacity", value };
+}
+
+export function createTransformProperty(value: TransformOperation[]): TransformProperty {
+  return { kind: "transform", value: value.map(cloneTransform) };
+}
+
+export function cloneProperty(property: KeyframeProperty): KeyframeProperty {
+  switch (property.kind) {
+    case "opacity":
+      return createOpacityProperty(property.value);
+    case "transform":
+      return createTransformProperty(property.value);
+  }
+}
+
+export function cloneProperties(properties: KeyframeProperty[]): KeyframeProperty[] {
+  return properties.map(cloneProperty);
+}
+
+export function getKeyframeProperty(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+  kind: PropertyKind,
+): KeyframeProperty | null {
+  if (!keyframe) {
+    return null;
+  }
+  const properties = Array.isArray(keyframe.properties) ? keyframe.properties : [];
+  return properties.find((property) => property.kind === kind) ?? null;
+}
+
+export function getOpacityProperty(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+): OpacityProperty | null {
+  const property = getKeyframeProperty(keyframe, "opacity");
+  return property?.kind === "opacity" ? property : null;
+}
+
+export function getTransformProperty(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+): TransformProperty | null {
+  const property = getKeyframeProperty(keyframe, "transform");
+  return property?.kind === "transform" ? property : null;
+}
+
+export function hasKeyframeProperty(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+  kind: PropertyKind,
+): boolean {
+  return getKeyframeProperty(keyframe, kind) !== null;
+}
+
+export function getOpacityValue(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+  fallback: number | null = null,
+): number | null {
+  const property = getOpacityProperty(keyframe);
+  return property ? property.value : fallback;
+}
+
+export function getTransformOperations(
+  keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
+  fallback: TransformOperation[] = [],
+): TransformOperation[] {
+  const property = getTransformProperty(keyframe);
+  return property ? property.value.map(cloneTransform) : fallback.map(cloneTransform);
+}
+
+export function upsertKeyframeProperty(
+  keyframe: WebKeyframe | NormalizedWebKeyframe,
+  property: KeyframeProperty,
+): void {
+  const next = cloneProperty(property);
+  const properties = Array.isArray(keyframe.properties) ? cloneProperties(keyframe.properties) : [];
+  const index = properties.findIndex((candidate) => candidate.kind === next.kind);
+  if (index === -1) {
+    properties.push(next);
+  } else {
+    properties[index] = next;
+  }
+  keyframe.properties = properties;
+}
+
+export function deleteKeyframeProperty(
+  keyframe: WebKeyframe | NormalizedWebKeyframe,
+  kind: PropertyKind,
+): void {
+  if (!Array.isArray(keyframe.properties)) {
+    return;
+  }
+
+  keyframe.properties = keyframe.properties.filter((property) => property.kind !== kind).map(cloneProperty);
 }

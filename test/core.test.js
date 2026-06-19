@@ -4,9 +4,13 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_TRANSLATE_CONFIG,
   WebKeyframesValidationError,
+  createOpacityProperty,
+  createTransformProperty,
   duplicateKeyframes,
   generateCss,
   generatePreviewCss,
+  getOpacityValue,
+  getTransformOperations,
   nudgeTransforms,
   normalizeWebKeyframesDocument,
   normalizeWebKeyframesTimeline,
@@ -20,24 +24,16 @@ const baseTimeline = {
   duration: 1200,
   translate: { unit: "px" },
   keyframes: [
-    {
-      time: 0,
-      opacity: 0,
-      transforms: [
-        { kind: "translate", x: 0, y: 40 },
-        { kind: "scale", value: 1 },
-        { kind: "rotate", value: 0 },
-      ],
-    },
-    {
-      time: 1200,
-      opacity: 1,
-      transforms: [
-        { kind: "translate", x: 0, y: 0 },
-        { kind: "scale", value: 1 },
-        { kind: "rotate", value: 0 },
-      ],
-    },
+    createKeyframe(0, 0, [
+      { kind: "translate", x: 0, y: 40 },
+      { kind: "scale", value: 1 },
+      { kind: "rotate", value: 0 },
+    ]),
+    createKeyframe(1200, 1, [
+      { kind: "translate", x: 0, y: 0 },
+      { kind: "scale", value: 1 },
+      { kind: "rotate", value: 0 },
+    ]),
   ],
 };
 
@@ -93,18 +89,18 @@ test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => 
       {
         ...baseTimeline,
         keyframes: [
-          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
-          { time: 600, opacity: null, transforms: null },
-          { time: 1200, transforms: [] },
+          createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }]),
+          { time: 600 },
+          { time: 1200, properties: [createTransformProperty([])] },
         ],
       },
     ],
   });
 
-  assert.equal(normalized.timelines[0].keyframes[1].opacity, 0);
-  assert.deepEqual(normalized.timelines[0].keyframes[1].transforms, [{ kind: "translate", x: 0, y: 40 }]);
-  assert.equal(normalized.timelines[0].keyframes[2].opacity, 0);
-  assert.deepEqual(normalized.timelines[0].keyframes[2].transforms, []);
+  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[1]), 0);
+  assert.deepEqual(getTransformOperations(normalized.timelines[0].keyframes[1]), [{ kind: "translate", x: 0, y: 40 }]);
+  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[2]), 0);
+  assert.deepEqual(getTransformOperations(normalized.timelines[0].keyframes[2]), []);
 });
 
 test("generateCss supports direct units", () => {
@@ -136,22 +132,18 @@ test("generateCss preserves explicit transform order including skew", () => {
         ...baseTimeline,
         keyframes: [
           {
-            time: 0,
-            opacity: 0,
-            transforms: [
+            ...createKeyframe(0, 0, [
               { kind: "rotate", value: -6 },
               { kind: "translate", x: 0, y: 40 },
               { kind: "skew", x: 8, y: -4 },
-            ],
+            ]),
           },
           {
-            time: 1200,
-            opacity: 1,
-            transforms: [
+            ...createKeyframe(1200, 1, [
               { kind: "rotate", value: 0 },
               { kind: "translate", x: 0, y: 0 },
               { kind: "skew", x: 0, y: 0 },
-            ],
+            ]),
           },
         ],
       },
@@ -167,9 +159,9 @@ test("generateCss omits nullable fields and renders empty transforms as none", (
       {
         ...baseTimeline,
         keyframes: [
-          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
-          { time: 600, opacity: null, transforms: null },
-          { time: 1200, transforms: [] },
+          createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }]),
+          { time: 600 },
+          { time: 1200, properties: [createTransformProperty([])] },
         ],
       },
     ],
@@ -189,7 +181,7 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
             ...baseTimeline,
             id: "",
             duration: 0,
-            keyframes: [{ time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] }],
+            keyframes: [createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 0 }])],
           },
         ],
       }),
@@ -209,8 +201,8 @@ test("validateWebKeyframesDocument rejects out-of-range keyframe times and inval
           {
             ...baseTimeline,
             keyframes: [
-              { time: -1, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-              { time: 1201, opacity: 1, transforms: [{ kind: "skew", x: 0, y: "bad" }] },
+              createKeyframe(-1, 0, [{ kind: "translate", x: 0, y: 0 }]),
+              createKeyframe(1201, 1, [{ kind: "skew", x: 0, y: "bad" }]),
             ],
           },
         ],
@@ -219,7 +211,7 @@ test("validateWebKeyframesDocument rejects out-of-range keyframe times and inval
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("timelines[0].keyframes[0].time must be greater than or equal to 0.") &&
       error.issues.includes("timelines[0].keyframes[1].time must be less than or equal to duration.") &&
-      error.issues.includes("timelines[0].keyframes[1].transforms[0].y must be a finite number."),
+      error.issues.includes("timelines[0].keyframes[1].properties[1].value[0].y must be a finite number."),
   );
 });
 
@@ -229,8 +221,8 @@ test("validateWebKeyframesDocument allows nullable sparse fields", () => {
       {
         ...baseTimeline,
         keyframes: [
-          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-          { time: 600, opacity: null, transforms: null },
+          createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 0 }]),
+          { time: 600 },
           { time: 1200 },
         ],
       },
@@ -246,7 +238,7 @@ test("timeline edit helpers support duplicate, nudge, spread, and stagger workfl
   assert.equal(duplicated.keyframes[1].time, 300);
 
   const nudged = nudgeTransforms(baseTimeline, [0], [0], "y", -12);
-  assert.equal(nudged.keyframes[0].transforms[0].y, 28);
+  assert.equal(getTransformOperations(nudged.keyframes[0])[0].y, 28);
 
   const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 1200);
   assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.time), [0, 600, 1200]);
@@ -273,3 +265,15 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
       error.issues.includes("timelines[0].translate.customUnit is required when translate.unit is custom."),
   );
 });
+
+function createKeyframe(time, opacity, transforms) {
+  const properties = [];
+  if (opacity !== undefined) {
+    properties.push(createOpacityProperty(opacity));
+  }
+  if (transforms !== undefined) {
+    properties.push(createTransformProperty(transforms));
+  }
+
+  return { time, properties };
+}

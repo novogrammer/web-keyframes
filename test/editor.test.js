@@ -2,6 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
+import {
+  createOpacityProperty,
+  createTransformProperty,
+  getOpacityValue,
+  getTransformOperations,
+} from "../dist/index.js";
 import { WebKeyframesEditor } from "../dist/editor.js";
 
 test("mount adds a hidden editor panel and unmount removes it", () => {
@@ -96,24 +102,16 @@ test("data helpers stay available before and after mount", () => {
         id: "hero-logo",
         duration: 900,
         keyframes: [
-          {
-            time: 0,
-            opacity: 0,
-            transforms: [
-              { kind: "translate", x: 0, y: 20 },
-              { kind: "scale", value: 1 },
-              { kind: "rotate", value: 0 },
-            ],
-          },
-          {
-            time: 900,
-            opacity: 1,
-            transforms: [
-              { kind: "translate", x: 0, y: 0 },
-              { kind: "scale", value: 1 },
-              { kind: "rotate", value: 0 },
-            ],
-          },
+          createKeyframe(0, 0, [
+            { kind: "translate", x: 0, y: 20 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ]),
+          createKeyframe(900, 1, [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ]),
         ],
       },
     ],
@@ -210,8 +208,8 @@ test("keyframe editor updates selected frame values", () => {
 
   const [firstKeyframe] = editor.getData().timelines[0].keyframes;
   assert.equal(firstKeyframe.time, 300);
-  assert.equal(firstKeyframe.transforms[0].x, 24);
-  assert.equal(firstKeyframe.opacity, 0.45);
+  assert.equal(getTransformOperations(firstKeyframe)[0].x, 24);
+  assert.equal(getOpacityValue(firstKeyframe), 0.45);
 });
 
 test("time slider stays mounted while dragging and syncs the numeric field", () => {
@@ -236,17 +234,40 @@ test("sparse keyframe actions can unset opacity and clear transforms", () => {
 
   editor.mount();
 
-  clickActionSync(window.document, "unset-opacity");
-  assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "");
+  clickActionSync(window.document, "delete-opacity");
+  assert.equal(window.document.querySelector("[data-wkf-field='opacity']"), null);
+  assert.match(window.document.body.textContent ?? "", /\+ Opacity/);
   assert.match(editor.toCss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1\) rotate\(0deg\);\n  \}/);
+
+  clickActionSync(window.document, "add-opacity");
+  assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "1");
+  assert.equal(getOpacityValue(editor.getData().timelines[0].keyframes[0]), 1);
 
   clickActionSync(window.document, "clear-transforms");
   assert.match(window.document.body.textContent ?? "", /None/);
-  assert.deepEqual(editor.getData().timelines[0].keyframes[0].transforms, []);
+  assert.deepEqual(getTransformOperations(editor.getData().timelines[0].keyframes[0]), []);
 
-  clickActionSync(window.document, "unset-transforms");
-  assert.match(window.document.body.textContent ?? "", /Unset/);
-  assert.equal(editor.getData().timelines[0].keyframes[0].transforms, null);
+  clickActionSync(window.document, "delete-transforms");
+  assert.doesNotMatch(window.document.body.textContent ?? "", /Transforms/);
+  assert.equal(editor.getData().timelines[0].keyframes[0].properties?.some((property) => property.kind === "transform"), false);
+});
+
+test("unset properties can be added again from the keyframe editor", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  clickActionSync(window.document, "delete-opacity");
+  clickActionSync(window.document, "delete-transforms");
+  clickActionSync(window.document, "add-opacity");
+  clickActionSync(window.document, "add-transform");
+
+  const keyframe = editor.getData().timelines[0].keyframes[0];
+  assert.equal(getOpacityValue(keyframe), 1);
+  assert.deepEqual(getTransformOperations(keyframe), [{ kind: "translate", x: 0, y: 0 }]);
+  assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "1");
+  assert.equal(window.document.querySelectorAll("[data-wkf-action='delete-transform']").length, 1);
 });
 
 test("deleting the last transform sets transform to none", async () => {
@@ -259,7 +280,7 @@ test("deleting the last transform sets transform to none", async () => {
   await clickAction(window.document, "delete-transform");
   await clickAction(window.document, "delete-transform");
 
-  assert.deepEqual(editor.getData().timelines[0].keyframes[0].transforms, []);
+  assert.deepEqual(getTransformOperations(editor.getData().timelines[0].keyframes[0]), []);
   assert.match(editor.toCss(), /transform: none;/);
 });
 
@@ -306,8 +327,8 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   const keyframeButtons = window.document.querySelectorAll("[data-wkf-action='select-keyframe']");
   keyframeButtons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await Promise.resolve();
-  clickActionSync(window.document, "unset-opacity");
-  clickActionSync(window.document, "unset-transforms");
+  clickActionSync(window.document, "delete-opacity");
+  clickActionSync(window.document, "delete-transforms");
 
   const summaries = Array.from(window.document.querySelectorAll(".wkf__keyframe-meta")).slice(1).map((node) => node.textContent ?? "");
   assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1\) rotate\(0deg\), opacity 0/);
@@ -398,26 +419,30 @@ function createTimeline(id, duration) {
     id,
     duration,
     keyframes: [
-      {
-        time: 0,
-        opacity: 0,
-        transforms: [
-          { kind: "translate", x: 0, y: 40 },
-          { kind: "scale", value: 1 },
-          { kind: "rotate", value: 0 },
-        ],
-      },
-      {
-        time: duration,
-        opacity: 1,
-        transforms: [
-          { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
-          { kind: "rotate", value: 0 },
-        ],
-      },
+      createKeyframe(0, 0, [
+        { kind: "translate", x: 0, y: 40 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ]),
+      createKeyframe(duration, 1, [
+        { kind: "translate", x: 0, y: 0 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ]),
     ],
   };
+}
+
+function createKeyframe(time, opacity, transforms) {
+  const properties = [];
+  if (opacity !== undefined) {
+    properties.push(createOpacityProperty(opacity));
+  }
+  if (transforms !== undefined) {
+    properties.push(createTransformProperty(transforms));
+  }
+
+  return { time, properties };
 }
 
 function createWindow(options = {}) {

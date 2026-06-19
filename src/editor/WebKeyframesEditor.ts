@@ -1,23 +1,33 @@
 import {
   addTransform,
   cloneDocument,
+  cloneProperties,
   cloneTimeline,
   cloneTransform,
+  createOpacityProperty,
   createDefaultTransform,
+  createTransformProperty,
   DEFAULT_TRANSLATE_CONFIG,
+  deleteKeyframeProperty,
   duplicateKeyframes,
   formatNumber,
   generateCss,
   generatePreviewCss,
+  getOpacityValue,
+  getTransformOperations,
+  hasKeyframeProperty,
   moveTransform,
   normalizeTransforms,
   normalizeWebKeyframesTimeline,
   removeTransform,
   replaceTransformKind,
   setTransformFieldValue,
+  upsertKeyframeProperty,
 } from "../core/index.js";
 import type {
+  KeyframeProperty,
   NormalizedWebKeyframe,
+  OpacityProperty,
   TransformKind,
   TransformOperation,
   TranslateUnit,
@@ -40,20 +50,24 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   keyframes: [
     {
       time: 0,
-      opacity: 0,
-      transforms: [
-        { kind: "translate", x: 0, y: 40 },
-        { kind: "scale", value: 1 },
-        { kind: "rotate", value: 0 },
+      properties: [
+        createOpacityProperty(0),
+        createTransformProperty([
+          { kind: "translate", x: 0, y: 40 },
+          { kind: "scale", value: 1 },
+          { kind: "rotate", value: 0 },
+        ]),
       ],
     },
     {
       time: 1200,
-      opacity: 1,
-      transforms: [
-        { kind: "translate", x: 0, y: 0 },
-        { kind: "scale", value: 1 },
-        { kind: "rotate", value: 0 },
+      properties: [
+        createOpacityProperty(1),
+        createTransformProperty([
+          { kind: "translate", x: 0, y: 0 },
+          { kind: "scale", value: 1 },
+          { kind: "rotate", value: 0 },
+        ]),
       ],
     },
   ],
@@ -252,8 +266,12 @@ export class WebKeyframesEditor {
     const selectedKeyframe = selectedTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedTimeline.keyframes[0];
     const selectedSourceKeyframe = selectedSourceTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedSourceTimeline.keyframes[0];
     this.selectedKeyframeIndex = selectedTimeline.keyframes.indexOf(selectedKeyframe);
-    const selectedSourceTransforms = Array.isArray(selectedSourceKeyframe?.transforms) ? selectedSourceKeyframe.transforms : [];
-    const transformSourceState = selectedSourceKeyframe?.transforms == null
+    const opacitySourceState = hasKeyframeProperty(selectedSourceKeyframe, "opacity") ? "explicit" : "unset";
+    const selectedSourceOpacity = getOpacityValue(selectedSourceKeyframe);
+    const selectedSourceTransforms = hasKeyframeProperty(selectedSourceKeyframe, "transform")
+      ? getTransformOperations(selectedSourceKeyframe)
+      : [];
+    const transformSourceState = !hasKeyframeProperty(selectedSourceKeyframe, "transform")
       ? "unset"
       : selectedSourceTransforms.length === 0
         ? "none"
@@ -363,38 +381,90 @@ export class WebKeyframesEditor {
                   </div>
                   <div class="wkf__grid wkf__grid--editor">
                     ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
-                    ${renderNullableNumberField("opacity", "Opacity", selectedSourceKeyframe?.opacity ?? null, 0, 0.01, 1)}
                   </div>
-                  <div class="wkf__section-head">
-                    <div class="wkf__section-title">Transforms</div>
-                    <div class="wkf__inline-actions">
-                      <button
-                        type="button"
-                        class="wkf__button wkf__button--small wkf__button--ghost"
-                        data-wkf-action="unset-transforms"
-                        ${selectedSourceKeyframe?.transforms == null ? "disabled" : ""}
-                      >Unset</button>
-                      <button
-                        type="button"
-                        class="wkf__button wkf__button--small wkf__button--ghost"
-                        data-wkf-action="clear-transforms"
-                        ${Array.isArray(selectedSourceKeyframe?.transforms) && selectedSourceKeyframe.transforms.length === 0 ? "disabled" : ""}
-                      >Set to none</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+                  <div class="wkf__property-grid">
+                    <div class="wkf__property">
+                      ${
+                        opacitySourceState === "unset"
+                          ? `
+                            <div class="wkf__inline-actions">
+                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>
+                            </div>
+                          `
+                          : `
+                            <div class="wkf__section-head">
+                              <div>
+                                <div class="wkf__section-title">Opacity</div>
+                                <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
+                              </div>
+                              <div class="wkf__inline-actions">
+                                <button
+                                  type="button"
+                                  class="wkf__button wkf__button--small wkf__button--ghost"
+                                  data-wkf-action="delete-opacity"
+                                >Delete</button>
+                              </div>
+                            </div>
+                            ${renderNullableNumberField("opacity", "Opacity", selectedSourceOpacity, 0, 0.01, 1, true)}
+                          `
+                      }
                     </div>
-                  </div>
-                  ${
-                    transformSourceState === "unset"
-                      ? `<p class="wkf__note">Unset</p>`
-                      : transformSourceState === "none"
-                        ? `<p class="wkf__note">None</p>`
-                        : ""
-                  }
-                  <div class="wkf__transform-list">
-                    ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
+                    <div class="wkf__property">
+                      <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+                        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+                      </div>
+                      ${
+                        transformSourceState === "unset"
+                          ? ``
+                          : transformSourceState === "none"
+                            ? `
+                              <div class="wkf__section-head">
+                                <div>
+                                  <div class="wkf__section-title">Transforms</div>
+                                  <p class="wkf__subtitle">None</p>
+                                </div>
+                                <div class="wkf__inline-actions">
+                                  <button
+                                    type="button"
+                                    class="wkf__button wkf__button--small wkf__button--ghost"
+                                    data-wkf-action="delete-transforms"
+                                  >Delete</button>
+                                </div>
+                              </div>
+                            `
+                            : ""
+                      }
+                      ${
+                        transformSourceState === "explicit"
+                          ? `
+                            <div class="wkf__section-head">
+                              <div>
+                                <div class="wkf__section-title">Transforms</div>
+                                <p class="wkf__subtitle">${selectedSourceTransforms.length} item${selectedSourceTransforms.length === 1 ? "" : "s"}</p>
+                              </div>
+                              <div class="wkf__inline-actions">
+                                <button
+                                  type="button"
+                                  class="wkf__button wkf__button--small wkf__button--ghost"
+                                  data-wkf-action="delete-transforms"
+                                >Delete</button>
+                                <button
+                                  type="button"
+                                  class="wkf__button wkf__button--small wkf__button--ghost"
+                                  data-wkf-action="clear-transforms"
+                                >None</button>
+                              </div>
+                            </div>
+                          `
+                          : ""
+                      }
+                      <div class="wkf__transform-list">
+                        ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -571,7 +641,11 @@ export class WebKeyframesEditor {
         return;
       }
 
-      keyframe.opacity = value === null ? null : clampNumber(value, 0, 1);
+      if (value === null) {
+        deleteKeyframeProperty(keyframe, "opacity");
+      } else {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+      }
       this.setStatus("info", "Editing timeline data.");
       this.render();
     });
@@ -665,8 +739,8 @@ export class WebKeyframesEditor {
         const kind = (button.dataset.wkfKind ?? "translate") as TransformKind;
         const timeline = this.getSelectedTimeline();
         const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-        if (keyframe && (!Array.isArray(keyframe.transforms) || keyframe.transforms.length === 0)) {
-          keyframe.transforms = [createDefaultTransform(kind)];
+        if (keyframe && !hasKeyframeProperty(keyframe, "transform")) {
+          upsertKeyframeProperty(keyframe, createTransformProperty([createDefaultTransform(kind)]));
           this.setStatus("info", `Added ${kind} transform.`);
           this.render();
           return;
@@ -683,25 +757,36 @@ export class WebKeyframesEditor {
   }
 
   private bindSparseKeyframeActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='unset-opacity']")?.addEventListener("click", () => {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-opacity']")?.addEventListener("click", () => {
       const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
       if (!keyframe) {
         return;
       }
 
-      keyframe.opacity = null;
-      this.setStatus("info", "Unset opacity for the selected keyframe.");
+      upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+      this.setStatus("info", "Added opacity to the selected keyframe.");
       this.render();
     });
 
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='unset-transforms']")?.addEventListener("click", () => {
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-opacity']")?.addEventListener("click", () => {
       const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
       if (!keyframe) {
         return;
       }
 
-      keyframe.transforms = null;
-      this.setStatus("info", "Unset transforms for the selected keyframe.");
+      deleteKeyframeProperty(keyframe, "opacity");
+      this.setStatus("info", "Deleted opacity from the selected keyframe.");
+      this.render();
+    });
+
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-transforms']")?.addEventListener("click", () => {
+      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      deleteKeyframeProperty(keyframe, "transform");
+      this.setStatus("info", "Deleted transforms from the selected keyframe.");
       this.render();
     });
 
@@ -711,7 +796,7 @@ export class WebKeyframesEditor {
         return;
       }
 
-      keyframe.transforms = [];
+      upsertKeyframeProperty(keyframe, createTransformProperty([]));
       this.setStatus("info", "Cleared transforms to none for the selected keyframe.");
       this.render();
     });
@@ -857,14 +942,13 @@ export class WebKeyframesEditor {
     const timeline = this.getSelectedTimeline();
     const keyframes = normalizeWebKeyframesTimeline(timeline).keyframes.map((keyframe) => ({
       ...keyframe,
-      transforms: keyframe.transforms.map(cloneTransform),
+      properties: cloneProperties(keyframe.properties),
     }));
 
     update(keyframes, timeline);
     timeline.keyframes = keyframes.map((keyframe) => ({
       time: keyframe.time,
-      opacity: keyframe.opacity,
-      transforms: keyframe.transforms.map(cloneTransform),
+      properties: cloneProperties(keyframe.properties),
     }));
     this.data = sanitizeEditorDocument(this.data);
     this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
@@ -1222,8 +1306,10 @@ function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimel
     },
     keyframes: timeline.keyframes.map<NormalizedWebKeyframe>((keyframe) => ({
       time: keyframe.time,
-      opacity: keyframe.opacity ?? 1,
-      transforms: normalizeTransforms(keyframe).map(cloneTransform),
+      properties: [
+        createOpacityProperty(getOpacityValue(keyframe, 1) ?? 1),
+        createTransformProperty(normalizeTransforms(keyframe).map(cloneTransform)),
+      ],
     })),
   }));
 }
@@ -1254,10 +1340,12 @@ function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: numb
       const previous = accumulator[accumulator.length - 1];
       accumulator.push({
         time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
-        opacity: typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)
-          ? keyframe.opacity
-          : previous?.opacity ?? 1,
-        transforms: normalizeTransforms(keyframe, previous?.transforms ?? []).map(cloneTransform),
+        properties: [
+          createOpacityProperty(getOpacityValue(keyframe, getOpacityValue(previous, 1) ?? 1) ?? 1),
+          createTransformProperty(
+            normalizeTransforms(keyframe, previous ? getTransformOperations(previous) : []).map(cloneTransform),
+          ),
+        ],
       });
       return accumulator;
     }, []);
@@ -1322,8 +1410,7 @@ function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframes
   target.translate = source.translate ? { ...source.translate } : undefined;
   target.keyframes = source.keyframes.map((keyframe) => ({
     time: keyframe.time,
-    opacity: keyframe.opacity,
-    transforms: Array.isArray(keyframe.transforms) ? keyframe.transforms.map(cloneTransform) : keyframe.transforms,
+    properties: cloneProperties(keyframe.properties ?? []),
   }));
 }
 
@@ -1364,8 +1451,10 @@ function createNextKeyframe(
 
   return {
     time,
-    opacity: selected?.opacity ?? 1,
-    transforms: (selected?.transforms ?? [createDefaultTransform("translate")]).map(cloneTransform),
+    properties: [
+      createOpacityProperty(getOpacityValue(selected, 1) ?? 1),
+      createTransformProperty((selected ? getTransformOperations(selected) : [createDefaultTransform("translate")]).map(cloneTransform)),
+    ],
   };
 }
 
@@ -1479,17 +1568,22 @@ function renderNullableNumberField(
   min?: number,
   step?: number,
   max?: number,
+  hideUnsetAction = false,
 ): string {
   return `
     <label class="wkf__field">
       <span class="wkf__field-head">
         <span class="wkf__label">${escapeHtml(label)}</span>
-        <button
-          type="button"
-          class="wkf__button wkf__button--tiny wkf__button--ghost"
-          data-wkf-action="unset-${escapeHtml(field)}"
-          ${value == null ? "disabled" : ""}
-        >Unset</button>
+        ${
+          hideUnsetAction
+            ? ""
+            : `<button
+              type="button"
+              class="wkf__button wkf__button--tiny wkf__button--ghost"
+              data-wkf-action="delete-${escapeHtml(field)}"
+              ${value == null ? "disabled" : ""}
+            >Delete</button>`
+        }
       </span>
       <input
         class="wkf__input"
@@ -1604,17 +1698,20 @@ function formatKeyframeSummary(
   translate: RenderTranslateConfig,
 ): string {
   const parts: string[] = [];
+  const transformState = hasKeyframeProperty(keyframe, "transform");
+  const transforms = transformState ? getTransformOperations(keyframe) : [];
+  const opacity = getOpacityValue(keyframe);
 
-  if (Array.isArray(keyframe.transforms)) {
+  if (transformState) {
     parts.push(
-      keyframe.transforms.length > 0
-        ? keyframe.transforms.map((transform) => formatTransformSummary(transform, translate)).join(" ")
+      transforms.length > 0
+        ? transforms.map((transform) => formatTransformSummary(transform, translate)).join(" ")
         : "transform: none",
     );
   }
 
-  if (typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)) {
-    parts.push(`opacity ${formatNumber(keyframe.opacity)}`);
+  if (typeof opacity === "number" && Number.isFinite(opacity)) {
+    parts.push(`opacity ${formatNumber(opacity)}`);
   }
 
   return parts.join(", ");

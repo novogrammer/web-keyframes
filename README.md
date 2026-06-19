@@ -102,20 +102,30 @@ value for matched elements.
       "keyframes": [
         {
           "time": 0,
-          "opacity": 0,
-          "transforms": [
-            { "kind": "translate", "x": 0, "y": 40 },
-            { "kind": "scale", "value": 1 },
-            { "kind": "rotate", "value": 0 }
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 40 },
+                { "kind": "scale", "value": 1 },
+                { "kind": "rotate", "value": 0 }
+              ]
+            }
           ]
         },
         {
           "time": 1200,
-          "opacity": 1,
-          "transforms": [
-            { "kind": "translate", "x": 0, "y": 0 },
-            { "kind": "scale", "value": 1 },
-            { "kind": "rotate", "value": 0 }
+          "properties": [
+            { "kind": "opacity", "value": 1 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 0 },
+                { "kind": "scale", "value": 1 },
+                { "kind": "rotate", "value": 0 }
+              ]
+            }
           ]
         }
       ]
@@ -126,13 +136,13 @@ value for matched elements.
 
 Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translate`, and `keyframes`.
 
-When a keyframe specifies `transforms`, it uses an ordered array. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
+Each keyframe expresses animated values through an ordered `properties[]` list. `transform` stores its ordered operations in `value[]`. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
-`opacity` and `transforms` may be omitted or set to `null` on individual keyframes to match CSS-style sparse keyframe authoring.
+`opacity` and `transform` may be omitted from `properties[]` on individual keyframes to match CSS-style sparse keyframe authoring.
 
-- omitted or `null` `opacity`: no `opacity` declaration is emitted for that keyframe
-- omitted or `null` `transforms`: no `transform` declaration is emitted for that keyframe
-- `transforms: []`: emits `transform: none;`
+- omitted `opacity` property: no `opacity` declaration is emitted for that keyframe
+- omitted `transform` property: no `transform` declaration is emitted for that keyframe
+- `transform` property with `"value": []`: emits `transform: none;`
 
 Internal editing helpers still resolve sparse values against the previous keyframe so editor interactions stay deterministic.
 

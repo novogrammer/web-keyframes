@@ -1,8 +1,11 @@
 import type {
+  KeyframeProperty,
+  OpacityProperty,
   RotateTransform,
   ScaleTransform,
   SkewTransform,
   TransformOperation,
+  TransformProperty,
   TranslateConfig,
   TranslateTransform,
   WebKeyframe,
@@ -12,6 +15,7 @@ import type {
 
 const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
 const TRANSFORM_KINDS = new Set(["translate", "scale", "rotate", "skew"]);
+const PROPERTY_KINDS = new Set(["opacity", "transform"]);
 
 export class WebKeyframesValidationError extends Error {
   readonly issues: string[];
@@ -138,15 +142,18 @@ function validateKeyframe(
     issues.push(`${keyframePrefix}.time must be a finite number.`);
   }
 
-  if (candidate.opacity !== undefined && candidate.opacity !== null && !isFiniteNumber(candidate.opacity)) {
-    issues.push(`${keyframePrefix}.opacity must be a finite number.`);
-  }
-
-  if (candidate.transforms !== undefined && candidate.transforms !== null && !Array.isArray(candidate.transforms)) {
-    issues.push(`${keyframePrefix}.transforms must be an array.`);
-  } else if (Array.isArray(candidate.transforms)) {
-    candidate.transforms.forEach((transform, transformIndex) => {
-      issues.push(...validateTransform(transform, keyframePrefix, transformIndex));
+  if (candidate.properties !== undefined && !Array.isArray(candidate.properties)) {
+    issues.push(`${keyframePrefix}.properties must be an array.`);
+  } else if (Array.isArray(candidate.properties)) {
+    const seenKinds = new Set<string>();
+    candidate.properties.forEach((property, propertyIndex) => {
+      issues.push(...validateProperty(property, keyframePrefix, propertyIndex));
+      if (isPlainObject(property) && typeof property.kind === "string" && PROPERTY_KINDS.has(property.kind)) {
+        if (seenKinds.has(property.kind)) {
+          issues.push(`${keyframePrefix}.properties must not contain duplicate ${property.kind} items.`);
+        }
+        seenKinds.add(property.kind);
+      }
     });
   }
 
@@ -163,14 +170,50 @@ function validateKeyframe(
   return issues;
 }
 
+function validateProperty(property: unknown, keyframePrefix: string, propertyIndex: number): string[] {
+  if (!isPlainObject(property)) {
+    return [`${keyframePrefix}.properties[${propertyIndex}] must be an object.`];
+  }
+
+  const candidate = property as Partial<KeyframeProperty>;
+  const prefix = `${keyframePrefix}.properties[${propertyIndex}]`;
+
+  if (typeof candidate.kind !== "string" || !PROPERTY_KINDS.has(candidate.kind)) {
+    return [`${prefix}.kind must be one of opacity or transform.`];
+  }
+
+  switch (candidate.kind) {
+    case "opacity":
+      return validateOpacityProperty(candidate as Partial<OpacityProperty>, prefix);
+    case "transform":
+      return validateTransformProperty(candidate as Partial<TransformProperty>, prefix);
+  }
+}
+
+function validateOpacityProperty(property: Partial<OpacityProperty>, prefix: string): string[] {
+  return isFiniteNumber(property.value) ? [] : [`${prefix}.value must be a finite number.`];
+}
+
+function validateTransformProperty(property: Partial<TransformProperty>, prefix: string): string[] {
+  if (!Array.isArray(property.value)) {
+    return [`${prefix}.value must be an array.`];
+  }
+
+  const issues: string[] = [];
+  property.value.forEach((transform, transformIndex) => {
+    issues.push(...validateTransform(transform, `${prefix}.value`, transformIndex));
+  });
+  return issues;
+}
+
 function validateTransform(transform: unknown, keyframePrefix: string, transformIndex: number): string[] {
   if (!isPlainObject(transform)) {
-    return [`${keyframePrefix}.transforms[${transformIndex}] must be an object.`];
+    return [`${keyframePrefix}[${transformIndex}] must be an object.`];
   }
 
   const candidate = transform as Partial<TransformOperation>;
   const issues: string[] = [];
-  const prefix = `${keyframePrefix}.transforms[${transformIndex}]`;
+  const prefix = `${keyframePrefix}[${transformIndex}]`;
 
   if (typeof candidate.kind !== "string" || !TRANSFORM_KINDS.has(candidate.kind)) {
     issues.push(`${prefix}.kind must be one of translate, scale, rotate, or skew.`);

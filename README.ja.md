@@ -102,20 +102,30 @@ editor.toCss();
       "keyframes": [
         {
           "time": 0,
-          "opacity": 0,
-          "transforms": [
-            { "kind": "translate", "x": 0, "y": 40 },
-            { "kind": "scale", "value": 1 },
-            { "kind": "rotate", "value": 0 }
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 40 },
+                { "kind": "scale", "value": 1 },
+                { "kind": "rotate", "value": 0 }
+              ]
+            }
           ]
         },
         {
           "time": 1200,
-          "opacity": 1,
-          "transforms": [
-            { "kind": "translate", "x": 0, "y": 0 },
-            { "kind": "scale", "value": 1 },
-            { "kind": "rotate", "value": 0 }
+          "properties": [
+            { "kind": "opacity", "value": 1 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 0 },
+                { "kind": "scale", "value": 1 },
+                { "kind": "rotate", "value": 0 }
+              ]
+            }
           ]
         }
       ]
@@ -126,13 +136,13 @@ editor.toCss();
 
 document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translate`、`keyframes` を持ちます。
 
-各キーフレームで `transforms` を指定する場合は、順序付き配列で表現します。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
+各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。`transform` はその中で `value[]` に順序付き operation を持ちます。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
-`opacity` と `transforms` は、CSS の sparse keyframe に合わせて、キーフレームごとに省略または `null` を許容します。
+`opacity` と `transform` は、CSS の sparse keyframe に合わせて、キーフレームごとに `properties[]` から省略できます。
 
-- `opacity` が省略または `null`: そのキーフレームでは `opacity` を出力しません
-- `transforms` が省略または `null`: そのキーフレームでは `transform` を出力しません
-- `transforms: []`: `transform: none;` を出力します
+- `opacity` property が省略: そのキーフレームでは `opacity` を出力しません
+- `transform` property が省略: そのキーフレームでは `transform` を出力しません
+- `transform` property の `"value": []`: `transform: none;` を出力します
 
 一方、エディタ内部の編集 helper では操作を安定させるため、省略値は直前キーフレームから解決して扱います。
 

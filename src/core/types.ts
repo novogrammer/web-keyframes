@@ -28,16 +28,30 @@ export type TransformOperation =
   | RotateTransform
   | SkewTransform;
 
+export type OpacityProperty = {
+  kind: "opacity";
+  value: number;
+};
+
+export type TransformProperty = {
+  kind: "transform";
+  value: TransformOperation[];
+};
+
+export type KeyframeProperty =
+  | OpacityProperty
+  | TransformProperty;
+
+export type PropertyKind = KeyframeProperty["kind"];
+
 export type WebKeyframe = {
   time: number;
-  opacity?: number | null;
-  transforms?: TransformOperation[] | null;
+  properties?: KeyframeProperty[];
 };
 
 export type NormalizedWebKeyframe = {
   time: number;
-  opacity: number;
-  transforms: TransformOperation[];
+  properties: KeyframeProperty[];
 };
 
 export type TranslateUnit = "px" | "vw" | "vh" | "%" | "custom";
