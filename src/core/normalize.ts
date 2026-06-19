@@ -1,13 +1,15 @@
 import type {
   NormalizedTranslateConfig,
   NormalizedWebKeyframe,
-  NormalizedWebKeyframesData,
+  NormalizedWebKeyframesDocument,
+  NormalizedWebKeyframesTimeline,
   TransformKind,
   TransformOperation,
   WebKeyframe,
-  WebKeyframesData,
+  WebKeyframesDocument,
+  WebKeyframesTimeline,
 } from "./types.js";
-import { validateWebKeyframesData } from "./validate.js";
+import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./validate.js";
 
 export const DEFAULT_TRANSLATE_CONFIG: NormalizedTranslateConfig = {
   unit: "px",
@@ -15,8 +17,15 @@ export const DEFAULT_TRANSLATE_CONFIG: NormalizedTranslateConfig = {
   customUnit: null,
 };
 
-export function normalizeWebKeyframesData(data: WebKeyframesData): NormalizedWebKeyframesData {
-  const validated = validateWebKeyframesData(data);
+export function normalizeWebKeyframesDocument(data: WebKeyframesDocument): NormalizedWebKeyframesDocument {
+  const validated = validateWebKeyframesDocument(data);
+  return {
+    timelines: validated.timelines.map((timeline) => normalizeWebKeyframesTimeline(timeline)),
+  };
+}
+
+export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
+  const validated = validateWebKeyframesTimeline(data);
   const translate = validated.translate;
   const sortedKeyframes = [...validated.keyframes].sort((left, right) => left.time - right.time);
   const keyframes = sortedKeyframes.reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
@@ -70,6 +79,31 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
     case "skew":
       return { kind: "skew", x: transform.x, y: transform.y };
   }
+}
+
+export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): WebKeyframesTimeline {
+  return {
+    id: timeline.id,
+    duration: timeline.duration,
+    translate: timeline.translate
+      ? {
+          unit: timeline.translate.unit,
+          functionName: timeline.translate.functionName ?? undefined,
+          customUnit: timeline.translate.customUnit ?? undefined,
+        }
+      : undefined,
+    keyframes: timeline.keyframes.map((keyframe) => ({
+      time: keyframe.time,
+      opacity: keyframe.opacity,
+      transforms: Array.isArray(keyframe.transforms) ? keyframe.transforms.map(cloneTransform) : keyframe.transforms,
+    })),
+  };
+}
+
+export function cloneDocument(document: WebKeyframesDocument | NormalizedWebKeyframesDocument): WebKeyframesDocument {
+  return {
+    timelines: document.timelines.map((timeline) => cloneTimeline(timeline)),
+  };
 }
 
 export function createDefaultTransform(kind: TransformKind): TransformOperation {

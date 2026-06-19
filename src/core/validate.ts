@@ -6,7 +6,8 @@ import type {
   TranslateConfig,
   TranslateTransform,
   WebKeyframe,
-  WebKeyframesData,
+  WebKeyframesDocument,
+  WebKeyframesTimeline,
 } from "./types.js";
 
 const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
@@ -22,36 +23,24 @@ export class WebKeyframesValidationError extends Error {
   }
 }
 
-export function validateWebKeyframesData(data: unknown): WebKeyframesData {
+export function validateWebKeyframesDocument(data: unknown): WebKeyframesDocument {
   const issues: string[] = [];
 
   if (!isPlainObject(data)) {
     throw new WebKeyframesValidationError(["Data must be an object."]);
   }
 
-  const candidate = data as Partial<WebKeyframesData>;
+  const candidate = data as Partial<WebKeyframesDocument>;
 
-  if (typeof candidate.id !== "string" || candidate.id.trim() === "") {
-    issues.push("id is required.");
-  }
-
-  if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
-    issues.push("duration must be a number greater than 0.");
-  }
-
-  if (candidate.translate !== undefined) {
-    issues.push(...validateTranslate(candidate.translate));
-  }
-
-  if (!Array.isArray(candidate.keyframes)) {
-    issues.push("keyframes must be an array.");
+  if (!Array.isArray(candidate.timelines)) {
+    issues.push("timelines must be an array.");
   } else {
-    if (candidate.keyframes.length < 2) {
-      issues.push("keyframes must contain at least 2 items.");
+    if (candidate.timelines.length < 1) {
+      issues.push("timelines must contain at least 1 item.");
     }
 
-    candidate.keyframes.forEach((keyframe, index) => {
-      issues.push(...validateKeyframe(keyframe, index, candidate.duration));
+    candidate.timelines.forEach((timeline, index) => {
+      issues.push(...validateTimeline(timeline, index));
     });
   }
 
@@ -59,31 +48,76 @@ export function validateWebKeyframesData(data: unknown): WebKeyframesData {
     throw new WebKeyframesValidationError(issues);
   }
 
-  return candidate as WebKeyframesData;
+  return candidate as WebKeyframesDocument;
 }
 
-function validateTranslate(translate: unknown): string[] {
+export function validateWebKeyframesTimeline(data: unknown): WebKeyframesTimeline {
+  const issues = validateTimeline(data, null);
+  if (issues.length > 0) {
+    throw new WebKeyframesValidationError(issues);
+  }
+
+  return data as WebKeyframesTimeline;
+}
+
+function validateTimeline(timeline: unknown, timelineIndex: number | null): string[] {
+  if (!isPlainObject(timeline)) {
+    return [withTimelinePrefix("timeline must be an object.", timelineIndex)];
+  }
+
+  const candidate = timeline as Partial<WebKeyframesTimeline>;
+  const issues: string[] = [];
+  const prefix = timelineIndex === null ? "" : `timelines[${timelineIndex}].`;
+
+  if (typeof candidate.id !== "string" || candidate.id.trim() === "") {
+    issues.push(`${prefix}id is required.`);
+  }
+
+  if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
+    issues.push(`${prefix}duration must be a number greater than 0.`);
+  }
+
+  if (candidate.translate !== undefined) {
+    issues.push(...validateTranslate(candidate.translate, prefix));
+  }
+
+  if (!Array.isArray(candidate.keyframes)) {
+    issues.push(`${prefix}keyframes must be an array.`);
+  } else {
+    if (candidate.keyframes.length < 2) {
+      issues.push(`${prefix}keyframes must contain at least 2 items.`);
+    }
+
+    candidate.keyframes.forEach((keyframe, index) => {
+      issues.push(...validateKeyframe(keyframe, index, candidate.duration, prefix));
+    });
+  }
+
+  return issues;
+}
+
+function validateTranslate(translate: unknown, prefix: string): string[] {
   if (!isPlainObject(translate)) {
-    return ["translate must be an object when provided."];
+    return [`${prefix}translate must be an object when provided.`];
   }
 
   const candidate = translate as Partial<TranslateConfig>;
   const issues: string[] = [];
 
   if (typeof candidate.unit !== "string" || !TRANSLATE_UNITS.has(candidate.unit)) {
-    issues.push("translate.unit must be one of px, vw, vh, %, or custom.");
+    issues.push(`${prefix}translate.unit must be one of px, vw, vh, %, or custom.`);
   }
 
   if (candidate.functionName !== undefined && typeof candidate.functionName !== "string") {
-    issues.push("translate.functionName must be a string when provided.");
+    issues.push(`${prefix}translate.functionName must be a string when provided.`);
   }
 
   if (candidate.customUnit !== undefined && typeof candidate.customUnit !== "string") {
-    issues.push("translate.customUnit must be a string when provided.");
+    issues.push(`${prefix}translate.customUnit must be a string when provided.`);
   }
 
   if (candidate.unit === "custom" && (!candidate.customUnit || candidate.customUnit.trim() === "")) {
-    issues.push("translate.customUnit is required when translate.unit is custom.");
+    issues.push(`${prefix}translate.customUnit is required when translate.unit is custom.`);
   }
 
   return issues;
@@ -93,51 +127,54 @@ function validateKeyframe(
   keyframe: unknown,
   index: number,
   duration: number | undefined,
+  prefix: string,
 ): string[] {
+  const keyframePrefix = `${prefix}keyframes[${index}]`;
+
   if (!isPlainObject(keyframe)) {
-    return [`keyframes[${index}] must be an object.`];
+    return [`${keyframePrefix} must be an object.`];
   }
 
   const candidate = keyframe as Partial<WebKeyframe>;
   const issues: string[] = [];
 
   if (!isFiniteNumber(candidate.time)) {
-    issues.push(`keyframes[${index}].time must be a finite number.`);
+    issues.push(`${keyframePrefix}.time must be a finite number.`);
   }
 
   if (candidate.opacity !== undefined && candidate.opacity !== null && !isFiniteNumber(candidate.opacity)) {
-    issues.push(`keyframes[${index}].opacity must be a finite number.`);
+    issues.push(`${keyframePrefix}.opacity must be a finite number.`);
   }
 
   if (candidate.transforms !== undefined && candidate.transforms !== null && !Array.isArray(candidate.transforms)) {
-    issues.push(`keyframes[${index}].transforms must be an array.`);
+    issues.push(`${keyframePrefix}.transforms must be an array.`);
   } else if (Array.isArray(candidate.transforms)) {
     candidate.transforms.forEach((transform, transformIndex) => {
-      issues.push(...validateTransform(transform, index, transformIndex));
+      issues.push(...validateTransform(transform, keyframePrefix, transformIndex));
     });
   }
 
   if (typeof candidate.time === "number") {
     if (candidate.time < 0) {
-      issues.push(`keyframes[${index}].time must be greater than or equal to 0.`);
+      issues.push(`${keyframePrefix}.time must be greater than or equal to 0.`);
     }
 
     if (typeof duration === "number" && Number.isFinite(duration) && candidate.time > duration) {
-      issues.push(`keyframes[${index}].time must be less than or equal to duration.`);
+      issues.push(`${keyframePrefix}.time must be less than or equal to duration.`);
     }
   }
 
   return issues;
 }
 
-function validateTransform(transform: unknown, keyframeIndex: number, transformIndex: number): string[] {
+function validateTransform(transform: unknown, keyframePrefix: string, transformIndex: number): string[] {
   if (!isPlainObject(transform)) {
-    return [`keyframes[${keyframeIndex}].transforms[${transformIndex}] must be an object.`];
+    return [`${keyframePrefix}.transforms[${transformIndex}] must be an object.`];
   }
 
   const candidate = transform as Partial<TransformOperation>;
   const issues: string[] = [];
-  const prefix = `keyframes[${keyframeIndex}].transforms[${transformIndex}]`;
+  const prefix = `${keyframePrefix}.transforms[${transformIndex}]`;
 
   if (typeof candidate.kind !== "string" || !TRANSFORM_KINDS.has(candidate.kind)) {
     issues.push(`${prefix}.kind must be one of translate, scale, rotate, or skew.`);
@@ -190,6 +227,10 @@ function validateSkewTransform(transform: Partial<SkewTransform>, prefix: string
     issues.push(`${prefix}.y must be a finite number.`);
   }
   return issues;
+}
+
+function withTimelinePrefix(message: string, timelineIndex: number | null): string {
+  return timelineIndex === null ? message : `timelines[${timelineIndex}].${message}`;
 }
 
 function isFiniteNumber(value: unknown): value is number {

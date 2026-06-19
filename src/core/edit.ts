@@ -1,23 +1,24 @@
 import {
+  cloneTimeline,
   cloneTransform,
   createDefaultTransform,
-  normalizeWebKeyframesData,
+  normalizeWebKeyframesTimeline,
 } from "./normalize.js";
 import type {
-  NormalizedWebKeyframesData,
+  NormalizedWebKeyframesTimeline,
   TransformKind,
   TransformOperation,
-  WebKeyframesData,
+  WebKeyframesTimeline,
 } from "./types.js";
 
 export type TransformValueField = "x" | "y" | "value";
 
 export function duplicateKeyframes(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   timeOffset?: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const uniqueIndexes = getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length);
 
   if (uniqueIndexes.length === 0) {
@@ -44,11 +45,11 @@ export function duplicateKeyframes(
 }
 
 export function offsetKeyframeTimes(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   amount: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const selected = new Set(getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length));
 
   if (selected.size === 0 || !Number.isFinite(amount)) {
@@ -66,12 +67,12 @@ export function offsetKeyframeTimes(
 }
 
 export function spreadKeyframeTimes(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   startTime: number,
   endTime: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const indexes = getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length);
 
   if (indexes.length < 2) {
@@ -99,12 +100,12 @@ export function spreadKeyframeTimes(
 }
 
 export function staggerKeyframes(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   stepMs: number,
   startTime?: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const indexes = getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length);
 
   if (indexes.length === 0 || !Number.isFinite(stepMs)) {
@@ -131,13 +132,13 @@ export function staggerKeyframes(
 }
 
 export function nudgeTransforms(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   transformIndexes: number[],
   field: TransformValueField,
   amount: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const selectedKeyframes = new Set(getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length));
   const selectedTransforms = new Set(transformIndexes);
 
@@ -167,19 +168,19 @@ export function nudgeTransforms(
 }
 
 export function mirrorTransforms(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndexes: number[],
   transformIndexes: number[],
   field: TransformValueField,
   origin = 0,
-): NormalizedWebKeyframesData {
+): NormalizedWebKeyframesTimeline {
   return nudgeTransforms(
     data,
     keyframeIndexes,
     transformIndexes,
     field,
     0,
-  ).keyframes.reduce<NormalizedWebKeyframesData>((accumulator, keyframe, keyframeIndex) => {
+  ).keyframes.reduce<NormalizedWebKeyframesTimeline>((accumulator, keyframe, keyframeIndex) => {
     const selectedKeyframes = new Set(getSortedUniqueIndexes(keyframeIndexes, accumulator.keyframes.length));
     const selectedTransforms = new Set(transformIndexes);
 
@@ -198,25 +199,25 @@ export function mirrorTransforms(
       }),
     };
     return accumulator;
-  }, normalizeEditableData(data));
+  }, normalizeEditableTimeline(data));
 }
 
 export function replaceTransformKind(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   transformIndex: number,
   kind: TransformKind,
-): NormalizedWebKeyframesData {
+): NormalizedWebKeyframesTimeline {
   return updateSingleTransform(data, keyframeIndex, transformIndex, () => createDefaultTransform(kind));
 }
 
 export function moveTransform(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   transformIndex: number,
   direction: -1 | 1,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
   if (!keyframe) {
@@ -243,11 +244,11 @@ export function moveTransform(
 }
 
 export function addTransform(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   kind: TransformKind,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
   if (!keyframe) {
@@ -267,11 +268,11 @@ export function addTransform(
 }
 
 export function removeTransform(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   transformIndex: number,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
   if (!keyframe) {
@@ -291,26 +292,26 @@ export function removeTransform(
 }
 
 export function setTransformFieldValue(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   transformIndex: number,
   field: TransformValueField,
   value: number,
-): NormalizedWebKeyframesData {
+): NormalizedWebKeyframesTimeline {
   if (!Number.isFinite(value)) {
-    return normalizeEditableData(data);
+    return normalizeEditableTimeline(data);
   }
 
   return updateSingleTransform(data, keyframeIndex, transformIndex, (transform) => setTransformField(transform, field, value));
 }
 
 function updateSingleTransform(
-  data: WebKeyframesData | NormalizedWebKeyframesData,
+  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
   keyframeIndex: number,
   transformIndex: number,
   update: (transform: TransformOperation) => TransformOperation,
-): NormalizedWebKeyframesData {
-  const normalized = normalizeEditableData(data);
+): NormalizedWebKeyframesTimeline {
+  const normalized = normalizeEditableTimeline(data);
   const keyframe = normalized.keyframes[keyframeIndex];
 
   if (!keyframe || !keyframe.transforms[transformIndex]) {
@@ -372,31 +373,15 @@ function setTransformField(transform: TransformOperation, field: TransformValueF
   }
 }
 
-function sortKeyframes(data: NormalizedWebKeyframesData): NormalizedWebKeyframesData {
+function sortKeyframes(data: NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   return {
     ...data,
     keyframes: [...data.keyframes].sort((left, right) => left.time - right.time),
   };
 }
 
-function normalizeEditableData(data: WebKeyframesData | NormalizedWebKeyframesData): NormalizedWebKeyframesData {
-  const candidate = data as NormalizedWebKeyframesData;
-  return normalizeWebKeyframesData({
-    id: candidate.id,
-    duration: candidate.duration,
-    translate: candidate.translate
-      ? {
-          unit: candidate.translate.unit,
-          functionName: candidate.translate.functionName ?? undefined,
-          customUnit: candidate.translate.customUnit ?? undefined,
-        }
-      : undefined,
-    keyframes: candidate.keyframes.map((keyframe) => ({
-      time: keyframe.time,
-      opacity: keyframe.opacity,
-      transforms: keyframe.transforms.map(cloneTransform),
-    })),
-  });
+function normalizeEditableTimeline(data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
+  return normalizeWebKeyframesTimeline(cloneTimeline(data));
 }
 
 function getSortedUniqueIndexes(indexes: number[], length: number): number[] {

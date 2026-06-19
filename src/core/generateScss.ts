@@ -1,11 +1,32 @@
 import { formatScss } from "./formatScss.js";
-import { validateWebKeyframesData } from "./validate.js";
-import { normalizeWebKeyframesData } from "./normalize.js";
-import type { TransformOperation, WebKeyframesData } from "./types.js";
+import { normalizeWebKeyframesDocument, normalizeWebKeyframesTimeline } from "./normalize.js";
+import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./validate.js";
+import type {
+  NormalizedTranslateConfig,
+  TransformOperation,
+  WebKeyframesDocument,
+  WebKeyframesTimeline,
+} from "./types.js";
 
-export function generateScss(data: WebKeyframesData): string {
-  const validated = validateWebKeyframesData(data);
-  const normalized = normalizeWebKeyframesData(data);
+export function generateScss(data: WebKeyframesDocument): string {
+  const validated = validateWebKeyframesDocument(data);
+  const normalized = normalizeWebKeyframesDocument(data);
+
+  return formatScss(
+    validated.timelines.map((timeline, index) => renderTimelineScss(timeline, normalized.timelines[index])),
+  );
+}
+
+export function generateTimelineScss(data: WebKeyframesTimeline): string {
+  const validated = validateWebKeyframesTimeline(data);
+  const normalized = normalizeWebKeyframesTimeline(data);
+  return formatScss([renderTimelineScss(validated, normalized)]);
+}
+
+function renderTimelineScss(
+  validated: WebKeyframesTimeline,
+  normalized: ReturnType<typeof normalizeWebKeyframesTimeline>,
+): string {
   const keyframesByTime = [...validated.keyframes].sort((left, right) => left.time - right.time);
 
   const keyframeBlocks = keyframesByTime.map((keyframe, index) => {
@@ -28,13 +49,12 @@ export function generateScss(data: WebKeyframesData): string {
     return lines.join("\n");
   });
 
-  const keyframes = ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");
-  return formatScss([keyframes]);
+  return ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");
 }
 
-function renderTransform(
+export function renderTransform(
   transform: TransformOperation,
-  translate: ReturnType<typeof normalizeWebKeyframesData>["translate"],
+  translate: NormalizedTranslateConfig,
   previewMode: boolean,
 ): string {
   switch (transform.kind) {
@@ -51,7 +71,7 @@ function renderTransform(
 
 function renderTranslateValue(
   value: number,
-  translate: ReturnType<typeof normalizeWebKeyframesData>["translate"],
+  translate: NormalizedTranslateConfig,
   previewMode: boolean,
 ): string {
   const unit = translate.unit === "custom" ? translate.customUnit ?? "px" : translate.unit;
@@ -68,7 +88,7 @@ function formatPercent(value: number): string {
   return `${formatNumber(value)}%`;
 }
 
-function formatNumber(value: number): string {
+export function formatNumber(value: number): string {
   if (Number.isInteger(value)) {
     return String(value);
   }

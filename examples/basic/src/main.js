@@ -1,38 +1,76 @@
 import { WebKeyframesEditor } from "web-keyframes/editor";
 
 const initialData = {
-  id: "hero-logo",
-  duration: 1200,
-  translate: { unit: "px", functionName: "wkf-px" },
-  keyframes: [
+  timelines: [
     {
-      time: 0,
-      opacity: 0,
-      transforms: [
-        { kind: "translate", x: 0, y: 40 },
-        { kind: "scale", value: 0.88 },
-        { kind: "rotate", value: -6 },
+      id: "hero-logo",
+      duration: 1200,
+      translate: { unit: "px", functionName: "wkf-px" },
+      keyframes: [
+        {
+          time: 0,
+          opacity: 0,
+          transforms: [
+            { kind: "translate", x: 0, y: 40 },
+            { kind: "scale", value: 0.88 },
+            { kind: "rotate", value: -6 },
+          ],
+        },
+        {
+          time: 700,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: -8 },
+            { kind: "scale", value: 1.04 },
+            { kind: "rotate", value: 2 },
+          ],
+        },
+        {
+          time: 1200,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     },
     {
-      time: 700,
-      opacity: 1,
-      transforms: [
-        { kind: "translate", x: 0, y: -8 },
-        { kind: "scale", value: 1.04 },
-        { kind: "rotate", value: 2 },
+      id: "hero-logo-idle",
+      duration: 2000,
+      translate: { unit: "px", functionName: "wkf-px" },
+      keyframes: [
+        {
+          time: 0,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
+        {
+          time: 1000,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: -2 },
+            { kind: "scale", value: 1.01 },
+            { kind: "rotate", value: 1 },
+          ],
+        },
+        {
+          time: 2000,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     },
-    {
-      time: 1200,
-      opacity: 1,
-      transforms: [
-        { kind: "translate", x: 0, y: 0 },
-        { kind: "scale", value: 1 },
-        { kind: "rotate", value: 0 },
-      ],
-    },
-  ]
+  ],
 };
 
 const editor = new WebKeyframesEditor({

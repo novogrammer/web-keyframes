@@ -7,7 +7,7 @@ English: [README.md](./README.md)
 
 It does two things:
 
-- Edit timeline JSON in a browser-side overlay editor
+- Edit keyframe document JSON in a browser-side overlay editor
 - Convert that JSON into SCSS keyframes
 
 This package is intentionally narrow. It does not auto-save files or depend on a specific app bundler.
@@ -53,9 +53,11 @@ editor.toScss();
 
 ### Current editor features
 
-- Edit `id`, `duration`, and translate output settings
-- Edit keyframe `time`, `opacity`, and ordered transform entries
+- Manage multiple timelines in one document
+- Edit the selected timeline `id`, `duration`, and translate output settings
+- Edit selected keyframe `time`, `opacity`, and ordered transform entries
 - Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
+- Add, duplicate, select, and delete timelines
 - Add, duplicate, and delete keyframes
 - View generated JSON and SCSS inside the editor
 - Run a lightweight preview against real DOM elements already using the same `animation-name`
@@ -68,16 +70,15 @@ editor.toScss();
 
 ### Current editor limitations
 
-- Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the current `id`
+- Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the selected timeline `id`
 - Preview ignores `translate.functionName` and uses plain unit values for browser-safe CSS
 - No file import or auto-save
 - No easing editor yet
-- No multi-timeline management
 
 ### Preview behavior
 
 The `Preview` button searches the current document for elements whose computed `animation-name`
-matches the current keyframe `id`.
+matches the selected timeline `id`.
 
 When matches are found, the editor:
 
@@ -92,34 +93,40 @@ value for matched elements.
 
 ```json
 {
-  "id": "hero-logo",
-  "duration": 1200,
-  "translate": {
-    "unit": "px",
-    "functionName": "global.vw"
-  },
-  "keyframes": [
+  "timelines": [
     {
-      "time": 0,
-      "opacity": 0,
-      "transforms": [
-        { "kind": "translate", "x": 0, "y": 40 },
-        { "kind": "scale", "value": 1 },
-        { "kind": "rotate", "value": 0 }
-      ]
-    },
-    {
-      "time": 1200,
-      "opacity": 1,
-      "transforms": [
-        { "kind": "translate", "x": 0, "y": 0 },
-        { "kind": "scale", "value": 1 },
-        { "kind": "rotate", "value": 0 }
+      "id": "hero-logo",
+      "duration": 1200,
+      "translate": {
+        "unit": "px",
+        "functionName": "global.vw"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "opacity": 0,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 40 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        },
+        {
+          "time": 1200,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        }
       ]
     }
   ]
 }
 ```
+
+Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translate`, and `keyframes`.
 
 When a keyframe specifies `transforms`, it uses an ordered array. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
@@ -149,7 +156,7 @@ web-keyframes to-scss \
   --output src/assets/css/generated/_animations.generated.scss
 ```
 
-When the input is a directory, files are read in filename order and joined with blank lines.
+Each input file may contain one or more timelines. When the input is a directory, files are read in filename order and joined with blank lines.
 
 ## Output example
 

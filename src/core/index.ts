@@ -1,5 +1,6 @@
 export type {
-  NormalizedWebKeyframesData,
+  NormalizedWebKeyframesDocument,
+  NormalizedWebKeyframesTimeline,
   NormalizedTranslateConfig,
   NormalizedWebKeyframe,
   RotateTransform,
@@ -11,7 +12,8 @@ export type {
   TranslateTransform,
   TranslateUnit,
   WebKeyframe,
-  WebKeyframesData,
+  WebKeyframesDocument,
+  WebKeyframesTimeline,
 } from "./types.js";
 export type { TransformValueField } from "./edit.js";
 export {
@@ -29,13 +31,20 @@ export {
 } from "./edit.js";
 export { formatScss } from "./formatScss.js";
 export { generatePreviewCss } from "./generatePreviewCss.js";
-export { generateScss } from "./generateScss.js";
+export { formatNumber, generateScss, generateTimelineScss, renderTransform } from "./generateScss.js";
 export {
+  cloneDocument,
+  cloneTimeline,
   cloneTransform,
   createDefaultTransform,
   DEFAULT_TRANSLATE_CONFIG,
   normalizeKeyframe,
   normalizeTransforms,
-  normalizeWebKeyframesData,
+  normalizeWebKeyframesDocument,
+  normalizeWebKeyframesTimeline,
 } from "./normalize.js";
-export { WebKeyframesValidationError, validateWebKeyframesData } from "./validate.js";
+export {
+  WebKeyframesValidationError,
+  validateWebKeyframesDocument,
+  validateWebKeyframesTimeline,
+} from "./validate.js";

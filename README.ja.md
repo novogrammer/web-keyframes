@@ -7,7 +7,7 @@ English: [README.md](./README.md)
 
 できることは 2 つです。
 
-- ブラウザ上のオーバーレイエディタでタイムライン JSON を編集する
+- ブラウザ上のオーバーレイエディタで keyframe document JSON を編集する
 - その JSON から SCSS の keyframes を生成する
 
 このパッケージは意図的に役割を絞っています。自動保存や特定のビルドツールへの依存は持ちません。
@@ -53,9 +53,11 @@ editor.toScss();
 
 ### 現在のエディタ機能
 
-- `id`、`duration`、translate 出力設定の編集
-- キーフレーム `time`、`opacity`、順序付き transform の編集
+- 1 つの document 内で複数 timeline を管理
+- 選択中 timeline の `id`、`duration`、translate 出力設定の編集
+- 選択中キーフレーム `time`、`opacity`、順序付き transform の編集
 - `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
+- timeline の追加、複製、選択、削除
 - キーフレームの追加、複製、削除
 - 生成された JSON / SCSS のエディタ内プレビュー
 - 同じ `animation-name` を使っている実 DOM 要素に対する軽量 preview
@@ -68,16 +70,15 @@ editor.toScss();
 
 ### 現在の制約
 
-- preview は `document` 内に対象要素が存在し、かつ現在の `id` と同じ `animation-name` を使っている場合にだけ動作する
+- preview は `document` 内に対象要素が存在し、かつ選択中 timeline の `id` と同じ `animation-name` を使っている場合にだけ動作する
 - preview では `translate.functionName` を無視し、ブラウザでそのまま解釈できる値だけを使う
 - ファイル import や自動保存はしない
 - easing エディタはまだない
-- 複数タイムライン管理はまだない
 
 ### Preview の挙動
 
 `Preview` ボタンは、現在のドキュメント全体から computed style の `animation-name`
-が現在の keyframe `id` と一致する要素を探します。
+が選択中 timeline の `id` と一致する要素を探します。
 
 一致する要素が見つかった場合、エディタは以下を行います。
 
@@ -92,34 +93,40 @@ editor.toScss();
 
 ```json
 {
-  "id": "hero-logo",
-  "duration": 1200,
-  "translate": {
-    "unit": "px",
-    "functionName": "global.vw"
-  },
-  "keyframes": [
+  "timelines": [
     {
-      "time": 0,
-      "opacity": 0,
-      "transforms": [
-        { "kind": "translate", "x": 0, "y": 40 },
-        { "kind": "scale", "value": 1 },
-        { "kind": "rotate", "value": 0 }
-      ]
-    },
-    {
-      "time": 1200,
-      "opacity": 1,
-      "transforms": [
-        { "kind": "translate", "x": 0, "y": 0 },
-        { "kind": "scale", "value": 1 },
-        { "kind": "rotate", "value": 0 }
+      "id": "hero-logo",
+      "duration": 1200,
+      "translate": {
+        "unit": "px",
+        "functionName": "global.vw"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "opacity": 0,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 40 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        },
+        {
+          "time": 1200,
+          "opacity": 1,
+          "transforms": [
+            { "kind": "translate", "x": 0, "y": 0 },
+            { "kind": "scale", "value": 1 },
+            { "kind": "rotate", "value": 0 }
+          ]
+        }
       ]
     }
   ]
 }
 ```
+
+document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translate`、`keyframes` を持ちます。
 
 各キーフレームで `transforms` を指定する場合は、順序付き配列で表現します。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
@@ -149,7 +156,7 @@ web-keyframes to-scss \
   --output src/assets/css/generated/_animations.generated.scss
 ```
 
-ディレクトリ入力時は、ファイル名順で読み込み、空行を挟んで結合します。
+各入力ファイルは 1 個以上の timeline を持てます。ディレクトリ入力時は、ファイル名順で読み込み、空行を挟んで結合します。
 
 ## 出力例
 

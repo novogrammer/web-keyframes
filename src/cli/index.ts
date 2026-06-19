@@ -3,8 +3,8 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { formatScss, generateScss, validateWebKeyframesData } from "../core/index.js";
-import type { WebKeyframesData } from "../core/index.js";
+import { formatScss, generateScss, validateWebKeyframesDocument } from "../core/index.js";
+import type { WebKeyframesDocument } from "../core/index.js";
 
 type CliIO = {
   stdout?: Pick<typeof process.stdout, "write">;
@@ -115,7 +115,7 @@ async function collectTimelineFiles(directoryPath: string): Promise<string[]> {
 async function convertJsonFileToScss(filePath: string): Promise<string> {
   const source = await readFile(filePath, "utf8");
   const parsed = parseJsonFile(filePath, source);
-  const validated = validateWebKeyframesData(parsed) as WebKeyframesData;
+  const validated = validateWebKeyframesDocument(parsed) as WebKeyframesDocument;
 
   return generateScss(validated);
 }

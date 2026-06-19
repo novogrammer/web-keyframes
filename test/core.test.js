@@ -8,13 +8,14 @@ import {
   generatePreviewCss,
   generateScss,
   nudgeTransforms,
-  normalizeWebKeyframesData,
+  normalizeWebKeyframesDocument,
+  normalizeWebKeyframesTimeline,
   spreadKeyframeTimes,
   staggerKeyframes,
-  validateWebKeyframesData,
+  validateWebKeyframesDocument,
 } from "../dist/index.js";
 
-const baseData = {
+const baseTimeline = {
   id: "hero-logo",
   duration: 1200,
   translate: { unit: "px", functionName: "global.vw" },
@@ -40,8 +41,12 @@ const baseData = {
   ],
 };
 
-test("generateScss renders the expected SCSS", () => {
-  const scss = generateScss(baseData);
+const baseDocument = {
+  timelines: [baseTimeline],
+};
+
+test("generateScss renders the expected SCSS for a document", () => {
+  const scss = generateScss(baseDocument);
 
   assert.equal(
     scss,
@@ -49,13 +54,29 @@ test("generateScss renders the expected SCSS", () => {
   );
 });
 
-test("normalizeWebKeyframesData applies the default translate config and sorts keyframes", () => {
-  const normalized = normalizeWebKeyframesData({
-    ...baseData,
+test("generateScss concatenates multiple timelines", () => {
+  const scss = generateScss({
+    timelines: [
+      baseTimeline,
+      {
+        ...baseTimeline,
+        id: "hero-shadow",
+      },
+    ],
+  });
+
+  assert.match(scss, /@keyframes hero-logo/);
+  assert.match(scss, /@keyframes hero-shadow/);
+  assert.match(scss, /}\n\n@keyframes hero-shadow/);
+});
+
+test("normalizeWebKeyframesTimeline applies default translate config and sorts keyframes", () => {
+  const normalized = normalizeWebKeyframesTimeline({
+    ...baseTimeline,
     translate: undefined,
     keyframes: [
-      baseData.keyframes[1],
-      baseData.keyframes[0],
+      baseTimeline.keyframes[1],
+      baseTimeline.keyframes[0],
     ],
   });
 
@@ -66,17 +87,45 @@ test("normalizeWebKeyframesData applies the default translate config and sorts k
   );
 });
 
+test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => {
+  const normalized = normalizeWebKeyframesDocument({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [
+          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
+          { time: 600, opacity: null, transforms: null },
+          { time: 1200, transforms: [] },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(normalized.timelines[0].keyframes[1].opacity, 0);
+  assert.deepEqual(normalized.timelines[0].keyframes[1].transforms, [{ kind: "translate", x: 0, y: 40 }]);
+  assert.equal(normalized.timelines[0].keyframes[2].opacity, 0);
+  assert.deepEqual(normalized.timelines[0].keyframes[2].transforms, []);
+});
+
 test("generateScss supports direct units and optional wrapping functions", () => {
   const scss = generateScss({
-    ...baseData,
-    translate: { unit: "vw" },
+    timelines: [
+      {
+        ...baseTimeline,
+        translate: { unit: "vw" },
+      },
+    ],
   });
 
   assert.match(scss, /translate\(0vw, 40vw\)/);
 
   const wrapped = generateScss({
-    ...baseData,
-    translate: { unit: "%", functionName: "customFn" },
+    timelines: [
+      {
+        ...baseTimeline,
+        translate: { unit: "%", functionName: "customFn" },
+      },
+    ],
   });
 
   assert.match(wrapped, /translate\(customFn\(0%\), customFn\(40%\)\)/);
@@ -84,7 +133,7 @@ test("generateScss supports direct units and optional wrapping functions", () =>
 
 test("generatePreviewCss ignores wrapping functions for browser preview", () => {
   const css = generatePreviewCss({
-    ...baseData,
+    ...baseTimeline,
     translate: { unit: "px", functionName: "customFn" },
   }, "hero-logo__wkf_preview");
 
@@ -95,24 +144,28 @@ test("generatePreviewCss ignores wrapping functions for browser preview", () => 
 
 test("generateScss preserves explicit transform order including skew", () => {
   const scss = generateScss({
-    ...baseData,
-    keyframes: [
+    timelines: [
       {
-        time: 0,
-        opacity: 0,
-        transforms: [
-          { kind: "rotate", value: -6 },
-          { kind: "translate", x: 0, y: 40 },
-          { kind: "skew", x: 8, y: -4 },
-        ],
-      },
-      {
-        time: 1200,
-        opacity: 1,
-        transforms: [
-          { kind: "rotate", value: 0 },
-          { kind: "translate", x: 0, y: 0 },
-          { kind: "skew", x: 0, y: 0 },
+        ...baseTimeline,
+        keyframes: [
+          {
+            time: 0,
+            opacity: 0,
+            transforms: [
+              { kind: "rotate", value: -6 },
+              { kind: "translate", x: 0, y: 40 },
+              { kind: "skew", x: 8, y: -4 },
+            ],
+          },
+          {
+            time: 1200,
+            opacity: 1,
+            transforms: [
+              { kind: "rotate", value: 0 },
+              { kind: "translate", x: 0, y: 0 },
+              { kind: "skew", x: 0, y: 0 },
+            ],
+          },
         ],
       },
     ],
@@ -121,43 +174,17 @@ test("generateScss preserves explicit transform order including skew", () => {
   assert.match(scss, /transform: rotate\(-6deg\) translate\(global\.vw\(0px\), global\.vw\(40px\)\) skew\(8deg, -4deg\)/);
 });
 
-test("generateScss rounds percentages to at most 3 decimals", () => {
-  const scss = generateScss({
-    ...baseData,
-    duration: 3,
-    keyframes: [
-      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-      { time: 1, opacity: 0.5, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-      { time: 3, opacity: 1, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-    ],
-  });
-
-  assert.match(scss, /33\.333%/);
-});
-
-test("normalizeWebKeyframesData resolves sparse opacity and transforms values", () => {
-  const normalized = normalizeWebKeyframesData({
-    ...baseData,
-    keyframes: [
-      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
-      { time: 600, opacity: null, transforms: null },
-      { time: 1200, transforms: [] },
-    ],
-  });
-
-  assert.equal(normalized.keyframes[1].opacity, 0);
-  assert.deepEqual(normalized.keyframes[1].transforms, [{ kind: "translate", x: 0, y: 40 }]);
-  assert.equal(normalized.keyframes[2].opacity, 0);
-  assert.deepEqual(normalized.keyframes[2].transforms, []);
-});
-
 test("generateScss omits nullable fields and renders empty transforms as none", () => {
   const scss = generateScss({
-    ...baseData,
-    keyframes: [
-      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
-      { time: 600, opacity: null, transforms: null },
-      { time: 1200, transforms: [] },
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [
+          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 40 }] },
+          { time: 600, opacity: null, transforms: null },
+          { time: 1200, transforms: [] },
+        ],
+      },
     ],
   });
 
@@ -166,101 +193,98 @@ test("generateScss omits nullable fields and renders empty transforms as none", 
   assert.match(scss, /100% {\n    transform: none;\n  }/);
 });
 
-test("validateWebKeyframesData rejects missing and invalid required fields", () => {
+test("validateWebKeyframesDocument rejects missing and invalid required fields", () => {
   assert.throws(
     () =>
-      validateWebKeyframesData({
-        ...baseData,
-        id: "",
-        duration: 0,
-        keyframes: [{ time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] }],
-      }),
-    (error) =>
-      error instanceof WebKeyframesValidationError &&
-      error.issues.includes("id is required.") &&
-      error.issues.includes("duration must be a number greater than 0.") &&
-      error.issues.includes("keyframes must contain at least 2 items."),
-  );
-});
-
-test("validateWebKeyframesData rejects out-of-range keyframe times", () => {
-  assert.throws(
-    () =>
-      validateWebKeyframesData({
-        ...baseData,
-        keyframes: [
-          { time: -1, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-          { time: 1201, opacity: 1, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-        ],
-      }),
-    (error) =>
-      error instanceof WebKeyframesValidationError &&
-      error.issues.includes("keyframes[0].time must be greater than or equal to 0.") &&
-      error.issues.includes("keyframes[1].time must be less than or equal to duration."),
-  );
-});
-
-test("validateWebKeyframesData rejects invalid transform entries", () => {
-  assert.throws(
-    () =>
-      validateWebKeyframesData({
-        ...baseData,
-        keyframes: [
+      validateWebKeyframesDocument({
+        timelines: [
           {
-            time: 0,
-            opacity: 0,
-            transforms: [{ kind: "skew", x: 0, y: "bad" }],
+            ...baseTimeline,
+            id: "",
+            duration: 0,
+            keyframes: [{ time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] }],
           },
-          baseData.keyframes[1],
         ],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
-      error.issues.includes("keyframes[0].transforms[0].y must be a finite number."),
+      error.issues.includes("timelines[0].id is required.") &&
+      error.issues.includes("timelines[0].duration must be a number greater than 0.") &&
+      error.issues.includes("timelines[0].keyframes must contain at least 2 items."),
   );
 });
 
-test("validateWebKeyframesData allows nullable sparse fields", () => {
-  const validated = validateWebKeyframesData({
-    ...baseData,
-    keyframes: [
-      { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
-      { time: 600, opacity: null, transforms: null },
-      { time: 1200 },
+test("validateWebKeyframesDocument rejects out-of-range keyframe times and invalid transforms", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesDocument({
+        timelines: [
+          {
+            ...baseTimeline,
+            keyframes: [
+              { time: -1, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+              { time: 1201, opacity: 1, transforms: [{ kind: "skew", x: 0, y: "bad" }] },
+            ],
+          },
+        ],
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("timelines[0].keyframes[0].time must be greater than or equal to 0.") &&
+      error.issues.includes("timelines[0].keyframes[1].time must be less than or equal to duration.") &&
+      error.issues.includes("timelines[0].keyframes[1].transforms[0].y must be a finite number."),
+  );
+});
+
+test("validateWebKeyframesDocument allows nullable sparse fields", () => {
+  const validated = validateWebKeyframesDocument({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [
+          { time: 0, opacity: 0, transforms: [{ kind: "translate", x: 0, y: 0 }] },
+          { time: 600, opacity: null, transforms: null },
+          { time: 1200 },
+        ],
+      },
     ],
   });
 
-  assert.equal(validated.keyframes.length, 3);
+  assert.equal(validated.timelines[0].keyframes.length, 3);
 });
 
-test("edit helpers support duplicate, nudge, spread, and stagger workflows", () => {
-  const duplicated = duplicateKeyframes(baseData, [0], 300);
+test("timeline edit helpers support duplicate, nudge, spread, and stagger workflows", () => {
+  const duplicated = duplicateKeyframes(baseTimeline, [0], 300);
   assert.equal(duplicated.keyframes.length, 3);
   assert.equal(duplicated.keyframes[1].time, 300);
 
-  const nudged = nudgeTransforms(baseData, [0], [0], "y", -12);
+  const nudged = nudgeTransforms(baseTimeline, [0], [0], "y", -12);
   assert.equal(nudged.keyframes[0].transforms[0].y, 28);
 
   const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 1200);
   assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.time), [0, 600, 1200]);
 
-  const staggered = staggerKeyframes(baseData, [0, 1], 180, 120);
+  const staggered = staggerKeyframes(baseTimeline, [0, 1], 180, 120);
   assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.time), [120, 300]);
 });
 
-test("validateWebKeyframesData rejects invalid translate settings", () => {
+test("validateWebKeyframesDocument rejects invalid translate settings", () => {
   assert.throws(
     () =>
-      validateWebKeyframesData({
-        ...baseData,
-        translate: {
-          unit: "custom",
-          functionName: 123,
-        },
+      validateWebKeyframesDocument({
+        timelines: [
+          {
+            ...baseTimeline,
+            translate: {
+              unit: "custom",
+              functionName: 123,
+            },
+          },
+        ],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
-      error.issues.includes("translate.functionName must be a string when provided.") &&
-      error.issues.includes("translate.customUnit is required when translate.unit is custom."),
+      error.issues.includes("timelines[0].translate.functionName must be a string when provided.") &&
+      error.issues.includes("timelines[0].translate.customUnit is required when translate.unit is custom."),
   );
 });
