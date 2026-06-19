@@ -382,7 +382,10 @@ export class WebKeyframesEditor {
                   <div class="wkf__grid wkf__grid--editor">
                     ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
                   </div>
-                  <div class="wkf__property-grid">
+                  <div class="wkf__section-head wkf__section-head--properties">
+                    <div class="wkf__section-title">Properties</div>
+                  </div>
+                  <div class="wkf__property-list">
                     <div class="wkf__property">
                       ${
                         opacitySourceState === "unset"
