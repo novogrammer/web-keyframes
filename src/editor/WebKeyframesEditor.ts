@@ -111,6 +111,9 @@ type ActivePreview = {
   targets: PreviewTargetState[];
 };
 
+const PANEL_MIN_VISIBLE_X = 72;
+const PANEL_MIN_VISIBLE_Y = 56;
+
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly shortcut: ShortcutDescriptor | null;
@@ -417,7 +420,7 @@ export class WebKeyframesEditor {
             `
             : ""
         }
-        <div class="wkf__footer">
+        <div class="wkf__footer" data-wkf-drag-handle="true">
           <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
           <div class="wkf__inline-actions">
             <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
@@ -450,12 +453,14 @@ export class WebKeyframesEditor {
   }
 
   private bindDragging(): void {
-    const handle = this.container?.querySelector<HTMLElement>("[data-wkf-drag-handle='true']");
-    if (!handle) {
+    const handles = this.container?.querySelectorAll<HTMLElement>("[data-wkf-drag-handle='true']");
+    if (!handles || handles.length === 0) {
       return;
     }
 
-    handle.addEventListener("mousedown", (event) => this.startDragging(event));
+    handles.forEach((handle) => {
+      handle.addEventListener("mousedown", (event) => this.startDragging(event));
+    });
   }
 
   private bindTimelineSelection(): void {
@@ -1100,11 +1105,13 @@ export class WebKeyframesEditor {
     }
 
     const rect = panel.getBoundingClientRect();
-    const maxLeft = Math.max(0, ownerWindow.innerWidth - rect.width);
-    const maxTop = Math.max(0, ownerWindow.innerHeight - rect.height);
+    const minLeft = Math.min(0, PANEL_MIN_VISIBLE_X - rect.width);
+    const maxLeft = Math.max(0, ownerWindow.innerWidth - PANEL_MIN_VISIBLE_X);
+    const minTop = Math.min(0, PANEL_MIN_VISIBLE_Y - rect.height);
+    const maxTop = Math.max(0, ownerWindow.innerHeight - PANEL_MIN_VISIBLE_Y);
     this.panelPosition = {
-      left: clampNumber(event.clientX - this.dragState.pointerOffsetX, 0, maxLeft),
-      top: clampNumber(event.clientY - this.dragState.pointerOffsetY, 0, maxTop),
+      left: clampNumber(event.clientX - this.dragState.pointerOffsetX, minLeft, maxLeft),
+      top: clampNumber(event.clientY - this.dragState.pointerOffsetY, minTop, maxTop),
     };
     this.applyPanelPosition();
   }
