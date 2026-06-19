@@ -237,6 +237,12 @@ export class WebKeyframesEditor {
     const renderData = getRenderData(this.data);
     const selectedKeyframe = renderData.keyframes[this.selectedKeyframeIndex] ?? renderData.keyframes[0];
     const selectedSourceKeyframe = this.data.keyframes[this.selectedKeyframeIndex] ?? this.data.keyframes[0];
+    const selectedSourceTransforms = Array.isArray(selectedSourceKeyframe?.transforms) ? selectedSourceKeyframe.transforms : [];
+    const transformSourceState = selectedSourceKeyframe?.transforms == null
+      ? "unset"
+      : selectedSourceTransforms.length === 0
+        ? "none"
+        : "explicit";
     this.selectedKeyframeIndex = renderData.keyframes.indexOf(selectedKeyframe);
 
     this.container.innerHTML = `
@@ -309,18 +315,10 @@ export class WebKeyframesEditor {
                   <div class="wkf__section-title">Selected Keyframe</div>
                   <p class="wkf__subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, renderData.duration))} of timeline</p>
                 </div>
-                <div class="wkf__inline-actions">
-                  <button
-                    type="button"
-                    class="wkf__button wkf__button--small wkf__button--ghost"
-                    data-wkf-action="unset-opacity"
-                    ${selectedSourceKeyframe?.opacity == null ? "disabled" : ""}
-                  >Unset Opacity</button>
-                </div>
               </div>
               <div class="wkf__grid wkf__grid--editor">
                 ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
-                ${renderNumberField("opacity", "Opacity", selectedKeyframe.opacity, 0, 0.01, 1)}
+                ${renderNullableNumberField("opacity", "Opacity", selectedSourceKeyframe?.opacity ?? null, 0, 0.01, 1)}
               </div>
               <div class="wkf__section-head">
                 <div class="wkf__section-title">Transforms</div>
@@ -343,8 +341,15 @@ export class WebKeyframesEditor {
                   <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
                 </div>
               </div>
+              ${
+                transformSourceState === "unset"
+                  ? `<p class="wkf__note">Unset</p>`
+                  : transformSourceState === "none"
+                    ? `<p class="wkf__note">None</p>`
+                    : ""
+              }
               <div class="wkf__transform-list">
-                ${selectedKeyframe.transforms.map((transform, index) => renderTransformEditor(transform, index, selectedKeyframe.transforms.length)).join("")}
+                ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
               </div>
             </div>
           </div>
@@ -386,7 +391,7 @@ export class WebKeyframesEditor {
     this.bindMetaFields();
     this.bindKeyframeSelection();
     this.bindKeyframeEditor();
-    this.bindTransformEditor(selectedKeyframe);
+    this.bindTransformEditor(selectedSourceTransforms);
     this.bindSparseKeyframeActions();
     this.bindKeyframeActions();
     this.bindCopyActions();
@@ -451,15 +456,20 @@ export class WebKeyframesEditor {
         keyframe.time = clampNumber(Math.round(value), 0, this.data.duration);
       }, shouldRender);
     });
-    this.bindInputNumber("opacity", (value, shouldRender = true) => {
-      this.updateSelectedKeyframe((keyframe) => {
-        keyframe.opacity = clampNumber(value, 0, 1);
-      }, shouldRender);
+    this.bindNullableInputNumber("opacity", (value) => {
+      const keyframe = this.data.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      keyframe.opacity = value === null ? null : clampNumber(value, 0, 1);
+      this.setStatus("info", "Editing timeline data.");
+      this.render();
     });
   }
 
-  private bindTransformEditor(selectedKeyframe: NormalizedWebKeyframe): void {
-    selectedKeyframe.transforms.forEach((transform, index) => {
+  private bindTransformEditor(selectedTransforms: TransformOperation[]): void {
+    selectedTransforms.forEach((transform, index) => {
       this.bindInputValue(`transform-kind-${index}`, (value) => {
         this.data = normalizeForEditor(replaceTransformKind(this.data, this.selectedKeyframeIndex, index, value as TransformKind));
       });
@@ -517,6 +527,14 @@ export class WebKeyframesEditor {
     this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='add-transform']").forEach((button) => {
       button.addEventListener("click", () => {
         const kind = (button.dataset.wkfKind ?? "translate") as TransformKind;
+        const keyframe = this.data.keyframes[this.selectedKeyframeIndex];
+        if (keyframe && (!Array.isArray(keyframe.transforms) || keyframe.transforms.length === 0)) {
+          keyframe.transforms = [createDefaultTransform(kind)];
+          this.setStatus("info", `Added ${kind} transform.`);
+          this.render();
+          return;
+        }
+
         this.data = normalizeForEditor(addTransform(this.data, this.selectedKeyframeIndex, kind));
         this.setStatus("info", `Added ${kind} transform.`);
         this.render();
@@ -646,6 +664,28 @@ export class WebKeyframesEditor {
 
         this.pendingFocus = captureFocusSnapshot(this.container, field, input);
         assign(value, true);
+        this.setStatus("info", "Editing timeline data.");
+        this.render();
+      });
+    });
+  }
+
+  private bindNullableInputNumber(field: string, assign: (value: number | null) => void): void {
+    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
+      input.addEventListener("change", () => {
+        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
+        const trimmed = input.value.trim();
+
+        if (trimmed === "") {
+          assign(null);
+        } else {
+          const value = Number(trimmed);
+          if (!Number.isFinite(value)) {
+            return;
+          }
+          assign(value);
+        }
+
         this.setStatus("info", "Editing timeline data.");
         this.render();
       });
@@ -1193,6 +1233,39 @@ function renderNumberField(
         type="number"
         data-wkf-field="${escapeHtml(field)}"
         value="${escapeHtml(String(value))}"
+        ${min !== undefined ? `min="${min}"` : ""}
+        ${max !== undefined ? `max="${max}"` : ""}
+        ${step !== undefined ? `step="${step}"` : ""}
+      >
+    </label>
+  `;
+}
+
+function renderNullableNumberField(
+  field: string,
+  label: string,
+  value: number | null,
+  min?: number,
+  step?: number,
+  max?: number,
+): string {
+  return `
+    <label class="wkf__field">
+      <span class="wkf__field-head">
+        <span class="wkf__label">${escapeHtml(label)}</span>
+        <button
+          type="button"
+          class="wkf__button wkf__button--tiny wkf__button--ghost"
+          data-wkf-action="unset-${escapeHtml(field)}"
+          ${value == null ? "disabled" : ""}
+        >Unset</button>
+      </span>
+      <input
+        class="wkf__input"
+        type="number"
+        data-wkf-field="${escapeHtml(field)}"
+        value="${value == null ? "" : escapeHtml(String(value))}"
+        placeholder="unset"
         ${min !== undefined ? `min="${min}"` : ""}
         ${max !== undefined ? `max="${max}"` : ""}
         ${step !== undefined ? `step="${step}"` : ""}

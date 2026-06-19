@@ -86,6 +86,13 @@
     }
   }
 
+  &__field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   &__kicker,
   &__title,
   &__label,
@@ -137,6 +144,10 @@
 
     &--small {
       padding: 6px 9px;
+    }
+
+    &--tiny {
+      padding: 4px 8px;
     }
   }
 

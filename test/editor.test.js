@@ -258,13 +258,16 @@ test("sparse keyframe actions can unset opacity and clear transforms", () => {
   editor.mount();
 
   clickActionSync(window.document, "unset-opacity");
+  assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "");
   assert.doesNotMatch(editor.toScss(), /0% \{\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\) scale\(1\) rotate\(0deg\);\n    opacity: 0;/);
   assert.match(editor.toScss(), /0% \{\n    transform: translate\(global\.vw\(0px\), global\.vw\(40px\)\) scale\(1\) rotate\(0deg\);\n  \}/);
 
   clickActionSync(window.document, "clear-transforms");
+  assert.match(window.document.body.textContent ?? "", /None/);
   assert.match(editor.toScss(), /0% \{\n    transform: none;\n  \}/);
 
   clickActionSync(window.document, "unset-transforms");
+  assert.match(window.document.body.textContent ?? "", /Unset/);
   assert.match(editor.toScss(), /0% \{\n  \}/);
   assert.match(getStatusText(window.document), /Unset transforms/);
 });
