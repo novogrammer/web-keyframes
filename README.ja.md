@@ -121,7 +121,7 @@ editor.toScss();
 }
 ```
 
-従来の `x`、`y`、`scale`、`rotate` をトップレベルに持つキーフレーム JSON も引き続き受け付け、内部で順序付き `transforms` 配列へ正規化します。
+各キーフレームは、順序付きの `transforms` 配列を明示的に持つ必要があります。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
 ## CLI
 

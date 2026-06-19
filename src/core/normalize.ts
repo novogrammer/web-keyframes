@@ -43,11 +43,7 @@ export function normalizeKeyframe(keyframe: WebKeyframe): NormalizedWebKeyframe 
 }
 
 export function normalizeTransforms(keyframe: WebKeyframe): TransformOperation[] {
-  if (Array.isArray(keyframe.transforms) && keyframe.transforms.length > 0) {
-    return keyframe.transforms.map(cloneTransform);
-  }
-
-  return createLegacyTransforms(keyframe);
+  return keyframe.transforms.map(cloneTransform);
 }
 
 export function cloneTransform(transform: TransformOperation): TransformOperation {
@@ -74,32 +70,4 @@ export function createDefaultTransform(kind: TransformKind): TransformOperation 
     case "skew":
       return { kind: "skew", x: 0, y: 0 };
   }
-}
-
-function createLegacyTransforms(keyframe: WebKeyframe): TransformOperation[] {
-  const transforms: TransformOperation[] = [
-    {
-      kind: "translate",
-      x: keyframe.x ?? 0,
-      y: keyframe.y ?? 0,
-    },
-    {
-      kind: "scale",
-      value: keyframe.scale ?? 1,
-    },
-    {
-      kind: "rotate",
-      value: keyframe.rotate ?? 0,
-    },
-  ];
-
-  if ((keyframe.skewX ?? 0) !== 0 || (keyframe.skewY ?? 0) !== 0) {
-    transforms.push({
-      kind: "skew",
-      x: keyframe.skewX ?? 0,
-      y: keyframe.skewY ?? 0,
-    });
-  }
-
-  return transforms;
 }

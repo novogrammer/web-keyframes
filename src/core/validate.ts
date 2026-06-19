@@ -10,7 +10,6 @@ import type {
 } from "./types.js";
 
 const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
-const LEGACY_TRANSFORM_FIELDS = ["x", "y", "scale", "rotate"] as const;
 const TRANSFORM_KINDS = new Set(["translate", "scale", "rotate", "skew"]);
 
 export class WebKeyframesValidationError extends Error {
@@ -110,29 +109,16 @@ function validateKeyframe(
     issues.push(`keyframes[${index}].opacity must be a finite number.`);
   }
 
-  if (Array.isArray(candidate.transforms)) {
+  if (!Array.isArray(candidate.transforms)) {
+    issues.push(`keyframes[${index}].transforms must be an array.`);
+  } else {
     if (candidate.transforms.length === 0) {
-      issues.push(`keyframes[${index}].transforms must contain at least 1 item when provided.`);
+      issues.push(`keyframes[${index}].transforms must contain at least 1 item.`);
     }
 
     candidate.transforms.forEach((transform, transformIndex) => {
       issues.push(...validateTransform(transform, index, transformIndex));
     });
-  } else {
-    for (const field of LEGACY_TRANSFORM_FIELDS) {
-      const value = candidate[field];
-      if (!isFiniteNumber(value)) {
-        issues.push(`keyframes[${index}].${field} must be a finite number.`);
-      }
-    }
-
-    if (candidate.skewX !== undefined && !isFiniteNumber(candidate.skewX)) {
-      issues.push(`keyframes[${index}].skewX must be a finite number.`);
-    }
-
-    if (candidate.skewY !== undefined && !isFiniteNumber(candidate.skewY)) {
-      issues.push(`keyframes[${index}].skewY must be a finite number.`);
-    }
   }
 
   if (typeof candidate.time === "number") {

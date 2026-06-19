@@ -5,9 +5,33 @@ const initialData = {
   duration: 1200,
   translate: { unit: "px", functionName: "wkf-px" },
   keyframes: [
-    { time: 0, x: 0, y: 40, scale: 0.88, rotate: -6, opacity: 0 },
-    { time: 700, x: 0, y: -8, scale: 1.04, rotate: 2, opacity: 1 },
-    { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 }
+    {
+      time: 0,
+      opacity: 0,
+      transforms: [
+        { kind: "translate", x: 0, y: 40 },
+        { kind: "scale", value: 0.88 },
+        { kind: "rotate", value: -6 },
+      ],
+    },
+    {
+      time: 700,
+      opacity: 1,
+      transforms: [
+        { kind: "translate", x: 0, y: -8 },
+        { kind: "scale", value: 1.04 },
+        { kind: "rotate", value: 2 },
+      ],
+    },
+    {
+      time: 1200,
+      opacity: 1,
+      transforms: [
+        { kind: "translate", x: 0, y: 0 },
+        { kind: "scale", value: 1 },
+        { kind: "rotate", value: 0 },
+      ],
+    },
   ]
 };
 

@@ -23,8 +23,24 @@ test("CLI converts a single JSON file to SCSS", async () => {
         functionName: "global.vw",
       },
       keyframes: [
-        { time: 0, x: 0, y: 40, scale: 1, rotate: 0, opacity: 0 },
-        { time: 1200, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+        {
+          time: 0,
+          opacity: 0,
+          transforms: [
+            { kind: "translate", x: 0, y: 40 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
+        {
+          time: 1200,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     }),
   );
@@ -47,8 +63,24 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
       id: "a",
       duration: 100,
       keyframes: [
-        { time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
-        { time: 100, x: 10, y: 10, scale: 1, rotate: 0, opacity: 1 },
+        {
+          time: 0,
+          opacity: 0,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
+        {
+          time: 100,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 10, y: 10 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     }),
   );
@@ -58,8 +90,24 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
       id: "b",
       duration: 100,
       keyframes: [
-        { time: 0, x: 0, y: 0, scale: 1, rotate: 0, opacity: 0 },
-        { time: 100, x: 20, y: 20, scale: 1, rotate: 0, opacity: 1 },
+        {
+          time: 0,
+          opacity: 0,
+          transforms: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
+        {
+          time: 100,
+          opacity: 1,
+          transforms: [
+            { kind: "translate", x: 20, y: 20 },
+            { kind: "scale", value: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     }),
   );

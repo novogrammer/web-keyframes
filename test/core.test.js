@@ -93,23 +93,6 @@ test("generatePreviewCss ignores wrapping functions for browser preview", () => 
   assert.doesNotMatch(css, /customFn/);
 });
 
-test("normalizeWebKeyframesData upgrades legacy fixed transform fields", () => {
-  const normalized = normalizeWebKeyframesData({
-    id: "legacy",
-    duration: 500,
-    keyframes: [
-      { time: 0, x: 10, y: 20, scale: 0.8, rotate: -15, opacity: 0.5 },
-      { time: 500, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
-    ],
-  });
-
-  assert.deepEqual(normalized.keyframes[0].transforms, [
-    { kind: "translate", x: 10, y: 20 },
-    { kind: "scale", value: 0.8 },
-    { kind: "rotate", value: -15 },
-  ]);
-});
-
 test("generateScss preserves explicit transform order including skew", () => {
   const scss = generateScss({
     ...baseData,
@@ -203,6 +186,22 @@ test("validateWebKeyframesData rejects invalid transform entries", () => {
     (error) =>
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("keyframes[0].transforms[0].y must be a finite number."),
+  );
+});
+
+test("validateWebKeyframesData requires transforms arrays on every keyframe", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesData({
+        ...baseData,
+        keyframes: [
+          { time: 0, opacity: 0 },
+          baseData.keyframes[1],
+        ],
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("keyframes[0].transforms must be an array."),
   );
 });
 

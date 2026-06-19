@@ -149,8 +149,24 @@ test("data helpers stay available before and after mount", () => {
     id: "hero-logo",
     duration: 900,
     keyframes: [
-      { time: 0, x: 0, y: 20, scale: 1, rotate: 0, opacity: 0 },
-      { time: 900, x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 },
+      {
+        time: 0,
+        opacity: 0,
+        transforms: [
+          { kind: "translate", x: 0, y: 20 },
+          { kind: "scale", value: 1 },
+          { kind: "rotate", value: 0 },
+        ],
+      },
+      {
+        time: 900,
+        opacity: 1,
+        transforms: [
+          { kind: "translate", x: 0, y: 0 },
+          { kind: "scale", value: 1 },
+          { kind: "rotate", value: 0 },
+        ],
+      },
     ],
   });
 

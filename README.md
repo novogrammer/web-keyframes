@@ -121,7 +121,7 @@ value for matched elements.
 }
 ```
 
-Legacy keyframes using top-level `x`, `y`, `scale`, and `rotate` are still accepted and normalized into the ordered `transforms` list.
+Each keyframe must provide its ordered `transforms` array explicitly. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
 ## CLI
 

@@ -31,13 +31,7 @@ export type TransformOperation =
 export type WebKeyframe = {
   time: number;
   opacity: number;
-  transforms?: TransformOperation[];
-  x?: number;
-  y?: number;
-  scale?: number;
-  rotate?: number;
-  skewX?: number;
-  skewY?: number;
+  transforms: TransformOperation[];
 };
 
 export type NormalizedWebKeyframe = {
