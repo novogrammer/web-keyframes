@@ -4,12 +4,117 @@
 
 @import "../generated/_animations.generated.scss";
 
+$wkf-text: #162030;
+$wkf-text-muted: #334155;
+$wkf-text-soft: #6c778d;
+$wkf-surface: rgba(255, 255, 255, 0.55);
+$wkf-page-max: 1100px;
 $wkf-intro-duration: 1200ms;
 $wkf-idle-duration: 2000ms;
 $wkf-intro-delay: 240ms;
 $wkf-delay-offset: 480ms;
 
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, #f7efcf, transparent 28%),
+    linear-gradient(180deg, #f6f4ec, #d8dfeb);
+  color: $wkf-text;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+.page {
+  max-width: $wkf-page-max;
+  margin: 0 auto;
+  padding: 80px 24px 320px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: $wkf-text-soft;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  max-width: 10ch;
+  margin: 16px 0 12px;
+  font-size: clamp(52px, 9vw, 110px);
+  line-height: 0.95;
+}
+
+.hero-copy {
+  max-width: 38rem;
+  margin: 0;
+  color: $wkf-text-muted;
+
+  &--sub {
+    margin-top: 12px;
+  }
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.hero-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 18px;
+  background: $wkf-text;
+  color: #f8fafc;
+  cursor: pointer;
+  font: inherit;
+
+  &--ghost {
+    background: rgba(22, 32, 48, 0.08);
+    color: $wkf-text;
+  }
+}
+
+.hero-card {
+  max-width: 440px;
+  margin-top: 56px;
+  padding: 28px;
+  border-radius: 24px;
+  background: $wkf-surface;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(22, 32, 48, 0.1);
+}
+
+.hero-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .js-hero-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #162030, #315178);
+  color: #f8fafc;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  text-transform: uppercase;
   animation:
     hero-logo $wkf-intro-duration ease-out $wkf-intro-delay forwards,
     hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration) infinite;
