@@ -27,5 +27,8 @@
   }
 }
 .js-hero-logo {
-  animation: hero-logo 1200ms ease-out forwards, hero-logo-idle 2000ms ease-in-out 1200ms infinite;
+  animation: hero-logo 1200ms ease-out 240ms forwards, hero-logo-idle 2000ms ease-in-out 1440ms infinite;
+}
+.js-hero-logo--delayed {
+  animation: hero-logo 1200ms ease-out 720ms forwards, hero-logo-idle 2000ms ease-in-out 1920ms infinite;
 }

@@ -84,6 +84,13 @@
         box-shadow: 0 24px 60px rgba(22, 32, 48, 0.1);
       }
 
+      .hero-logo-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
       .js-hero-logo {
         display: inline-flex;
         align-items: center;
@@ -96,6 +103,7 @@
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
+        opacity: 0;
       }
     </style>
   </head>
@@ -115,7 +123,10 @@
         <button type="button" class="hero-button" data-example-action="toggle-editor">Toggle editor</button>
       </div>
       <div class="hero-card">
-        <div class="js-hero-logo">LOGO</div>
+        <div class="hero-logo-row">
+          <div class="js-hero-logo">LOGO1</div>
+          <div class="js-hero-logo js-hero-logo--delayed">LOGO2</div>
+        </div>
       </div>
     </div>
 
