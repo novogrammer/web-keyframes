@@ -326,7 +326,7 @@ export class WebKeyframesEditor {
                   }
                 </div>
               </div>
-              <div class="wkf__columns">
+              <div class="wkf__columns wkf__columns--stacked">
                 <div class="wkf__section wkf__section--list">
                   <div class="wkf__section-head">
                     <div class="wkf__section-title">Keyframes</div>
