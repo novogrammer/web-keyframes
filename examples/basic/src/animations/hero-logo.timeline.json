@@ -1,7 +1,7 @@
 {
   "timelines": [
     {
-      "id": "hero-logo",
+      "id": "hero-logo-intro",
       "duration": 1200,
       "translate": {
         "unit": "px",
@@ -75,7 +75,7 @@
       ]
     },
     {
-      "id": "hero-badge",
+      "id": "hero-badge-intro",
       "duration": 900,
       "translate": {
         "unit": "px",

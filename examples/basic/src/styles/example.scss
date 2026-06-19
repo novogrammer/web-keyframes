@@ -127,13 +127,13 @@ body {
 
   &--01 {
     animation:
-      hero-logo $wkf-intro-duration ease-out $wkf-intro-delay forwards,
+      hero-logo-intro $wkf-intro-duration ease-out $wkf-intro-delay forwards,
       hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration) infinite;
   }
 
   &--02 {
     animation:
-      hero-logo $wkf-intro-duration ease-out ($wkf-intro-delay + $wkf-delay-offset) forwards,
+      hero-logo-intro $wkf-intro-duration ease-out ($wkf-intro-delay + $wkf-delay-offset) forwards,
       hero-logo-idle $wkf-idle-duration ease-in-out ($wkf-intro-delay + $wkf-intro-duration + $wkf-delay-offset) infinite;
   }
 }
@@ -155,6 +155,6 @@ body {
   text-transform: uppercase;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   animation:
-    hero-badge $wkf-badge-intro-duration cubic-bezier(0.2, 0.8, 0.2, 1) $wkf-badge-intro-delay forwards,
+    hero-badge-intro $wkf-badge-intro-duration cubic-bezier(0.2, 0.8, 0.2, 1) $wkf-badge-intro-delay forwards,
     hero-badge-idle $wkf-badge-idle-duration ease-in-out ($wkf-badge-intro-delay + $wkf-badge-intro-duration) infinite;
 }

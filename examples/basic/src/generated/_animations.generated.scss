@@ -1,4 +1,4 @@
-@keyframes hero-logo {
+@keyframes hero-logo-intro {
 
   0% {
     transform: translate(wkf-px(0px), wkf-px(40px)) scale(0.88) rotate(-6deg);
@@ -36,7 +36,7 @@
 
 }
 
-@keyframes hero-badge {
+@keyframes hero-badge-intro {
 
   0% {
     transform: translate(wkf-px(-28px), wkf-px(10px)) scale(0.92) rotate(-10deg);

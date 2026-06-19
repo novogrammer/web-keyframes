@@ -3,7 +3,7 @@ import { WebKeyframesEditor } from "web-keyframes/editor";
 const initialData = {
   timelines: [
     {
-      id: "hero-logo",
+      id: "hero-logo-intro",
       duration: 1200,
       translate: { unit: "px", functionName: "wkf-px" },
       keyframes: [
@@ -71,7 +71,7 @@ const initialData = {
       ],
     },
     {
-      id: "hero-badge",
+      id: "hero-badge-intro",
       duration: 900,
       translate: { unit: "px", functionName: "wkf-px" },
       keyframes: [
