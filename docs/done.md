@@ -8,13 +8,28 @@
 - 最小 transform 項目セットとして `translate`, `scale`, `rotate`, `skew` を扱えるようにした。
 - transform の配列順をそのまま CSS 出力順と preview の適用順に反映した。
 - transform の内部表現を、JavaScript 側で扱いやすい小さなデータモデルとして明確にした。
+- タイムライン UI の複雑化より先に、transform 順序を失わないデータ構造を確定した。
+- keyframe ごとの animated value を `properties[]` で表す形に整理し、`opacity` と `transform` を同列に扱えるようにした。
 
 ## プレビュー
 
 - transform リスト化のあとも、preview 側が生成器と同じ transform 順序を厳密に再現するようにした。
+- preview は現在の軽量な DOM リプレイの範囲で十分と判断した。
+- `animation-name` ベースの対象検出は、現状の利用形態では十分信頼できることを確認した。
+- 複数の対象が同じ animation 名を共有するケースでも、preview は個別に正しく反映されることを確認した。
 
 ## 編集 API
 
 - 高頻度の修正操作を、JavaScript から呼べる明示的な編集コマンドとして定義した。
 - 最小セットとして `nudge`, `offset`, `duplicate`, `spread`, `mirror`, `stagger` を実装した。
 - 各操作の対象と変更内容が型と関数シグネチャで分かる API にした。
+
+## プロダクト方針
+
+- `theatre.js` のような高機能タイムラインツールを目指すのではなく、Web 向け keyframes 編集に必要な最小機能へ絞る方針を明確にした。
+- 汎用的な自由操作 UI を広げるより、プログラム側で定義した意味の明確な編集操作を強くする方針を明確にした。
+
+## UX
+
+- `theatre.js` 的な汎用シーケンサー UI を持ち込まず、このツールに必要な範囲で順序編集 UI を設計する方針を明確にした。
+- 自由な直接操作より、JavaScript 側で定義した `nudge` や `range` のような定型操作を UI から呼び出す方針を優先することを確認した。
