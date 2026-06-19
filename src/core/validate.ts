@@ -81,8 +81,8 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
     issues.push(`${prefix}duration must be a number greater than 0.`);
   }
 
-  if (candidate.translate !== undefined) {
-    issues.push(...validateTranslate(candidate.translate, prefix));
+  if (candidate.translateConfig !== undefined) {
+    issues.push(...validateTranslate(candidate.translateConfig, prefix));
   }
 
   if (!Array.isArray(candidate.keyframes)) {
@@ -102,22 +102,22 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
 
 function validateTranslate(translate: unknown, prefix: string): string[] {
   if (!isPlainObject(translate)) {
-    return [`${prefix}translate must be an object when provided.`];
+    return [`${prefix}translateConfig must be an object when provided.`];
   }
 
   const candidate = translate as Partial<TranslateConfig>;
   const issues: string[] = [];
 
   if (typeof candidate.unit !== "string" || !TRANSLATE_UNITS.has(candidate.unit)) {
-    issues.push(`${prefix}translate.unit must be one of px, vw, vh, %, or custom.`);
+    issues.push(`${prefix}translateConfig.unit must be one of px, vw, vh, %, or custom.`);
   }
 
   if (candidate.customUnit !== undefined && typeof candidate.customUnit !== "string") {
-    issues.push(`${prefix}translate.customUnit must be a string when provided.`);
+    issues.push(`${prefix}translateConfig.customUnit must be a string when provided.`);
   }
 
   if (candidate.unit === "custom" && (!candidate.customUnit || candidate.customUnit.trim() === "")) {
-    issues.push(`${prefix}translate.customUnit is required when translate.unit is custom.`);
+    issues.push(`${prefix}translateConfig.customUnit is required when translateConfig.unit is custom.`);
   }
 
   return issues;

@@ -54,7 +54,7 @@ editor.toCss();
 ### 現在のエディタ機能
 
 - 1 つの document 内で複数 timeline を管理
-- 選択中 timeline の `id`、`duration`、translate 出力設定の編集
+- 選択中 timeline の `id`、`duration`、`translateConfig` 出力設定の編集
 - 選択中キーフレーム `time`、`opacity`、順序付き transform の編集
 - `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
 - timeline の追加、複製、選択、削除
@@ -96,7 +96,7 @@ editor.toCss();
     {
       "id": "hero-logo",
       "duration": 1200,
-      "translate": {
+      "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
@@ -134,7 +134,7 @@ editor.toCss();
 }
 ```
 
-document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translate`、`keyframes` を持ちます。
+document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translateConfig`、`keyframes` を持ちます。
 
 各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。`transform` はその中で `value[]` に順序付き operation を持ちます。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
@@ -182,7 +182,7 @@ web-keyframes to-css \
 }
 ```
 
-`translate.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
+`translateConfig.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 transform 配列の順番は `generateCss()` と `generatePreviewCss()` の両方でそのまま維持されます。
 `generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 `generatePreviewCss()` は preview 用の browser-safe な CSS を出力します。

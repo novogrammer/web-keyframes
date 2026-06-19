@@ -54,7 +54,7 @@ editor.toCss();
 ### Current editor features
 
 - Manage multiple timelines in one document
-- Edit the selected timeline `id`, `duration`, and translate output settings
+- Edit the selected timeline `id`, `duration`, and `translateConfig` output settings
 - Edit selected keyframe `time`, `opacity`, and ordered transform entries
 - Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
 - Add, duplicate, select, and delete timelines
@@ -96,7 +96,7 @@ value for matched elements.
     {
       "id": "hero-logo",
       "duration": 1200,
-      "translate": {
+      "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
@@ -134,7 +134,7 @@ value for matched elements.
 }
 ```
 
-Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translate`, and `keyframes`.
+Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translateConfig`, and `keyframes`.
 
 Each keyframe expresses animated values through an ordered `properties[]` list. `transform` stores its ordered operations in `value[]`. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
@@ -182,7 +182,7 @@ Each input file may contain one or more timelines. When the input is a directory
 }
 ```
 
-`translate.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
+`translateConfig.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 Transform array order is preserved exactly in both `generateCss()` and `generatePreviewCss()`.
 `generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 `generatePreviewCss()` emits browser-safe preview CSS.

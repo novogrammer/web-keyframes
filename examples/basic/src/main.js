@@ -9,7 +9,7 @@ const initialData = {
     {
       id: "hero-logo-intro",
       duration: 1200,
-      translate: { unit: "px" },
+      translateConfig: { unit: "px" },
       keyframes: [
         createKeyframe(0, 0, [
           { kind: "translate", x: 0, y: 40 },
@@ -31,7 +31,7 @@ const initialData = {
     {
       id: "hero-logo-idle",
       duration: 2000,
-      translate: { unit: "px" },
+      translateConfig: { unit: "px" },
       keyframes: [
         createKeyframe(0, 1, [
           { kind: "translate", x: 0, y: 0 },
@@ -53,7 +53,7 @@ const initialData = {
     {
       id: "hero-badge-intro",
       duration: 900,
-      translate: { unit: "px" },
+      translateConfig: { unit: "px" },
       keyframes: [
         createKeyframe(0, 0, [
           { kind: "translate", x: -28, y: 10 },
@@ -75,7 +75,7 @@ const initialData = {
     {
       id: "hero-badge-idle",
       duration: 1800,
-      translate: { unit: "px" },
+      translateConfig: { unit: "px" },
       keyframes: [
         createKeyframe(0, 1, [
           { kind: "translate", x: 0, y: 0 },

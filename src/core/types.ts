@@ -64,7 +64,7 @@ export type TranslateConfig = {
 export type WebKeyframesTimeline = {
   id: string;
   duration: number;
-  translate?: TranslateConfig;
+  translateConfig?: TranslateConfig;
   keyframes: WebKeyframe[];
 };
 
@@ -77,8 +77,8 @@ export type NormalizedTranslateConfig = {
   customUnit: string | null;
 };
 
-export type NormalizedWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translate" | "keyframes"> & {
-  translate: NormalizedTranslateConfig;
+export type NormalizedWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes"> & {
+  translateConfig: NormalizedTranslateConfig;
   keyframes: NormalizedWebKeyframe[];
 };
 

@@ -20,7 +20,7 @@ test("CLI converts a single JSON file to CSS", async () => {
         {
           id: "hero-logo",
           duration: 1200,
-          translate: {
+          translateConfig: {
             unit: "px",
           },
           keyframes: [

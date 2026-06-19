@@ -43,7 +43,7 @@ function renderTimelineCss(
     if (transformProperty) {
       lines.push(
         transformProperty.value.length > 0
-          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translate, false)).join(" ")};`
+          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translateConfig, false)).join(" ")};`
           : "    transform: none;",
       );
     }
@@ -78,10 +78,10 @@ export function renderTransform(
 
 function renderTranslateValue(
   value: number,
-  translate: NormalizedTranslateConfig,
+  translateConfig: NormalizedTranslateConfig,
   previewMode: boolean,
 ): string {
-  const unit = translate.unit === "custom" ? translate.customUnit ?? "px" : translate.unit;
+  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit ?? "px" : translateConfig.unit;
   void previewMode;
   return `${formatNumber(value)}${unit}`;
 }

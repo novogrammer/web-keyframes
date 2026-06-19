@@ -135,7 +135,7 @@ test("timeline meta inputs update selected timeline data", () => {
 
   const data = editor.getData();
   assert.equal(data.timelines[0].id, "hero-title");
-  assert.equal(data.timelines[0].translate?.unit, "vw");
+  assert.equal(data.timelines[0].translateConfig?.unit, "vw");
   assert.equal(data.timelines[0].duration, 1600);
 });
 

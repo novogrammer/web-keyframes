@@ -22,7 +22,7 @@ import {
 const baseTimeline = {
   id: "hero-logo",
   duration: 1200,
-  translate: { unit: "px" },
+  translateConfig: { unit: "px" },
   keyframes: [
     createKeyframe(0, 0, [
       { kind: "translate", x: 0, y: 40 },
@@ -69,14 +69,14 @@ test("generateCss concatenates multiple timelines", () => {
 test("normalizeWebKeyframesTimeline applies default translate config and sorts keyframes", () => {
   const normalized = normalizeWebKeyframesTimeline({
     ...baseTimeline,
-    translate: undefined,
+    translateConfig: undefined,
     keyframes: [
       baseTimeline.keyframes[1],
       baseTimeline.keyframes[0],
     ],
   });
 
-  assert.deepEqual(normalized.translate, DEFAULT_TRANSLATE_CONFIG);
+  assert.deepEqual(normalized.translateConfig, DEFAULT_TRANSLATE_CONFIG);
   assert.deepEqual(
     normalized.keyframes.map((keyframe) => keyframe.time),
     [0, 1200],
@@ -108,7 +108,7 @@ test("generateCss supports direct units", () => {
     timelines: [
       {
         ...baseTimeline,
-        translate: { unit: "vw" },
+        translateConfig: { unit: "vw" },
       },
     ],
   });
@@ -254,7 +254,7 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
         timelines: [
           {
             ...baseTimeline,
-            translate: {
+            translateConfig: {
               unit: "custom",
             },
           },
@@ -262,7 +262,7 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
-      error.issues.includes("timelines[0].translate.customUnit is required when translate.unit is custom."),
+      error.issues.includes("timelines[0].translateConfig.customUnit is required when translateConfig.unit is custom."),
   );
 });
 

@@ -44,7 +44,7 @@ export type WebKeyframesEditorOptions = {
 const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   id: "new-animation",
   duration: 1200,
-  translate: {
+  translateConfig: {
     unit: DEFAULT_TRANSLATE_CONFIG.unit,
   },
   keyframes: [
@@ -90,8 +90,8 @@ type RenderTranslateConfig = {
   customUnit: string;
 };
 
-type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translate" | "keyframes"> & {
-  translate: RenderTranslateConfig;
+type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes"> & {
+  translateConfig: RenderTranslateConfig;
   keyframes: NormalizedWebKeyframe[];
 };
 
@@ -327,7 +327,7 @@ export class WebKeyframesEditor {
                 <div class="wkf__grid wkf__grid--meta">
                   ${renderTextField("id", "ID", selectedTimeline.id)}
                   ${renderNumberField("duration", "Duration", selectedTimeline.duration, 1, 1)}
-                  ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translate.unit, [
+                  ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translateConfig.unit, [
                     { value: "px", label: "px" },
                     { value: "vw", label: "vw" },
                     { value: "vh", label: "vh" },
@@ -335,8 +335,8 @@ export class WebKeyframesEditor {
                     { value: "custom", label: "custom" },
                   ])}
                   ${
-                    selectedTimeline.translate.unit === "custom"
-                      ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translate.customUnit ?? "")
+                    selectedTimeline.translateConfig.unit === "custom"
+                      ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translateConfig.customUnit ?? "")
                       : ""
                   }
                 </div>
@@ -365,7 +365,7 @@ export class WebKeyframesEditor {
                           >
                             <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
                             <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, selectedTimeline.duration))}</span>
-                            <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translate))}</span>
+                            <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
                           </button>
                         `,
                       )
@@ -608,16 +608,16 @@ export class WebKeyframesEditor {
     });
     this.bindInputValue("translateCustomUnit", (value) => {
       this.updateSelectedTimeline((timeline) => {
-        timeline.translate = {
-          ...(timeline.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+        timeline.translateConfig = {
+          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
           customUnit: value,
         };
       });
     });
     this.bindInputValue("translateUnit", (value) => {
       this.updateSelectedTimeline((timeline) => {
-        timeline.translate = {
-          ...(timeline.translate ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+        timeline.translateConfig = {
+          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
           unit: value as TranslateUnit,
         };
       });
@@ -1322,9 +1322,9 @@ function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimel
   return sanitizeEditorDocument(data).timelines.map((timeline) => ({
     ...timeline,
     duration: Number.isFinite(timeline.duration) && timeline.duration > 0 ? Math.round(timeline.duration) : 1,
-    translate: {
-      unit: timeline.translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: timeline.translate?.unit === "custom" ? timeline.translate.customUnit?.trim() || "" : "",
+    translateConfig: {
+      unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      customUnit: timeline.translateConfig?.unit === "custom" ? timeline.translateConfig.customUnit?.trim() || "" : "",
     },
     keyframes: timeline.keyframes.map<NormalizedWebKeyframe>((keyframe) => ({
       time: keyframe.time,
@@ -1377,9 +1377,9 @@ function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: numb
     duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0
       ? Math.round(data.duration)
       : fallback.duration,
-    translate: {
-      unit: isTranslateUnit(data.translate?.unit) ? data.translate.unit : DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: typeof data.translate?.customUnit === "string" ? data.translate.customUnit : undefined,
+    translateConfig: {
+      unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
+      customUnit: typeof data.translateConfig?.customUnit === "string" ? data.translateConfig.customUnit : undefined,
     },
     keyframes: resolvedKeyframes,
   };
@@ -1429,7 +1429,7 @@ function createUniqueTimelineId(seed: string, timelines: WebKeyframesTimeline[])
 function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframesTimeline): void {
   target.id = source.id;
   target.duration = source.duration;
-  target.translate = source.translate ? { ...source.translate } : undefined;
+  target.translateConfig = source.translateConfig ? { ...source.translateConfig } : undefined;
   target.keyframes = source.keyframes.map((keyframe) => ({
     time: keyframe.time,
     properties: cloneProperties(keyframe.properties ?? []),
@@ -1717,7 +1717,7 @@ function formatTimelineSummary(timeline: RenderWebKeyframesTimeline): string {
 
 function formatKeyframeSummary(
   keyframe: WebKeyframesTimeline["keyframes"][number] | NormalizedWebKeyframe,
-  translate: RenderTranslateConfig,
+  translateConfig: RenderTranslateConfig,
 ): string {
   const parts: string[] = [];
   const transformState = hasKeyframeProperty(keyframe, "transform");
@@ -1727,7 +1727,7 @@ function formatKeyframeSummary(
   if (transformState) {
     parts.push(
       transforms.length > 0
-        ? transforms.map((transform) => formatTransformSummary(transform, translate)).join(" ")
+        ? transforms.map((transform) => formatTransformSummary(transform, translateConfig)).join(" ")
         : "transform: none",
     );
   }
@@ -1739,10 +1739,10 @@ function formatKeyframeSummary(
   return parts.join(", ");
 }
 
-function formatTransformSummary(transform: TransformOperation, translate: RenderTranslateConfig): string {
+function formatTransformSummary(transform: TransformOperation, translateConfig: RenderTranslateConfig): string {
   switch (transform.kind) {
     case "translate":
-      return `translate(${formatSummaryTranslateValue(transform.x, translate)}, ${formatSummaryTranslateValue(transform.y, translate)})`;
+      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
     case "scale":
       return `scale(${formatNumber(transform.value)})`;
     case "rotate":
@@ -1752,8 +1752,8 @@ function formatTransformSummary(transform: TransformOperation, translate: Render
   }
 }
 
-function formatSummaryTranslateValue(value: number, translate: RenderTranslateConfig): string {
-  const unit = translate.unit === "custom" ? translate.customUnit || "px" : translate.unit;
+function formatSummaryTranslateValue(value: number, translateConfig: RenderTranslateConfig): string {
+  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit || "px" : translateConfig.unit;
   return `${formatNumber(value)}${unit}`;
 }
 

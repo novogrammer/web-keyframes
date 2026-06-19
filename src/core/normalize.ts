@@ -29,7 +29,7 @@ export function normalizeWebKeyframesDocument(data: WebKeyframesDocument): Norma
 
 export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   const validated = validateWebKeyframesTimeline(data);
-  const translate = validated.translate;
+  const translateConfig = validated.translateConfig;
   const sortedKeyframes = [...validated.keyframes].sort((left, right) => left.time - right.time);
   const keyframes = sortedKeyframes.reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
     const previous = accumulator[accumulator.length - 1];
@@ -39,9 +39,9 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
 
   return {
     ...validated,
-    translate: {
-      unit: translate?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: translate?.unit === "custom" ? translate.customUnit?.trim() || null : null,
+    translateConfig: {
+      unit: translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      customUnit: translateConfig?.unit === "custom" ? translateConfig.customUnit?.trim() || null : null,
     },
     keyframes,
   };
@@ -94,10 +94,10 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
   return {
     id: timeline.id,
     duration: timeline.duration,
-    translate: timeline.translate
+    translateConfig: timeline.translateConfig
       ? {
-          unit: timeline.translate.unit,
-          customUnit: timeline.translate.customUnit ?? undefined,
+          unit: timeline.translateConfig.unit,
+          customUnit: timeline.translateConfig.customUnit ?? undefined,
         }
       : undefined,
     keyframes: timeline.keyframes.map((keyframe) => ({

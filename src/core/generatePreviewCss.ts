@@ -19,7 +19,7 @@ export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: s
     if (transformProperty) {
       lines.push(
         transformProperty.value.length > 0
-          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translate, true)).join(" ")};`
+          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translateConfig, true)).join(" ")};`
           : "    transform: none;",
       );
     }
