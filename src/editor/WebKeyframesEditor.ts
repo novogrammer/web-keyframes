@@ -275,7 +275,7 @@ export class WebKeyframesEditor {
             <div class="__wkf-section __wkf-section--list">
               <div class="__wkf-section-head">
                 <div class="__wkf-section-title">Keyframes</div>
-                <div class="__wkf-inline-actions">
+                <div class="__wkf-inline-actions __wkf-inline-actions--wrap">
                   <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="add-keyframe">Add</button>
                   <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="duplicate-keyframe">Duplicate</button>
                   <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-keyframe" ${
