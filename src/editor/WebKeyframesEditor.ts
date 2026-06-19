@@ -296,7 +296,7 @@ export class WebKeyframesEditor {
                       >
                         <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
                         <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, renderData.duration))}</span>
-                        <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(keyframe))}</span>
+                        <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(this.data.keyframes[index] ?? keyframe, renderData.translate))}</span>
                       </button>
                     `,
                   )
@@ -1249,21 +1249,44 @@ function replaceAnimationName(value: string, currentName: string, nextName: stri
   return names.map((name) => (name === currentName ? nextName : name)).join(", ");
 }
 
-function formatKeyframeSummary(keyframe: NormalizedWebKeyframe): string {
-  return `${keyframe.transforms.map(formatTransformSummary).join(" | ")}, opacity ${formatNumber(keyframe.opacity)}`;
+function formatKeyframeSummary(
+  keyframe: WebKeyframesData["keyframes"][number] | NormalizedWebKeyframe,
+  translate: RenderTranslateConfig,
+): string {
+  const parts: string[] = [];
+
+  if (Array.isArray(keyframe.transforms)) {
+    parts.push(
+      keyframe.transforms.length > 0
+        ? keyframe.transforms.map((transform) => formatTransformSummary(transform, translate)).join(" ")
+        : "transform: none",
+    );
+  }
+
+  if (typeof keyframe.opacity === "number" && Number.isFinite(keyframe.opacity)) {
+    parts.push(`opacity ${formatNumber(keyframe.opacity)}`);
+  }
+
+  return parts.join(", ");
 }
 
-function formatTransformSummary(transform: TransformOperation): string {
+function formatTransformSummary(transform: TransformOperation, translate: RenderTranslateConfig): string {
   switch (transform.kind) {
     case "translate":
-      return `translate(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
+      return `translate(${formatSummaryTranslateValue(transform.x, translate)}, ${formatSummaryTranslateValue(transform.y, translate)})`;
     case "scale":
       return `scale(${formatNumber(transform.value)})`;
     case "rotate":
-      return `rotate(${formatNumber(transform.value)})`;
+      return `rotate(${formatNumber(transform.value)}deg)`;
     case "skew":
-      return `skew(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
+      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
   }
+}
+
+function formatSummaryTranslateValue(value: number, translate: RenderTranslateConfig): string {
+  const unit = translate.unit === "custom" ? translate.customUnit || "px" : translate.unit;
+  const dimension = `${formatNumber(value)}${unit}`;
+  return translate.functionName ? `${translate.functionName}(${dimension})` : dimension;
 }
 
 function formatPercentLabel(time: number, duration: number): string {

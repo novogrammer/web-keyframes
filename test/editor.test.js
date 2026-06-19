@@ -302,6 +302,28 @@ test("duplicate keyframe action inserts a copied frame and keeps timeline percen
   assert.match(window.document.body.textContent ?? "", /10% of timeline/);
 });
 
+test("keyframe list summary reflects translate settings and sparse fields without dangling commas", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setSelectValue(window.document, "translateUnit", "custom");
+  setInputValue(window.document, "translateFunctionName", "wkfPx");
+  setInputValue(window.document, "translateCustomUnit", "rem");
+  setNumberValue(window.document, "transform-x-0", 2);
+  setNumberValue(window.document, "transform-y-0", 4);
+
+  const keyframeButtons = window.document.querySelectorAll("[data-wkf-action='select-keyframe']");
+  keyframeButtons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await Promise.resolve();
+  clickActionSync(window.document, "unset-opacity");
+  clickActionSync(window.document, "unset-transforms");
+
+  const summaries = Array.from(window.document.querySelectorAll(".wkf__keyframe-meta")).map((node) => node.textContent ?? "");
+  assert.match(summaries[0], /translate\(wkfPx\(2rem\), wkfPx\(4rem\)\) scale\(1\) rotate\(0deg\), opacity 0/);
+  assert.equal(summaries[1], "");
+});
+
 test("copy actions write JSON and SCSS to the clipboard", async () => {
   const { window, clipboardWrites } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
