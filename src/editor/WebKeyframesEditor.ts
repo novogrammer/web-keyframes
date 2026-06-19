@@ -157,7 +157,7 @@ export class WebKeyframesEditor {
 
     const ownerDocument = this.root.ownerDocument;
     const container = ownerDocument.createElement("section");
-    container.className = "__wkf-root";
+    container.className = "wkf";
     container.setAttribute("aria-hidden", "true");
 
     this.container = container;
@@ -183,19 +183,19 @@ export class WebKeyframesEditor {
 
   show(): void {
     this.ensureMounted();
-    this.container!.classList.add("__wkf-root--visible");
+    this.container!.classList.add("wkf--visible");
     this.container!.setAttribute("aria-hidden", "false");
   }
 
   hide(): void {
     this.ensureMounted();
-    this.container!.classList.remove("__wkf-root--visible");
+    this.container!.classList.remove("wkf--visible");
     this.container!.setAttribute("aria-hidden", "true");
   }
 
   toggle(): void {
     this.ensureMounted();
-    if (this.container!.classList.contains("__wkf-root--visible")) {
+    if (this.container!.classList.contains("wkf--visible")) {
       this.hide();
       return;
     }
@@ -239,21 +239,21 @@ export class WebKeyframesEditor {
     this.selectedKeyframeIndex = renderData.keyframes.indexOf(selectedKeyframe);
 
     this.container.innerHTML = `
-      <div class="__wkf-panel">
-        <div class="__wkf-header" data-wkf-drag-handle="true">
+      <div class="wkf__panel">
+        <div class="wkf__header" data-wkf-drag-handle="true">
           <div>
-            <p class="__wkf-kicker">web-keyframes editor</p>
-            <h2 class="__wkf-title">Keyframe Data Editor</h2>
+            <p class="wkf__kicker">web-keyframes editor</p>
+            <h2 class="wkf__title">Keyframe Data Editor</h2>
           </div>
-          <div class="__wkf-actions" data-wkf-no-drag="true">
-            <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="reset">Reset</button>
-            <button type="button" class="__wkf-button __wkf-button--ghost" data-wkf-action="hide">Hide</button>
+          <div class="wkf__actions" data-wkf-no-drag="true">
+            <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="reset">Reset</button>
+            <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide">Hide</button>
           </div>
         </div>
-        <div class="__wkf-layout">
-          <div class="__wkf-section">
-            <div class="__wkf-section-title">Timeline</div>
-            <div class="__wkf-grid __wkf-grid--meta">
+        <div class="wkf__layout">
+          <div class="wkf__section">
+            <div class="wkf__section-title">Timeline</div>
+            <div class="wkf__grid wkf__grid--meta">
               ${renderTextField("id", "ID", renderData.id)}
               ${renderNumberField("duration", "Duration", renderData.duration, 1, 1)}
               ${renderSelectField("translateUnit", "Translate Unit", renderData.translate.unit, [
@@ -271,58 +271,58 @@ export class WebKeyframesEditor {
               }
             </div>
           </div>
-          <div class="__wkf-columns">
-            <div class="__wkf-section __wkf-section--list">
-              <div class="__wkf-section-head">
-                <div class="__wkf-section-title">Keyframes</div>
-                <div class="__wkf-inline-actions __wkf-inline-actions--wrap">
-                  <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="add-keyframe">Add</button>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="duplicate-keyframe">Duplicate</button>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-keyframe" ${
+          <div class="wkf__columns">
+            <div class="wkf__section wkf__section--list">
+              <div class="wkf__section-head">
+                <div class="wkf__section-title">Keyframes</div>
+                <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                  <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-keyframe">Add</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe">Duplicate</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-keyframe" ${
                     renderData.keyframes.length <= 2 ? "disabled" : ""
                   }>Delete</button>
                 </div>
               </div>
-              <div class="__wkf-keyframe-list">
+              <div class="wkf__keyframe-list">
                 ${renderData.keyframes
                   .map(
                     (keyframe, index) => `
                       <button
                         type="button"
-                        class="__wkf-keyframe-item${index === this.selectedKeyframeIndex ? " __wkf-keyframe-item--active" : ""}"
+                        class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
                         data-wkf-action="select-keyframe"
                         data-wkf-index="${index}"
                       >
-                        <span class="__wkf-keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
-                        <span class="__wkf-keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, renderData.duration))}</span>
-                        <span class="__wkf-keyframe-meta">${escapeHtml(formatKeyframeSummary(keyframe))}</span>
+                        <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
+                        <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, renderData.duration))}</span>
+                        <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(keyframe))}</span>
                       </button>
                     `,
                   )
                   .join("")}
               </div>
             </div>
-            <div class="__wkf-section __wkf-section--editor">
-              <div class="__wkf-section-head">
+            <div class="wkf__section wkf__section--editor">
+              <div class="wkf__section-head">
                 <div>
-                  <div class="__wkf-section-title">Selected Keyframe</div>
-                  <p class="__wkf-subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, renderData.duration))} of timeline</p>
+                  <div class="wkf__section-title">Selected Keyframe</div>
+                  <p class="wkf__subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, renderData.duration))} of timeline</p>
                 </div>
               </div>
-              <div class="__wkf-grid __wkf-grid--editor">
+              <div class="wkf__grid wkf__grid--editor">
                 ${renderRangeField("time", "Time", selectedKeyframe.time, 0, renderData.duration)}
                 ${renderNumberField("opacity", "Opacity", selectedKeyframe.opacity, 0, 0.01, 1)}
               </div>
-              <div class="__wkf-section-head">
-                <div class="__wkf-section-title">Transforms</div>
-                <div class="__wkf-inline-actions">
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+              <div class="wkf__section-head">
+                <div class="wkf__section-title">Transforms</div>
+                <div class="wkf__inline-actions">
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
                 </div>
               </div>
-              <div class="__wkf-transform-list">
+              <div class="wkf__transform-list">
                 ${selectedKeyframe.transforms.map((transform, index) => renderTransformEditor(transform, index, selectedKeyframe.transforms.length)).join("")}
               </div>
             </div>
@@ -331,28 +331,28 @@ export class WebKeyframesEditor {
         ${
           this.previewTitle !== null
             ? `
-              <div class="__wkf-preview">
-                <div class="__wkf-preview-head">
+              <div class="wkf__preview">
+                <div class="wkf__preview-head">
                   <div>
-                    <div class="__wkf-section-title">${escapeHtml(this.previewTitle)}</div>
-                    <p class="__wkf-subtitle">Current generated output</p>
+                    <div class="wkf__section-title">${escapeHtml(this.previewTitle)}</div>
+                    <p class="wkf__subtitle">Current generated output</p>
                   </div>
-                  <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="close-preview">Close</button>
+                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
                 </div>
-                <textarea class="__wkf-preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
+                <textarea class="wkf__preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
               </div>
             `
             : ""
         }
-        <div class="__wkf-footer">
-          <p class="__wkf-note __wkf-note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
-          <div class="__wkf-inline-actions">
-            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="run-preview">Preview</button>
-            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
-            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-json">View JSON</button>
-            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="view-scss">View SCSS</button>
-            <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="copy-json">Copy JSON</button>
-            <button type="button" class="__wkf-button __wkf-button--small" data-wkf-action="copy-scss">Copy SCSS</button>
+        <div class="wkf__footer">
+          <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
+          <div class="wkf__inline-actions">
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-json">View JSON</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-scss">View SCSS</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="copy-json">Copy JSON</button>
+            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-scss">Copy SCSS</button>
           </div>
         </div>
       </div>
@@ -779,7 +779,7 @@ export class WebKeyframesEditor {
       return;
     }
 
-    const panel = this.container?.querySelector<HTMLElement>(".__wkf-panel");
+    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
     const ownerWindow = this.root.ownerDocument.defaultView;
     if (!panel || !ownerWindow) {
       return;
@@ -792,7 +792,7 @@ export class WebKeyframesEditor {
       pointerOffsetY: event.clientY - rect.top,
     };
 
-    panel.classList.add("__wkf-panel--dragging");
+    panel.classList.add("wkf__panel--dragging");
     ownerWindow.addEventListener("mousemove", this.handleDragMove);
     ownerWindow.addEventListener("mouseup", this.handleDragEnd);
     event.preventDefault();
@@ -803,7 +803,7 @@ export class WebKeyframesEditor {
       return;
     }
 
-    const panel = this.container.querySelector<HTMLElement>(".__wkf-panel");
+    const panel = this.container.querySelector<HTMLElement>(".wkf__panel");
     const ownerWindow = this.root.ownerDocument.defaultView;
     if (!panel || !ownerWindow) {
       return;
@@ -826,12 +826,12 @@ export class WebKeyframesEditor {
       ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
     }
 
-    this.container?.querySelector<HTMLElement>(".__wkf-panel")?.classList.remove("__wkf-panel--dragging");
+    this.container?.querySelector<HTMLElement>(".wkf__panel")?.classList.remove("wkf__panel--dragging");
     this.dragState = null;
   }
 
   private applyPanelPosition(): void {
-    const panel = this.container?.querySelector<HTMLElement>(".__wkf-panel");
+    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
     if (!panel) {
       return;
     }
@@ -1022,9 +1022,9 @@ function findClosestKeyframeIndex(
 
 function renderTextField(field: string, label: string, value: string): string {
   return `
-    <label class="__wkf-field">
-      <span class="__wkf-label">${escapeHtml(label)}</span>
-      <input class="__wkf-input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
+    <label class="wkf__field">
+      <span class="wkf__label">${escapeHtml(label)}</span>
+      <input class="wkf__input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
     </label>
   `;
 }
@@ -1036,9 +1036,9 @@ function renderSelectField(
   options: Array<{ value: string; label: string }>,
 ): string {
   return `
-    <label class="__wkf-field">
-      <span class="__wkf-label">${escapeHtml(label)}</span>
-      <select class="__wkf-input" data-wkf-field="${escapeHtml(field)}">
+    <label class="wkf__field">
+      <span class="wkf__label">${escapeHtml(label)}</span>
+      <select class="wkf__input" data-wkf-field="${escapeHtml(field)}">
         ${options
           .map(
             (option) =>
@@ -1075,10 +1075,10 @@ function renderNumberField(
   max?: number,
 ): string {
   return `
-    <label class="__wkf-field">
-      <span class="__wkf-label">${escapeHtml(label)}</span>
+    <label class="wkf__field">
+      <span class="wkf__label">${escapeHtml(label)}</span>
       <input
-        class="__wkf-input"
+        class="wkf__input"
         type="number"
         data-wkf-field="${escapeHtml(field)}"
         value="${escapeHtml(String(value))}"
@@ -1092,11 +1092,11 @@ function renderNumberField(
 
 function renderRangeField(field: string, label: string, value: number, min: number, max: number): string {
   return `
-    <div class="__wkf-field __wkf-field--time">
-      <span class="__wkf-label">${escapeHtml(label)}</span>
-      <div class="__wkf-time-row">
-        <input class="__wkf-range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
-        <input class="__wkf-input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
+    <div class="wkf__field wkf__field--time">
+      <span class="wkf__label">${escapeHtml(label)}</span>
+      <div class="wkf__time-row">
+        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
+        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
       </div>
     </div>
   `;
@@ -1104,9 +1104,9 @@ function renderRangeField(field: string, label: string, value: number, min: numb
 
 function renderTransformEditor(transform: TransformOperation, index: number, total: number): string {
   return `
-    <div class="__wkf-field">
-      <div class="__wkf-section-head">
-        <div class="__wkf-inline-actions">
+    <div class="wkf__field">
+      <div class="wkf__section-head">
+        <div class="wkf__inline-actions">
           ${renderSelectField(`transform-kind-${index}`, `Transform ${index + 1}`, transform.kind, [
             { value: "translate", label: "translate" },
             { value: "scale", label: "scale" },
@@ -1114,13 +1114,13 @@ function renderTransformEditor(transform: TransformOperation, index: number, tot
             { value: "skew", label: "skew" },
           ])}
         </div>
-        <div class="__wkf-inline-actions">
-          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="move-transform-up" data-wkf-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
-          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="move-transform-down" data-wkf-index="${index}" ${index === total - 1 ? "disabled" : ""}>Down</button>
-          <button type="button" class="__wkf-button __wkf-button--small __wkf-button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}" ${total <= 1 ? "disabled" : ""}>Delete</button>
+        <div class="wkf__inline-actions">
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-up" data-wkf-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-down" data-wkf-index="${index}" ${index === total - 1 ? "disabled" : ""}>Down</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}" ${total <= 1 ? "disabled" : ""}>Delete</button>
         </div>
       </div>
-      <div class="__wkf-grid __wkf-grid--editor">
+      <div class="wkf__grid wkf__grid--editor">
         ${renderTransformFields(transform, index)}
       </div>
     </div>

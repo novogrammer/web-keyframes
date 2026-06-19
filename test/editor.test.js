@@ -10,14 +10,14 @@ test("mount adds a hidden editor panel and unmount removes it", () => {
 
   editor.mount();
 
-  const panel = window.document.querySelector(".__wkf-root");
+  const panel = window.document.querySelector(".wkf");
   assert.ok(panel);
   assert.equal(panel.getAttribute("aria-hidden"), "true");
-  assert.equal(panel.classList.contains("__wkf-root--visible"), false);
+  assert.equal(panel.classList.contains("wkf--visible"), false);
 
   editor.unmount();
 
-  assert.equal(window.document.querySelector(".__wkf-root"), null);
+  assert.equal(window.document.querySelector(".wkf"), null);
 });
 
 test("mount rejects a second call", () => {
@@ -36,17 +36,17 @@ test("show, hide, and toggle update visibility state", () => {
   editor.mount();
   editor.show();
 
-  const panel = window.document.querySelector(".__wkf-root");
-  assert.ok(panel?.classList.contains("__wkf-root--visible"));
+  const panel = window.document.querySelector(".wkf");
+  assert.ok(panel?.classList.contains("wkf--visible"));
   assert.equal(panel?.getAttribute("aria-hidden"), "false");
 
   editor.toggle();
-  assert.equal(panel?.classList.contains("__wkf-root--visible"), false);
+  assert.equal(panel?.classList.contains("wkf--visible"), false);
   assert.equal(panel?.getAttribute("aria-hidden"), "true");
 
   editor.hide();
   editor.toggle();
-  assert.ok(panel?.classList.contains("__wkf-root--visible"));
+  assert.ok(panel?.classList.contains("wkf--visible"));
 });
 
 test("header drag updates the panel position", () => {
@@ -56,8 +56,8 @@ test("header drag updates the panel position", () => {
   editor.mount();
   editor.show();
 
-  const panel = window.document.querySelector(".__wkf-panel");
-  const header = window.document.querySelector(".__wkf-header");
+  const panel = window.document.querySelector(".wkf__panel");
+  const header = window.document.querySelector(".wkf__header");
   panel.getBoundingClientRect = () => ({
     left: 100,
     top: 200,
@@ -112,8 +112,8 @@ test("shortcut toggles the editor when enabled", () => {
     }),
   );
 
-  const panel = window.document.querySelector(".__wkf-root");
-  assert.ok(panel?.classList.contains("__wkf-root--visible"));
+  const panel = window.document.querySelector(".wkf");
+  assert.ok(panel?.classList.contains("wkf--visible"));
 });
 
 test("shortcut false disables keyboard toggle", () => {
@@ -133,8 +133,8 @@ test("shortcut false disables keyboard toggle", () => {
     }),
   );
 
-  const panel = window.document.querySelector(".__wkf-root");
-  assert.equal(panel?.classList.contains("__wkf-root--visible"), false);
+  const panel = window.document.querySelector(".wkf");
+  assert.equal(panel?.classList.contains("wkf--visible"), false);
 });
 
 test("data helpers stay available before and after mount", () => {
@@ -477,5 +477,5 @@ function getStatusText(document) {
 }
 
 function getPreviewValue(document) {
-  return document.querySelector(".__wkf-preview-textarea")?.value ?? "";
+  return document.querySelector(".wkf__preview-textarea")?.value ?? "";
 }
