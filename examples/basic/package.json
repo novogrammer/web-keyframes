@@ -3,10 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "gen:keyframes": "web-keyframes to-css --input src/animations --output src/generated/animations.css",
-    "gen:page": "sass src/styles/example.scss src/generated/example.css --no-source-map",
-    "build:styles": "npm run gen:keyframes && npm run gen:page",
-    "dev": "npm run build:styles && serve ."
+    "build": "node scripts/build-dist.mjs",
+    "dev": "npm run build && serve dist"
   },
   "devDependencies": {
     "sass": "^1.101.0",

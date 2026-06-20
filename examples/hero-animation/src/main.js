@@ -3,7 +3,7 @@ import { WebKeyframesEditor } from "web-keyframes/editor";
 await setupEditor(document.body);
 
 async function setupEditor(root) {
-  const response = await fetch("./src/animations/hero-animation.timeline.json");
+  const response = await fetch("./animations/hero-animation.timeline.json");
   const initialData = await response.json();
 
   const editor = new WebKeyframesEditor({

@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>web-keyframes basic example</title>
-    <link rel="stylesheet" href="/node_modules/web-keyframes/dist/editor.css">
-    <link rel="stylesheet" href="./src/generated/animations.css">
-    <link rel="stylesheet" href="./src/generated/example.css">
+    <link rel="stylesheet" href="./vendor/web-keyframes/dist/editor.css">
+    <link rel="stylesheet" href="./generated/animations.css">
+    <link rel="stylesheet" href="./generated/example.css">
   </head>
   <body>
     <div class="page">
@@ -37,11 +37,11 @@
     <script type="importmap">
       {
         "imports": {
-          "web-keyframes": "/node_modules/web-keyframes/dist/index.js",
-          "web-keyframes/editor": "/node_modules/web-keyframes/dist/editor.js"
+          "web-keyframes": "./vendor/web-keyframes/dist/index.js",
+          "web-keyframes/editor": "./vendor/web-keyframes/dist/editor.js"
         }
       }
     </script>
-    <script type="module" src="./src/main.js"></script>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>

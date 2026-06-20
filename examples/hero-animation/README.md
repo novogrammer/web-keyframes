@@ -25,10 +25,16 @@ Then open the served URL and use:
 ## Build generated styles
 
 ```bash
-npm run build:styles
+npm run build
 ```
 
 This writes:
 
-- `src/generated/animations.css`
-- `src/generated/example.css`
+- `dist/index.html`
+- `dist/main.js`
+- `dist/animations/*`
+- `dist/generated/animations.css`
+- `dist/generated/example.css`
+- `dist/vendor/web-keyframes/dist/*`
+
+`dist/` is deleted and rebuilt on each run so old files do not linger.
