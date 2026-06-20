@@ -82,7 +82,7 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
     case "translate":
       return { kind: "translate", x: transform.x, y: transform.y };
     case "scale":
-      return { kind: "scale", value: transform.value };
+      return { kind: "scale", x: transform.x, y: transform.y };
     case "rotate":
       return { kind: "rotate", value: transform.value };
     case "skew":
@@ -118,7 +118,7 @@ export function createDefaultTransform(kind: TransformKind): TransformOperation 
     case "translate":
       return { kind: "translate", x: 0, y: 0 };
     case "scale":
-      return { kind: "scale", value: 1 };
+      return { kind: "scale", x: 1, y: 1 };
     case "rotate":
       return { kind: "rotate", value: 0 };
     case "skew":

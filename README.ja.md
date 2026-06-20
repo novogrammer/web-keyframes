@@ -108,7 +108,7 @@ editor.toCss();
               "kind": "transform",
               "value": [
                 { "kind": "translate", "x": 0, "y": 40 },
-                { "kind": "scale", "value": 1 },
+                { "kind": "scale", "x": 1, "y": 1 },
                 { "kind": "rotate", "value": 0 }
               ]
             }
@@ -122,7 +122,7 @@ editor.toCss();
               "kind": "transform",
               "value": [
                 { "kind": "translate", "x": 0, "y": 0 },
-                { "kind": "scale", "value": 1 },
+                { "kind": "scale", "x": 1, "y": 1 },
                 { "kind": "rotate", "value": 0 }
               ]
             }
@@ -171,12 +171,12 @@ web-keyframes to-css \
 ```css
 @keyframes hero-logo {
   0% {
-    transform: translate(0px, 40px) scale(1) rotate(0deg);
+    transform: translate(0px, 40px) scale(1, 1) rotate(0deg);
     opacity: 0;
   }
 
   100% {
-    transform: translate(0px, 0px) scale(1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1, 1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -184,6 +184,7 @@ web-keyframes to-css \
 
 `translateConfig.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 transform 配列の順番は `generateCss()` と `generatePreviewCss()` の両方でそのまま維持されます。
+`scale` は常に `x` と `y` を持ち、CSS 出力も常に `scale(x, y)` を使います。
 `generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 `generatePreviewCss()` は preview 用の browser-safe な CSS を出力します。
 

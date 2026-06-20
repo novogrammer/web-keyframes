@@ -54,7 +54,7 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
         createOpacityProperty(0),
         createTransformProperty([
           { kind: "translate", x: 0, y: 40 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],
@@ -65,7 +65,7 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
         createOpacityProperty(1),
         createTransformProperty([
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],
@@ -698,6 +698,19 @@ export class WebKeyframesEditor {
           });
           break;
         case "scale":
+          this.bindInputNumber(`transform-x-${index}`, (value) => {
+            this.updateSelectedTimeline((timeline) => {
+              const nextTimeline = normalizeTimelineForEditor(setTransformFieldValue(timeline, this.selectedKeyframeIndex, index, "x", value));
+              replaceTimelineState(timeline, nextTimeline);
+            });
+          });
+          this.bindInputNumber(`transform-y-${index}`, (value) => {
+            this.updateSelectedTimeline((timeline) => {
+              const nextTimeline = normalizeTimelineForEditor(setTransformFieldValue(timeline, this.selectedKeyframeIndex, index, "y", value));
+              replaceTimelineState(timeline, nextTimeline);
+            });
+          });
+          break;
         case "rotate":
           this.bindInputNumber(`transform-value-${index}`, (value) => {
             this.updateSelectedTimeline((timeline) => {
@@ -1663,7 +1676,7 @@ function renderTransformFields(transform: TransformOperation, index: number): st
     case "translate":
       return `${renderNumberField(`transform-x-${index}`, "X", transform.x)}${renderNumberField(`transform-y-${index}`, "Y", transform.y)}`;
     case "scale":
-      return renderNumberField(`transform-value-${index}`, "Scale", transform.value, 0.001, 0.001);
+      return `${renderNumberField(`transform-x-${index}`, "Scale X", transform.x, 0.001, 0.001)}${renderNumberField(`transform-y-${index}`, "Scale Y", transform.y, 0.001, 0.001)}`;
     case "rotate":
       return renderNumberField(`transform-value-${index}`, "Rotate", transform.value, undefined, 0.1);
     case "skew":
@@ -1744,7 +1757,7 @@ function formatTransformSummary(transform: TransformOperation, translateConfig: 
     case "translate":
       return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
     case "scale":
-      return `scale(${formatNumber(transform.value)})`;
+      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
     case "rotate":
       return `rotate(${formatNumber(transform.value)}deg)`;
     case "skew":

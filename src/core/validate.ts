@@ -250,7 +250,14 @@ function validateTranslateTransform(transform: Partial<TranslateTransform>, pref
 }
 
 function validateScaleTransform(transform: Partial<ScaleTransform>, prefix: string): string[] {
-  return isFiniteNumber(transform.value) ? [] : [`${prefix}.value must be a finite number.`];
+  const issues: string[] = [];
+  if (!isFiniteNumber(transform.x)) {
+    issues.push(`${prefix}.x must be a finite number.`);
+  }
+  if (!isFiniteNumber(transform.y)) {
+    issues.push(`${prefix}.y must be a finite number.`);
+  }
+  return issues;
 }
 
 function validateRotateTransform(transform: Partial<RotateTransform>, prefix: string): string[] {

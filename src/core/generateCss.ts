@@ -68,7 +68,7 @@ export function renderTransform(
     case "translate":
       return `translate(${renderTranslateValue(transform.x, translate, previewMode)}, ${renderTranslateValue(transform.y, translate, previewMode)})`;
     case "scale":
-      return `scale(${formatNumber(transform.value)})`;
+      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
     case "rotate":
       return `rotate(${formatNumber(transform.value)}deg)`;
     case "skew":

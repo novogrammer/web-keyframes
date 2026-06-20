@@ -26,12 +26,12 @@ const baseTimeline = {
   keyframes: [
     createKeyframe(0, 0, [
       { kind: "translate", x: 0, y: 40 },
-      { kind: "scale", value: 1 },
+      { kind: "scale", x: 1, y: 1 },
       { kind: "rotate", value: 0 },
     ]),
     createKeyframe(1200, 1, [
       { kind: "translate", x: 0, y: 0 },
-      { kind: "scale", value: 1 },
+      { kind: "scale", x: 1, y: 1 },
       { kind: "rotate", value: 0 },
     ]),
   ],
@@ -46,7 +46,7 @@ test("generateCss renders the expected CSS for a document", () => {
 
   assert.equal(
     css,
-    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(0px, 40px) scale(1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(0px, 0px) scale(1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
+    `@keyframes hero-logo {\n\n  0% {\n    transform: translate(0px, 40px) scale(1, 1) rotate(0deg);\n    opacity: 0;\n  }\n\n  100% {\n    transform: translate(0px, 0px) scale(1, 1) rotate(0deg);\n    opacity: 1;\n  }\n\n}\n`,
   );
 });
 
@@ -153,6 +153,28 @@ test("generateCss preserves explicit transform order including skew", () => {
   assert.match(css, /transform: rotate\(-6deg\) translate\(0px, 40px\) skew\(8deg, -4deg\)/);
 });
 
+test("generateCss supports non-uniform scale transforms", () => {
+  const css = generateCss({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [
+          createKeyframe(0, 0, [
+            { kind: "scale", x: 1.5, y: 0.5 },
+            { kind: "translate", x: 0, y: 40 },
+          ]),
+          createKeyframe(1200, 1, [
+            { kind: "scale", x: 1, y: 1 },
+            { kind: "translate", x: 0, y: 0 },
+          ]),
+        ],
+      },
+    ],
+  });
+
+  assert.match(css, /transform: scale\(1.5, 0.5\) translate\(0px, 40px\)/);
+});
+
 test("generateCss omits nullable fields and renders empty transforms as none", () => {
   const css = generateCss({
     timelines: [
@@ -202,7 +224,7 @@ test("validateWebKeyframesDocument rejects out-of-range keyframe times and inval
             ...baseTimeline,
             keyframes: [
               createKeyframe(-1, 0, [{ kind: "translate", x: 0, y: 0 }]),
-              createKeyframe(1201, 1, [{ kind: "skew", x: 0, y: "bad" }]),
+              createKeyframe(1201, 1, [{ kind: "scale", x: 1, y: "bad" }]),
             ],
           },
         ],

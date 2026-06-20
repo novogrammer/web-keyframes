@@ -1,0 +1,365 @@
+{
+  "timelines": [
+    {
+      "id": "hero-title-intro",
+      "duration": 3000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1.5, "y": 0.5 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 1000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1.5, "y": 0.5 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 1500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 2000,
+          "properties": [
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1, "y": 1 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 3000
+        }
+      ]
+    },
+    {
+      "id": "hero-date-intro",
+      "duration": 3000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1.5, "y": 0.5 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 1500,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1.5, "y": 0.5 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 2000,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 2500,
+          "properties": [
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1, "y": 1 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 3000
+        }
+      ]
+    },
+    {
+      "id": "hero-badge-intro",
+      "duration": 3000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "properties": [
+            { "kind": "opacity", "value": 0 }
+          ]
+        },
+        {
+          "time": 2000,
+          "properties": [
+            { "kind": "opacity", "value": 0 }
+          ]
+        },
+        {
+          "time": 2500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 3000
+        }
+      ]
+    },
+    {
+      "id": "hero-balloon-01-loop",
+      "duration": 6000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 0,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 1500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 2000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": -100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 4000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 4500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 5500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 6000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": -100 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hero-balloon-02-loop",
+      "duration": 6000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 1000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 1500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 2500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 3000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": -100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 6000
+        }
+      ]
+    },
+    {
+      "id": "hero-balloon-03-loop",
+      "duration": 6000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 2000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 2500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 3500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 4000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": -100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 6000
+        }
+      ]
+    },
+    {
+      "id": "hero-balloon-04-loop",
+      "duration": 6000,
+      "translateConfig": {
+        "unit": "%"
+      },
+      "keyframes": [
+        {
+          "time": 3000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": 100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 3500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 4500,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
+        },
+        {
+          "time": 5000,
+          "properties": [
+            { "kind": "opacity", "value": 0 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "translate", "x": 0, "y": -100 }
+              ]
+            }
+          ]
+        },
+        {
+          "time": 6000
+        }
+      ]
+    }
+  ]
+}

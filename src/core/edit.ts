@@ -430,7 +430,12 @@ function setTransformField(transform: TransformOperation, field: TransformValueF
         ? { kind: "translate", x: value, y: transform.y }
         : { kind: "translate", x: transform.x, y: value };
     case "scale":
-      return { kind: "scale", value };
+      if (field === "value") {
+        return { kind: "scale", x: value, y: value };
+      }
+      return field === "x"
+        ? { kind: "scale", x: value, y: transform.y }
+        : { kind: "scale", x: transform.x, y: value };
     case "rotate":
       return { kind: "rotate", value };
     case "skew":

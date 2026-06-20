@@ -26,12 +26,12 @@ test("CLI converts a single JSON file to CSS", async () => {
           keyframes: [
             createKeyframe(0, 0, [
               { kind: "translate", x: 0, y: 40 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
             createKeyframe(1200, 1, [
               { kind: "translate", x: 0, y: 0 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
           ],
@@ -62,12 +62,12 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
           keyframes: [
             createKeyframe(0, 0, [
               { kind: "translate", x: 0, y: 0 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
             createKeyframe(100, 1, [
               { kind: "translate", x: 10, y: 10 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
           ],
@@ -85,12 +85,12 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
           keyframes: [
             createKeyframe(0, 0, [
               { kind: "translate", x: 0, y: 0 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
             createKeyframe(100, 1, [
               { kind: "translate", x: 20, y: 20 },
-              { kind: "scale", value: 1 },
+              { kind: "scale", x: 1, y: 1 },
               { kind: "rotate", value: 0 },
             ]),
           ],

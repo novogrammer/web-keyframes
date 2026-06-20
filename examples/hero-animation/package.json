@@ -1,0 +1,16 @@
+{
+  "name": "web-keyframes-example-hero-animation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen:keyframes": "web-keyframes to-css --input src/animations --output src/generated/animations.css",
+    "gen:page": "sass src/styles/example.scss src/generated/example.css --no-source-map",
+    "build:styles": "npm run gen:keyframes && npm run gen:page",
+    "dev": "npm run build:styles && serve ."
+  },
+  "devDependencies": {
+    "sass": "^1.101.0",
+    "serve": "^14.2.4",
+    "web-keyframes": "file:../.."
+  }
+}

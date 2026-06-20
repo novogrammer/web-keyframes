@@ -104,12 +104,12 @@ test("data helpers stay available before and after mount", () => {
         keyframes: [
           createKeyframe(0, 0, [
             { kind: "translate", x: 0, y: 20 },
-            { kind: "scale", value: 1 },
+            { kind: "scale", x: 1, y: 1 },
             { kind: "rotate", value: 0 },
           ]),
           createKeyframe(900, 1, [
             { kind: "translate", x: 0, y: 0 },
-            { kind: "scale", value: 1 },
+            { kind: "scale", x: 1, y: 1 },
             { kind: "rotate", value: 0 },
           ]),
         ],
@@ -237,7 +237,7 @@ test("sparse keyframe actions can unset opacity and clear transforms", () => {
   clickActionSync(window.document, "delete-opacity");
   assert.equal(window.document.querySelector("[data-wkf-field='opacity']"), null);
   assert.match(window.document.body.textContent ?? "", /\+ Opacity/);
-  assert.match(editor.toCss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1\) rotate\(0deg\);\n  \}/);
+  assert.match(editor.toCss(), /0% \{\n    transform: translate\(0px, 40px\) scale\(1, 1\) rotate\(0deg\);\n  \}/);
 
   clickActionSync(window.document, "add-opacity");
   assert.equal(window.document.querySelector("[data-wkf-field='opacity']")?.value, "1");
@@ -331,7 +331,7 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   clickActionSync(window.document, "delete-transforms");
 
   const summaries = Array.from(window.document.querySelectorAll(".wkf__keyframe-meta")).slice(1).map((node) => node.textContent ?? "");
-  assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1\) rotate\(0deg\), opacity 0/);
+  assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1, 1\) rotate\(0deg\), opacity 0/);
   assert.equal(summaries[1], "");
 });
 
@@ -421,12 +421,12 @@ function createTimeline(id, duration) {
     keyframes: [
       createKeyframe(0, 0, [
         { kind: "translate", x: 0, y: 40 },
-        { kind: "scale", value: 1 },
+        { kind: "scale", x: 1, y: 1 },
         { kind: "rotate", value: 0 },
       ]),
       createKeyframe(duration, 1, [
         { kind: "translate", x: 0, y: 0 },
-        { kind: "scale", value: 1 },
+        { kind: "scale", x: 1, y: 1 },
         { kind: "rotate", value: 0 },
       ]),
     ],

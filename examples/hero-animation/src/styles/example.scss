@@ -1,0 +1,215 @@
+$break-width-pc: 768px;
+$width-sp: 375px;
+$width-pc: 1200px;
+$px-to-vw-sp: calc(100vw / $width-sp);
+$px-to-vw-pc: calc(100vw / $width-pc);
+$hero-height: 670px;
+
+@mixin mq-pc() {
+  @media screen and (min-width: $break-width-pc) {
+    @content;
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 221, 143, 0.7), transparent 28%),
+    linear-gradient(180deg, #fff8ef 0%, #eaf4ff 100%);
+  color: #18212e;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+.example-shell {
+  padding: 28px 16px 80px;
+
+  @include mq-pc() {
+    padding: 48px 24px 120px;
+  }
+}
+
+.example-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto 24px;
+  flex-wrap: wrap;
+}
+
+.example-kicker {
+  margin: 0 0 8px;
+  color: #627089;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.example-title {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 48px);
+  line-height: 1;
+}
+
+.example-copy {
+  max-width: 52rem;
+  margin: 12px 0 0;
+  color: #415066;
+}
+
+.example-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 18px;
+  background: #18212e;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.p-home-section-hero {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  height: $hero-height * $px-to-vw-sp;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 32px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(235, 244, 255, 0.92));
+  box-shadow: 0 32px 90px rgba(24, 33, 46, 0.14);
+
+  @include mq-pc() {
+    height: $hero-height * $px-to-vw-pc;
+  }
+
+  &__background,
+  &__human,
+  &__foreground {
+    position: absolute;
+    inset: 0;
+  }
+
+  &__title,
+  &__date,
+  &__badge,
+  &__balloon {
+    transform-origin: center;
+    will-change: transform, opacity;
+  }
+
+  &__title {
+    position: absolute;
+    top: 200px * $px-to-vw-sp;
+    left: 37px * $px-to-vw-sp;
+    width: 300px * $px-to-vw-sp;
+    opacity: 0;
+    animation: hero-title-intro 3000ms linear forwards;
+
+    @include mq-pc() {
+      top: 100px * $px-to-vw-pc;
+      left: 300px * $px-to-vw-pc;
+      width: 600px * $px-to-vw-pc;
+    }
+  }
+
+  &__date {
+    position: absolute;
+    top: 430px * $px-to-vw-sp;
+    left: 37px * $px-to-vw-sp;
+    width: 300px * $px-to-vw-sp;
+    opacity: 0;
+    animation: hero-date-intro 3000ms linear forwards;
+
+    @include mq-pc() {
+      top: 530px * $px-to-vw-pc;
+      left: 300px * $px-to-vw-pc;
+      width: 600px * $px-to-vw-pc;
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    top: 500px * $px-to-vw-sp;
+    left: 250px * $px-to-vw-sp;
+    width: 100px * $px-to-vw-sp;
+    opacity: 0;
+    animation: hero-badge-intro 3000ms linear forwards;
+
+    @include mq-pc() {
+      top: 550px * $px-to-vw-pc;
+      left: 1000px * $px-to-vw-pc;
+      width: 100px * $px-to-vw-pc;
+    }
+  }
+
+  &__balloon {
+    position: absolute;
+    width: 100px * $px-to-vw-sp;
+    opacity: 0;
+    pointer-events: none;
+
+    @include mq-pc() {
+      width: 100px * $px-to-vw-pc;
+    }
+
+    &--01 {
+      top: 500px * $px-to-vw-sp;
+      left: 10px * $px-to-vw-sp;
+      animation: hero-balloon-01-loop 6000ms linear infinite;
+
+      @include mq-pc() {
+        top: 500px * $px-to-vw-pc;
+        left: 150px * $px-to-vw-pc;
+      }
+    }
+
+    &--02 {
+      top: 500px * $px-to-vw-sp;
+      left: 265px * $px-to-vw-sp;
+      animation: hero-balloon-02-loop 6000ms linear infinite;
+
+      @include mq-pc() {
+        top: 500px * $px-to-vw-pc;
+        left: 950px * $px-to-vw-pc;
+      }
+    }
+
+    &--03 {
+      top: 500px * $px-to-vw-sp;
+      left: 10px * $px-to-vw-sp;
+      animation: hero-balloon-03-loop 6000ms linear infinite;
+
+      @include mq-pc() {
+        top: 500px * $px-to-vw-pc;
+        left: 150px * $px-to-vw-pc;
+      }
+    }
+
+    &--04 {
+      top: 500px * $px-to-vw-sp;
+      left: 265px * $px-to-vw-sp;
+      animation: hero-balloon-04-loop 6000ms linear infinite;
+
+      @include mq-pc() {
+        top: 500px * $px-to-vw-pc;
+        left: 950px * $px-to-vw-pc;
+      }
+    }
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}

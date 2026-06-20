@@ -8,7 +8,8 @@ export type TranslateTransform = {
 
 export type ScaleTransform = {
   kind: "scale";
-  value: number;
+  x: number;
+  y: number;
 };
 
 export type RotateTransform = {

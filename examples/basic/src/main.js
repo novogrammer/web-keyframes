@@ -13,17 +13,17 @@ const initialData = {
       keyframes: [
         createKeyframe(0, 0, [
           { kind: "translate", x: 0, y: 40 },
-          { kind: "scale", value: 0.88 },
+          { kind: "scale", x: 0.88, y: 0.88 },
           { kind: "rotate", value: -6 },
         ]),
         createKeyframe(700, 1, [
           { kind: "translate", x: 0, y: -8 },
-          { kind: "scale", value: 1.04 },
+          { kind: "scale", x: 1.04, y: 1.04 },
           { kind: "rotate", value: 2 },
         ]),
         createKeyframe(1200, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],
@@ -35,17 +35,17 @@ const initialData = {
       keyframes: [
         createKeyframe(0, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
         createKeyframe(1000, 1, [
           { kind: "translate", x: 0, y: -2 },
-          { kind: "scale", value: 1.01 },
+          { kind: "scale", x: 1.01, y: 1.01 },
           { kind: "rotate", value: 1 },
         ]),
         createKeyframe(2000, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],
@@ -57,17 +57,17 @@ const initialData = {
       keyframes: [
         createKeyframe(0, 0, [
           { kind: "translate", x: -28, y: 10 },
-          { kind: "scale", value: 0.92 },
+          { kind: "scale", x: 0.92, y: 0.92 },
           { kind: "rotate", value: -10 },
         ]),
         createKeyframe(520, 1, [
           { kind: "translate", x: 4, y: -2 },
-          { kind: "scale", value: 1.03 },
+          { kind: "scale", x: 1.03, y: 1.03 },
           { kind: "rotate", value: 2 },
         ]),
         createKeyframe(900, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],
@@ -79,17 +79,17 @@ const initialData = {
       keyframes: [
         createKeyframe(0, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
         createKeyframe(900, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1.06 },
+          { kind: "scale", x: 1.06, y: 1.06 },
           { kind: "rotate", value: -3 },
         ]),
         createKeyframe(1800, 1, [
           { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", value: 1 },
+          { kind: "scale", x: 1, y: 1 },
           { kind: "rotate", value: 0 },
         ]),
       ],

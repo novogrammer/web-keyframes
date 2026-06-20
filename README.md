@@ -108,7 +108,7 @@ value for matched elements.
               "kind": "transform",
               "value": [
                 { "kind": "translate", "x": 0, "y": 40 },
-                { "kind": "scale", "value": 1 },
+                { "kind": "scale", "x": 1, "y": 1 },
                 { "kind": "rotate", "value": 0 }
               ]
             }
@@ -122,7 +122,7 @@ value for matched elements.
               "kind": "transform",
               "value": [
                 { "kind": "translate", "x": 0, "y": 0 },
-                { "kind": "scale", "value": 1 },
+                { "kind": "scale", "x": 1, "y": 1 },
                 { "kind": "rotate", "value": 0 }
               ]
             }
@@ -171,12 +171,12 @@ Each input file may contain one or more timelines. When the input is a directory
 ```css
 @keyframes hero-logo {
   0% {
-    transform: translate(global.vw(0px), global.vw(40px)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(40px)) scale(1, 1) rotate(0deg);
     opacity: 0;
   }
 
   100% {
-    transform: translate(global.vw(0px), global.vw(0px)) scale(1) rotate(0deg);
+    transform: translate(global.vw(0px), global.vw(0px)) scale(1, 1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -184,6 +184,7 @@ Each input file may contain one or more timelines. When the input is a directory
 
 `translateConfig.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 Transform array order is preserved exactly in both `generateCss()` and `generatePreviewCss()`.
+`scale` always stores `x` and `y`, and CSS output always uses `scale(x, y)`.
 `generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 `generatePreviewCss()` emits browser-safe preview CSS.
 
