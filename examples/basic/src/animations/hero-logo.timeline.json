@@ -9,6 +9,7 @@
       "keyframes": [
         {
           "time": 0,
+          "timingFunction": "ease-out",
           "properties": [
             { "kind": "opacity", "value": 0 },
             { "kind": "transform", "value": [
@@ -104,6 +105,7 @@
         },
         {
           "time": 520,
+          "timingFunction": "cubic-bezier(0.2, 0.8, 0.2, 1)",
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
