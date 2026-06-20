@@ -1,16 +1,22 @@
 import { WebKeyframesEditor } from "web-keyframes/editor";
 
-const response = await fetch("./src/animations/hero-animation.timeline.json");
-const initialData = await response.json();
+await setupEditor(document.body);
 
-const editor = new WebKeyframesEditor({
-  root: document.body,
-  shortcut: "Ctrl+Shift+K",
-  initialData,
-});
+async function setupEditor(root) {
+  const response = await fetch("./src/animations/hero-animation.timeline.json");
+  const initialData = await response.json();
 
-editor.mount();
+  const editor = new WebKeyframesEditor({
+    root,
+    shortcut: "Ctrl+Shift+K",
+    initialData,
+  });
 
-document.querySelector('[data-example-action="toggle-editor"]')?.addEventListener("click", () => {
-  editor.toggle();
-});
+  editor.mount();
+
+  document.querySelector('[data-example-action="toggle-editor"]')?.addEventListener("click", () => {
+    editor.toggle();
+  });
+
+  return editor;
+}
