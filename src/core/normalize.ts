@@ -98,13 +98,13 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
     translateConfig: timeline.translateConfig
       ? {
           unit: timeline.translateConfig.unit,
-          customUnit: timeline.translateConfig.customUnit ?? undefined,
+          ...(timeline.translateConfig.customUnit ? { customUnit: timeline.translateConfig.customUnit } : {}),
         }
       : undefined,
     keyframes: timeline.keyframes.map((keyframe) => ({
       time: keyframe.time,
-      timingFunction: keyframe.timingFunction ?? undefined,
-      properties: cloneProperties(keyframe.properties ?? []),
+      ...(keyframe.timingFunction ? { timingFunction: keyframe.timingFunction } : {}),
+      ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
     })),
   };
 }

@@ -196,6 +196,42 @@ test("custom unit input keeps focus while typing", async () => {
   assert.equal(window.document.activeElement, nextInput);
 });
 
+test("sparse initialData round-trips through getData and toJson without densifying keyframes", () => {
+  const { window } = createWindow();
+  const initialData = {
+    timelines: [
+      {
+        id: "hero-title-intro",
+        duration: 3000,
+        translateConfig: { unit: "%" },
+        keyframes: [
+          {
+            time: 0,
+            properties: [createOpacityProperty(0)],
+          },
+          {
+            time: 1500,
+            timingFunction: "ease-out",
+          },
+          {
+            time: 2000,
+            properties: [createTransformProperty([{ kind: "scale", x: 1, y: 1 }])],
+          },
+        ],
+      },
+    ],
+  };
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData,
+  });
+
+  editor.mount();
+
+  assert.deepEqual(editor.getData(), initialData);
+  assert.deepEqual(JSON.parse(editor.toJson()), initialData);
+});
+
 test("keyframe editor updates selected frame values", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
