@@ -12,6 +12,10 @@ It does two things:
 
 This package is intentionally narrow. It does not auto-save files or depend on a specific app bundler.
 
+One practical advantage is that the final artifact can stay as plain CSS. You can use the
+editor and timeline JSON while authoring, then ship only generated `@keyframes` output in
+production without carrying editor or JSON runtime overhead.
+
 GitHub installs are expected to build `dist/` during package preparation. The repository does not track built files.
 
 ## Install
