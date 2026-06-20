@@ -19,6 +19,8 @@
   }
 
   100% {
+    transform: scale(1, 1);
+    opacity: 1;
   }
 
 }
@@ -44,6 +46,8 @@
   }
 
   100% {
+    transform: scale(1, 1);
+    opacity: 1;
   }
 
 }
@@ -63,6 +67,7 @@
   }
 
   100% {
+    opacity: 1;
   }
 
 }

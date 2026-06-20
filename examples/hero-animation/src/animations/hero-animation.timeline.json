@@ -49,7 +49,16 @@
           ]
         },
         {
-          "time": 3000
+          "time": 3000,
+          "properties": [
+            { "kind": "opacity", "value": 1 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1, "y": 1 }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -102,7 +111,16 @@
           ]
         },
         {
-          "time": 3000
+          "time": 3000,
+          "properties": [
+            { "kind": "opacity", "value": 1 },
+            {
+              "kind": "transform",
+              "value": [
+                { "kind": "scale", "x": 1, "y": 1 }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -132,7 +150,10 @@
           ]
         },
         {
-          "time": 3000
+          "time": 3000,
+          "properties": [
+            { "kind": "opacity", "value": 1 }
+          ]
         }
       ]
     },

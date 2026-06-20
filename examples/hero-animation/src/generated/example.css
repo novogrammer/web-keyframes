@@ -152,7 +152,7 @@ body {
 .p-home-section-hero__balloon--01 {
   top: 133.3333333333vw;
   left: 2.6666666667vw;
-  animation: hero-balloon-01-loop 6000ms linear infinite;
+  animation: hero-balloon-01-loop 6000ms linear 3000ms infinite;
 }
 @media screen and (min-width: 768px) {
   .p-home-section-hero__balloon--01 {
@@ -163,7 +163,7 @@ body {
 .p-home-section-hero__balloon--02 {
   top: 133.3333333333vw;
   left: 70.6666666667vw;
-  animation: hero-balloon-02-loop 6000ms linear infinite;
+  animation: hero-balloon-02-loop 6000ms linear 3000ms infinite;
 }
 @media screen and (min-width: 768px) {
   .p-home-section-hero__balloon--02 {
@@ -174,7 +174,7 @@ body {
 .p-home-section-hero__balloon--03 {
   top: 133.3333333333vw;
   left: 2.6666666667vw;
-  animation: hero-balloon-03-loop 6000ms linear infinite;
+  animation: hero-balloon-03-loop 6000ms linear 3000ms infinite;
 }
 @media screen and (min-width: 768px) {
   .p-home-section-hero__balloon--03 {
@@ -185,7 +185,7 @@ body {
 .p-home-section-hero__balloon--04 {
   top: 133.3333333333vw;
   left: 70.6666666667vw;
-  animation: hero-balloon-04-loop 6000ms linear infinite;
+  animation: hero-balloon-04-loop 6000ms linear 3000ms infinite;
 }
 @media screen and (min-width: 768px) {
   .p-home-section-hero__balloon--04 {
