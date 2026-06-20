@@ -10,6 +10,9 @@
 - transform の内部表現を、JavaScript 側で扱いやすい小さなデータモデルとして明確にした。
 - タイムライン UI の複雑化より先に、transform 順序を失わないデータ構造を確定した。
 - keyframe ごとの animated value を `properties[]` で表す形に整理し、`opacity` と `transform` を同列に扱えるようにした。
+- `scale` は常に `x` / `y` を持つモデルに統一し、CSS 出力も常に `scale(x, y)` に揃えた。
+- keyframe 単位の `timingFunction` を文字列フィールドとして追加し、CSS の `animation-timing-function` へそのまま出力できるようにした。
+- sparse な keyframe JSON を editor が勝手に密化せず、読み込みと書き出しで同じ形を維持するようにした。
 
 ## プレビュー
 
@@ -17,6 +20,7 @@
 - preview は現在の軽量な DOM リプレイの範囲で十分と判断した。
 - `animation-name` ベースの対象検出は、現状の利用形態では十分信頼できることを確認した。
 - 複数の対象が同じ animation 名を共有するケースでも、preview は個別に正しく反映されることを確認した。
+- preview 生成も timeline JSON の sparse な keyframe 記述をそのまま尊重する前提に揃えた。
 
 ## 編集 API
 
@@ -33,3 +37,10 @@
 
 - `theatre.js` 的な汎用シーケンサー UI を持ち込まず、このツールに必要な範囲で順序編集 UI を設計する方針を明確にした。
 - 自由な直接操作より、JavaScript 側で定義した `nudge` や `range` のような定型操作を UI から呼び出す方針を優先することを確認した。
+- `timingFunction` の入力 UI は、構造化フォームではなく text を主にしてプリセットボタンで補助する形にした。
+
+## Examples
+
+- `examples/basic` を、editor 初期値を JS に埋め込む方式から timeline JSON を読み込む方式へ揃えた。
+- `examples/basic` に keyframe 単位の `timingFunction` 使用例を追加した。
+- `examples/hero-animation` を `hello-theatrejs` の構成から移植し、`100vw` 前提の hero と説明文配置を含めて example として整えた。
