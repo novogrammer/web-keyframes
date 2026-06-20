@@ -18,3 +18,10 @@ All notable changes to `web-keyframes` will be documented in this file.
 - Automated tests for core, CLI, and editor behavior
 - README usage docs and release notes scaffolding
 - `prepare` / `prepack` build flow so GitHub installs and packed artifacts can generate `dist/` without tracking it in git
+
+### Changed
+
+- Unified `scale` to always use `x` and `y` in the data model and always emit CSS as `scale(x, y)`
+- Added keyframe-local `timingFunction` passthrough for `animation-timing-function`
+- Preserved sparse keyframe JSON shape through editor load, `getData()`, and `toJson()` round-trips
+- Added hosted `basic` and `hero-animation` examples, and aligned `basic` to load timeline JSON instead of embedding editor data in JavaScript

@@ -156,7 +156,7 @@ Each keyframe may also include `timingFunction`. When present, it is emitted dir
 - omitted `transform` property: no `transform` declaration is emitted for that keyframe
 - `transform` property with `"value": []`: emits `transform: none;`
 
-Internal editing helpers still resolve sparse values against the previous keyframe so editor interactions stay deterministic.
+The editor preserves sparse keyframes as authored. `getData()` and `toJson()` keep the same sparse shape instead of densifying omitted properties.
 
 ## CLI
 

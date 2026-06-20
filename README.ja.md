@@ -155,7 +155,7 @@ document は `timelines[]` を持ち、各 timeline が自分の `id`、`duratio
 - `transform` property が省略: そのキーフレームでは `transform` を出力しません
 - `transform` property の `"value": []`: `transform: none;` を出力します
 
-一方、エディタ内部の編集 helper では操作を安定させるため、省略値は直前キーフレームから解決して扱います。
+editor は sparse な keyframe をそのまま保持します。`getData()` と `toJson()` でも、省略した property を勝手に密化しません。
 
 ## CLI
 
