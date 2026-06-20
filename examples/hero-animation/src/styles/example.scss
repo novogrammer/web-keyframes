@@ -5,6 +5,7 @@ $px-to-vw-sp: calc(100vw / $width-sp);
 $px-to-vw-pc: calc(100vw / $width-pc);
 $hero-height: 670px;
 $hero-intro-duration: 3000ms;
+$hero-balloon-duration: 4000ms;
 
 @mixin mq-pc() {
   @media screen and (min-width: $break-width-pc) {
@@ -171,7 +172,7 @@ body {
     &--01 {
       top: 500px * $px-to-vw-sp;
       left: 10px * $px-to-vw-sp;
-      animation: hero-balloon-01-loop 6000ms linear $hero-intro-duration infinite;
+      animation: hero-balloon-loop $hero-balloon-duration linear $hero-intro-duration infinite;
 
       @include mq-pc() {
         top: 500px * $px-to-vw-pc;
@@ -182,7 +183,7 @@ body {
     &--02 {
       top: 500px * $px-to-vw-sp;
       left: 265px * $px-to-vw-sp;
-      animation: hero-balloon-02-loop 6000ms linear $hero-intro-duration infinite;
+      animation: hero-balloon-loop $hero-balloon-duration linear ($hero-intro-duration + 1000ms) infinite;
 
       @include mq-pc() {
         top: 500px * $px-to-vw-pc;
@@ -193,7 +194,7 @@ body {
     &--03 {
       top: 500px * $px-to-vw-sp;
       left: 10px * $px-to-vw-sp;
-      animation: hero-balloon-03-loop 6000ms linear $hero-intro-duration infinite;
+      animation: hero-balloon-loop $hero-balloon-duration linear ($hero-intro-duration + 2000ms) infinite;
 
       @include mq-pc() {
         top: 500px * $px-to-vw-pc;
@@ -204,7 +205,7 @@ body {
     &--04 {
       top: 500px * $px-to-vw-sp;
       left: 265px * $px-to-vw-sp;
-      animation: hero-balloon-04-loop 6000ms linear $hero-intro-duration infinite;
+      animation: hero-balloon-loop $hero-balloon-duration linear ($hero-intro-duration + 3000ms) infinite;
 
       @include mq-pc() {
         top: 500px * $px-to-vw-pc;
