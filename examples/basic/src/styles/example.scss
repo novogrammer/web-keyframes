@@ -68,6 +68,9 @@ body {
 }
 
 .hero-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 999px;
   padding: 14px 18px;
@@ -75,6 +78,7 @@ body {
   color: #f8fafc;
   cursor: pointer;
   font: inherit;
+  text-decoration: none;
 
   &--ghost {
     background: rgba(22, 32, 48, 0.08);
