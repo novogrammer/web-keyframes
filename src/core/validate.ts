@@ -142,6 +142,12 @@ function validateKeyframe(
     issues.push(`${keyframePrefix}.time must be a finite number.`);
   }
 
+  if (candidate.timingFunction !== undefined) {
+    if (typeof candidate.timingFunction !== "string" || candidate.timingFunction.trim() === "") {
+      issues.push(`${keyframePrefix}.timingFunction must be a non-empty string when provided.`);
+    }
+  }
+
   if (candidate.properties !== undefined && !Array.isArray(candidate.properties)) {
     issues.push(`${keyframePrefix}.properties must be an array.`);
   } else if (Array.isArray(candidate.properties)) {

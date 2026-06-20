@@ -15,6 +15,7 @@ export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: s
     const lines = [`  ${percent} {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);
+    const timingFunction = normalized.keyframes[index].timingFunction;
 
     if (transformProperty) {
       lines.push(
@@ -26,6 +27,10 @@ export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: s
 
     if (opacityProperty && Number.isFinite(opacityProperty.value)) {
       lines.push(`    opacity: ${formatNumber(opacityProperty.value)};`);
+    }
+
+    if (timingFunction) {
+      lines.push(`    animation-timing-function: ${timingFunction};`);
     }
 
     lines.push("  }");

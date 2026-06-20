@@ -47,11 +47,13 @@ export type PropertyKind = KeyframeProperty["kind"];
 
 export type WebKeyframe = {
   time: number;
+  timingFunction?: string;
   properties?: KeyframeProperty[];
 };
 
 export type NormalizedWebKeyframe = {
   time: number;
+  timingFunction: string | null;
   properties: KeyframeProperty[];
 };
 

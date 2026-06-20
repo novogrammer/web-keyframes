@@ -64,7 +64,7 @@ editor.toCss();
 
 - Manage multiple timelines in one document
 - Edit the selected timeline `id`, `duration`, and `translateConfig` output settings
-- Edit selected keyframe `time`, `opacity`, and ordered transform entries
+- Edit selected keyframe `time`, `timingFunction`, `opacity`, and ordered transform entries
 - Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
 - Add, duplicate, select, and delete timelines
 - Add, duplicate, and delete keyframes
@@ -81,7 +81,7 @@ editor.toCss();
 
 - Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the selected timeline `id`
 - No file import or auto-save
-- No easing editor yet
+- `timingFunction` is free-form text with preset-assisted input, not a structured easing builder
 
 ### Preview behavior
 
@@ -111,6 +111,7 @@ value for matched elements.
       "keyframes": [
         {
           "time": 0,
+          "timingFunction": "ease-out",
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -147,6 +148,8 @@ Each document contains `timelines[]`. Each timeline owns its own `id`, `duration
 
 Each keyframe expresses animated values through an ordered `properties[]` list. `transform` stores its ordered operations in `value[]`. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
+Each keyframe may also include `timingFunction`. When present, it is emitted directly as a keyframe-local `animation-timing-function`.
+
 `opacity` and `transform` may be omitted from `properties[]` on individual keyframes to match CSS-style sparse keyframe authoring.
 
 - omitted `opacity` property: no `opacity` declaration is emitted for that keyframe
@@ -182,6 +185,7 @@ Each input file may contain one or more timelines. When the input is a directory
   0% {
     transform: translate(global.vw(0px), global.vw(40px)) scale(1, 1) rotate(0deg);
     opacity: 0;
+    animation-timing-function: ease-out;
   }
 
   100% {
@@ -194,6 +198,7 @@ Each input file may contain one or more timelines. When the input is a directory
 `translateConfig.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
 Transform array order is preserved exactly in both `generateCss()` and `generatePreviewCss()`.
 `scale` always stores `x` and `y`, and CSS output always uses `scale(x, y)`.
+`timingFunction` is passed through as-is, so values like `ease`, `linear`, `cubic-bezier(...)`, and `steps(...)` are all valid.
 `generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
 `generatePreviewCss()` emits browser-safe preview CSS.
 

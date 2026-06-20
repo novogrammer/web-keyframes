@@ -212,6 +212,22 @@ test("keyframe editor updates selected frame values", () => {
   assert.equal(getOpacityValue(firstKeyframe), 0.45);
 });
 
+test("timingFunction editor supports preset buttons and custom text", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "set-timing-function", 4);
+  assert.equal(editor.getData().timelines[0].keyframes[0].timingFunction, "ease-in-out");
+
+  setInputValue(window.document, "timingFunction", "cubic-bezier(0.2, 0.8, 0.2, 1)");
+  assert.equal(editor.getData().timelines[0].keyframes[0].timingFunction, "cubic-bezier(0.2, 0.8, 0.2, 1)");
+
+  await clickAction(window.document, "clear-timing-function");
+  assert.equal(editor.getData().timelines[0].keyframes[0].timingFunction, undefined);
+});
+
 test("time slider stays mounted while dragging and syncs the numeric field", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -323,6 +339,7 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   setInputValue(window.document, "translateCustomUnit", "rem");
   setNumberValue(window.document, "transform-x-0", 2);
   setNumberValue(window.document, "transform-y-0", 4);
+  setInputValue(window.document, "timingFunction", "ease-out");
 
   const keyframeButtons = window.document.querySelectorAll("[data-wkf-action='select-keyframe']");
   keyframeButtons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -331,7 +348,7 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   clickActionSync(window.document, "delete-transforms");
 
   const summaries = Array.from(window.document.querySelectorAll(".wkf__keyframe-meta")).slice(1).map((node) => node.textContent ?? "");
-  assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1, 1\) rotate\(0deg\), opacity 0/);
+  assert.match(summaries[0], /translate\(2rem, 4rem\) scale\(1, 1\) rotate\(0deg\), opacity 0, timingFunction ease-out/);
   assert.equal(summaries[1], "");
 });
 
@@ -495,13 +512,15 @@ function setNumberValue(document, field, value, index = 0) {
   input.dispatchEvent(new Event(input.type === "range" ? "input" : "change", { bubbles: true }));
 }
 
-function clickActionSync(document, action) {
-  const button = document.querySelector(`[data-wkf-action='${action}']`);
+function clickActionSync(document, action, index = 0) {
+  const buttons = document.querySelectorAll(`[data-wkf-action='${action}']`);
+  const button = buttons[index];
   button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 }
 
-async function clickAction(document, action) {
-  const button = document.querySelector(`[data-wkf-action='${action}']`);
+async function clickAction(document, action, index = 0) {
+  const buttons = document.querySelectorAll(`[data-wkf-action='${action}']`);
+  const button = buttons[index];
   button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await Promise.resolve();
   await Promise.resolve();

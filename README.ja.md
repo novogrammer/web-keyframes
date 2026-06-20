@@ -63,7 +63,7 @@ editor.toCss();
 
 - 1 つの document 内で複数 timeline を管理
 - 選択中 timeline の `id`、`duration`、`translateConfig` 出力設定の編集
-- 選択中キーフレーム `time`、`opacity`、順序付き transform の編集
+- 選択中キーフレーム `time`、`timingFunction`、`opacity`、順序付き transform の編集
 - `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
 - timeline の追加、複製、選択、削除
 - キーフレームの追加、複製、削除
@@ -80,7 +80,7 @@ editor.toCss();
 
 - preview は `document` 内に対象要素が存在し、かつ選択中 timeline の `id` と同じ `animation-name` を使っている場合にだけ動作する
 - ファイル import や自動保存はしない
-- easing エディタはまだない
+- `timingFunction` はプリセット補助付きの自由入力であり、構造化された easing ビルダーではない
 
 ### Preview の挙動
 
@@ -110,6 +110,7 @@ editor.toCss();
       "keyframes": [
         {
           "time": 0,
+          "timingFunction": "ease-out",
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -146,6 +147,8 @@ document は `timelines[]` を持ち、各 timeline が自分の `id`、`duratio
 
 各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。`transform` はその中で `value[]` に順序付き operation を持ちます。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
+各キーフレームは `timingFunction` も持てます。指定した場合は、そのままキーフレーム単位の `animation-timing-function` として出力されます。
+
 `opacity` と `transform` は、CSS の sparse keyframe に合わせて、キーフレームごとに `properties[]` から省略できます。
 
 - `opacity` property が省略: そのキーフレームでは `opacity` を出力しません
@@ -181,6 +184,7 @@ web-keyframes to-css \
   0% {
     transform: translate(0px, 40px) scale(1, 1) rotate(0deg);
     opacity: 0;
+    animation-timing-function: ease-out;
   }
 
   100% {
@@ -193,6 +197,7 @@ web-keyframes to-css \
 `translateConfig.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
 transform 配列の順番は `generateCss()` と `generatePreviewCss()` の両方でそのまま維持されます。
 `scale` は常に `x` と `y` を持ち、CSS 出力も常に `scale(x, y)` を使います。
+`timingFunction` は文字列をそのまま通すので、`ease`、`linear`、`cubic-bezier(...)`、`steps(...)` などをそのまま使えます。
 `generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
 `generatePreviewCss()` は preview 用の browser-safe な CSS を出力します。
 

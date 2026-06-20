@@ -39,6 +39,7 @@ function renderTimelineCss(
     const lines = [`  ${percent} {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);
+    const timingFunction = normalized.keyframes[index].timingFunction;
 
     if (transformProperty) {
       lines.push(
@@ -50,6 +51,10 @@ function renderTimelineCss(
 
     if (opacityProperty && Number.isFinite(opacityProperty.value)) {
       lines.push(`    opacity: ${formatNumber(opacityProperty.value)};`);
+    }
+
+    if (timingFunction) {
+      lines.push(`    animation-timing-function: ${timingFunction};`);
     }
 
     lines.push("  }");

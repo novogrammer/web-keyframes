@@ -175,6 +175,23 @@ test("generateCss supports non-uniform scale transforms", () => {
   assert.match(css, /transform: scale\(1.5, 0.5\) translate\(0px, 40px\)/);
 });
 
+test("generateCss emits per-keyframe animation timing functions", () => {
+  const css = generateCss({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [
+          { ...createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }]), timingFunction: "ease-out" },
+          { ...createKeyframe(1200, 1, [{ kind: "translate", x: 0, y: 0 }]), timingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+        ],
+      },
+    ],
+  });
+
+  assert.match(css, /0% \{\n    transform: translate\(0px, 40px\);\n    opacity: 0;\n    animation-timing-function: ease-out;\n  \}/);
+  assert.match(css, /100% \{\n    transform: translate\(0px, 0px\);\n    opacity: 1;\n    animation-timing-function: cubic-bezier\(0.2, 0.8, 0.2, 1\);\n  \}/);
+});
+
 test("generateCss omits nullable fields and renders empty transforms as none", () => {
   const css = generateCss({
     timelines: [
@@ -252,6 +269,26 @@ test("validateWebKeyframesDocument allows nullable sparse fields", () => {
   });
 
   assert.equal(validated.timelines[0].keyframes.length, 3);
+});
+
+test("validateWebKeyframesDocument rejects empty timingFunction", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesDocument({
+        timelines: [
+          {
+            ...baseTimeline,
+            keyframes: [
+              { ...baseTimeline.keyframes[0], timingFunction: "" },
+              baseTimeline.keyframes[1],
+            ],
+          },
+        ],
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("timelines[0].keyframes[0].timingFunction must be a non-empty string when provided."),
+  );
 });
 
 test("timeline edit helpers support duplicate, nudge, spread, and stagger workflows", () => {

@@ -58,6 +58,7 @@ export function normalizeKeyframe(
 
   return {
     time: keyframe.time,
+    timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
     properties: [
       createOpacityProperty(
         opacityProperty && Number.isFinite(opacityProperty.value)
@@ -102,6 +103,7 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
       : undefined,
     keyframes: timeline.keyframes.map((keyframe) => ({
       time: keyframe.time,
+      timingFunction: keyframe.timingFunction ?? undefined,
       properties: cloneProperties(keyframe.properties ?? []),
     })),
   };

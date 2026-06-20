@@ -123,6 +123,18 @@ type ActivePreview = {
   targets: PreviewTargetState[];
 };
 
+const TIMING_FUNCTION_PRESETS = [
+  "linear",
+  "ease",
+  "ease-in",
+  "ease-out",
+  "ease-in-out",
+  "step-start",
+  "step-end",
+  "cubic-bezier(0.2, 0.8, 0.2, 1)",
+  "steps(4, end)",
+] as const;
+
 const PANEL_MIN_VISIBLE_X = 72;
 const PANEL_MIN_VISIBLE_Y = 56;
 
@@ -271,6 +283,9 @@ export class WebKeyframesEditor {
     const selectedSourceTransforms = hasKeyframeProperty(selectedSourceKeyframe, "transform")
       ? getTransformOperations(selectedSourceKeyframe)
       : [];
+    const selectedTimingFunction = typeof selectedSourceKeyframe.timingFunction === "string"
+      ? selectedSourceKeyframe.timingFunction.trim()
+      : "";
     const transformSourceState = !hasKeyframeProperty(selectedSourceKeyframe, "transform")
       ? "unset"
       : selectedSourceTransforms.length === 0
@@ -381,6 +396,8 @@ export class WebKeyframesEditor {
                   </div>
                   <div class="wkf__grid wkf__grid--editor">
                     ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
+                    ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
+                    ${renderTimingFunctionPresets()}
                   </div>
                   <div class="wkf__section-head wkf__section-head--properties">
                     <div class="wkf__section-title">Properties</div>
@@ -655,6 +672,57 @@ export class WebKeyframesEditor {
         keyframes.sort((left, right) => left.time - right.time);
         this.selectedKeyframeIndex = keyframes.indexOf(selected);
       }, shouldRender);
+    });
+    this.bindInputValue("timingFunction", (value) => {
+      const timeline = this.getSelectedTimeline();
+      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      const trimmed = value.trim();
+      if (trimmed === "") {
+        delete keyframe.timingFunction;
+      } else {
+        keyframe.timingFunction = trimmed;
+      }
+    });
+    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='set-timing-function']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const value = button.dataset.wkfValue ?? "";
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        keyframe.timingFunction = value;
+        this.pendingFocus = {
+          field: "timingFunction",
+          index: 0,
+          selectionStart: value.length,
+          selectionEnd: value.length,
+        };
+        this.setStatus("info", "Editing timeline data.");
+        this.render();
+      });
+    });
+    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-timing-function']")?.addEventListener("click", () => {
+      const timeline = this.getSelectedTimeline();
+      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+      if (!keyframe) {
+        return;
+      }
+
+      delete keyframe.timingFunction;
+      this.pendingFocus = {
+        field: "timingFunction",
+        index: 0,
+        selectionStart: 0,
+        selectionEnd: 0,
+      };
+      this.setStatus("info", "Editing timeline data.");
+      this.render();
     });
     this.bindNullableInputNumber("opacity", (value) => {
       const timeline = this.getSelectedTimeline();
@@ -983,6 +1051,7 @@ export class WebKeyframesEditor {
     update(keyframes, timeline);
     timeline.keyframes = keyframes.map((keyframe) => ({
       time: keyframe.time,
+      timingFunction: keyframe.timingFunction ?? undefined,
       properties: cloneProperties(keyframe.properties),
     }));
     this.data = sanitizeEditorDocument(this.data);
@@ -1341,6 +1410,7 @@ function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimel
     },
     keyframes: timeline.keyframes.map<NormalizedWebKeyframe>((keyframe) => ({
       time: keyframe.time,
+      timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
       properties: [
         createOpacityProperty(getOpacityValue(keyframe, 1) ?? 1),
         createTransformProperty(normalizeTransforms(keyframe).map(cloneTransform)),
@@ -1375,6 +1445,7 @@ function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: numb
       const previous = accumulator[accumulator.length - 1];
       accumulator.push({
         time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
+        timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
         properties: [
           createOpacityProperty(getOpacityValue(keyframe, getOpacityValue(previous, 1) ?? 1) ?? 1),
           createTransformProperty(
@@ -1394,7 +1465,11 @@ function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: numb
       unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
       customUnit: typeof data.translateConfig?.customUnit === "string" ? data.translateConfig.customUnit : undefined,
     },
-    keyframes: resolvedKeyframes,
+    keyframes: resolvedKeyframes.map((keyframe) => ({
+      time: keyframe.time,
+      timingFunction: keyframe.timingFunction ?? undefined,
+      properties: cloneProperties(keyframe.properties),
+    })),
   };
 }
 
@@ -1445,6 +1520,7 @@ function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframes
   target.translateConfig = source.translateConfig ? { ...source.translateConfig } : undefined;
   target.keyframes = source.keyframes.map((keyframe) => ({
     time: keyframe.time,
+    timingFunction: keyframe.timingFunction ?? undefined,
     properties: cloneProperties(keyframe.properties ?? []),
   }));
 }
@@ -1486,6 +1562,7 @@ function createNextKeyframe(
 
   return {
     time,
+    timingFunction: selected?.timingFunction ?? undefined,
     properties: [
       createOpacityProperty(getOpacityValue(selected, 1) ?? 1),
       createTransformProperty((selected ? getTransformOperations(selected) : [createDefaultTransform("translate")]).map(cloneTransform)),
@@ -1517,6 +1594,21 @@ function renderTextField(field: string, label: string, value: string): string {
       <span class="wkf__label">${escapeHtml(label)}</span>
       <input class="wkf__input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
     </label>
+  `;
+}
+
+function renderTimingFunctionPresets(): string {
+  return `
+    <div class="wkf__field wkf__field--full">
+      <span class="wkf__label">Insert Preset</span>
+      <div class="wkf__inline-actions wkf__inline-actions--wrap">
+        ${TIMING_FUNCTION_PRESETS.map(
+          (value) =>
+            `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="set-timing-function" data-wkf-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`,
+        ).join("")}
+        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="clear-timing-function">Clear</button>
+      </div>
+    </div>
   `;
 }
 
@@ -1749,8 +1841,13 @@ function formatKeyframeSummary(
     parts.push(`opacity ${formatNumber(opacity)}`);
   }
 
+  if (typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== "") {
+    parts.push(`timingFunction ${keyframe.timingFunction.trim()}`);
+  }
+
   return parts.join(", ");
 }
+
 
 function formatTransformSummary(transform: TransformOperation, translateConfig: RenderTranslateConfig): string {
   switch (transform.kind) {
