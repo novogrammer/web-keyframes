@@ -20,6 +20,11 @@ GitHub installs are expected to build `dist/` during package preparation. The re
 npm install github:novogrammer/web-keyframes#v0.1.0
 ```
 
+## Hosted examples
+
+- Basic example: https://novogrammer.github.io/web-keyframes/examples/basic/
+- Hero animation example: https://novogrammer.github.io/web-keyframes/examples/hero-animation/
+
 ## Editor
 
 ```ts

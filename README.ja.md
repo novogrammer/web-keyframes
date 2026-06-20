@@ -20,6 +20,11 @@ GitHub install 時は `prepare` により `dist/` を生成する前提です。
 npm install github:novogrammer/web-keyframes#v0.1.0
 ```
 
+## 公開サンプル
+
+- Basic example: https://novogrammer.github.io/web-keyframes/examples/basic/
+- Hero animation example: https://novogrammer.github.io/web-keyframes/examples/hero-animation/
+
 ## エディタ
 
 ```ts
