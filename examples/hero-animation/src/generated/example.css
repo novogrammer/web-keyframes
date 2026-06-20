@@ -12,14 +12,15 @@ body {
   background: radial-gradient(circle at top left, rgba(255, 221, 143, 0.7), transparent 28%), linear-gradient(180deg, #fff8ef 0%, #eaf4ff 100%);
   color: #18212e;
   font: 16px/1.5 system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
 .example-shell {
-  padding: 28px 16px 80px;
+  padding: 0 0 80px;
 }
 @media screen and (min-width: 768px) {
   .example-shell {
-    padding: 48px 24px 120px;
+    padding: 0 0 120px;
   }
 }
 
@@ -29,8 +30,15 @@ body {
   justify-content: space-between;
   gap: 20px;
   max-width: 1200px;
-  margin: 0 auto 24px;
+  margin: 32px auto 0;
+  padding: 0 16px;
   flex-wrap: wrap;
+}
+@media screen and (min-width: 768px) {
+  .example-bar {
+    margin-top: 48px;
+    padding: 0 24px;
+  }
 }
 
 .example-kicker {
@@ -65,12 +73,10 @@ body {
 
 .p-home-section-hero {
   position: relative;
-  width: 100%;
-  max-width: 1200px;
+  width: 100vw;
   height: 178.6666666667vw;
-  margin: 0 auto;
+  margin: 0;
   overflow: hidden;
-  border-radius: 32px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(235, 244, 255, 0.92));
   box-shadow: 0 32px 90px rgba(24, 33, 46, 0.14);
 }
