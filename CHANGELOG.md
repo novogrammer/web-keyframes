@@ -2,26 +2,37 @@
 
 All notable changes to `web-keyframes` will be documented in this file.
 
+## [0.2.0] - 2026-06-22
+
+### Added
+
+- Editing helpers for timeline data, including `nudge`, `offset`, `duplicate`, `spread`, `mirror`, and `stagger`
+- Browser preview CSS generation and editor preview / reset workflow against matching `animation-name` targets
+- Published `basic` and `hero-animation` example projects, plus GitHub Pages hosting support
+- Japanese documentation, release guide, and project maintenance notes under `docs/`
+
+### Changed
+
+- Reworked keyframe properties into a sparse `properties[]` model so `opacity` and `transform` can be added, removed, and round-tripped without densifying JSON
+- Replaced fixed transform fields with an ordered transform list supporting `translate`, `scale`, `rotate`, and `skew`, and kept that order consistent across the data model, CSS output, preview generation, and editor UI
+- Renamed translate output settings to `translateConfig` and simplified the data model by removing legacy preview-only fields such as `target` and `designWidth`
+- Switched the package surface from SCSS generation to CSS generation, including CLI output and editor copy / preview flows
+- Expanded the editor UI to support multiple timelines, draggable positioning, transform reordering, nullable property controls, timing function presets, and more robust slider / focus handling
+- Updated the bundled examples to consume timeline JSON files and use the current package build flow
+
 ## [0.1.0] - 2026-06-13
 
 ### Added
 
-- Core timeline data types, validation, normalization, and CSS generation
-- `web-keyframes to-css` CLI for single-file and directory conversion
+- Core timeline data types, validation, normalization, and SCSS generation
+- `web-keyframes to-scss` CLI for single-file and directory conversion
 - Browser-side `WebKeyframesEditor` with:
   - mount / unmount / show / hide / toggle lifecycle
   - editable timeline metadata and keyframe properties
   - add / duplicate / delete keyframe actions
-  - JSON / CSS preview and clipboard copy
+  - JSON / SCSS preview and clipboard copy
   - reset-to-default action
   - optional visibility shortcut and `Escape` preview close
 - Automated tests for core, CLI, and editor behavior
 - README usage docs and release notes scaffolding
 - `prepare` / `prepack` build flow so GitHub installs and packed artifacts can generate `dist/` without tracking it in git
-
-### Changed
-
-- Unified `scale` to always use `x` and `y` in the data model and always emit CSS as `scale(x, y)`
-- Added keyframe-local `timingFunction` passthrough for `animation-timing-function`
-- Preserved sparse keyframe JSON shape through editor load, `getData()`, and `toJson()` round-trips
-- Added hosted `basic` and `hero-animation` examples, and aligned `basic` to load timeline JSON instead of embedding editor data in JavaScript
