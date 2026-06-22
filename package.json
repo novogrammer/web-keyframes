@@ -3,14 +3,31 @@
   "version": "0.2.0",
   "description": "Lightweight keyframe editor core and CSS generator for web animations.",
   "type": "module",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "bin"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./editor": "./dist/editor.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
     "./editor.css": "./dist/editor.css"
+  },
+  "typesVersions": {
+    "*": {
+      "editor": [
+        "./dist/editor.d.ts"
+      ],
+      "*": [
+        "./dist/index.d.ts"
+      ]
+    }
   },
   "bin": {
     "web-keyframes": "./bin/web-keyframes.js"
