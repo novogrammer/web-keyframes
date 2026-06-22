@@ -4,6 +4,13 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-22
+
+### Fixed
+
+- Added explicit root and `./editor` type exports so `web-keyframes/editor` resolves its declarations in consumers using package subpath exports
+- Added `typesVersions` fallback entries so TypeScript projects still using `moduleResolution: "node"` can resolve `web-keyframes/editor` without consumer-side workarounds
+
 ## [0.2.0] - 2026-06-22
 
 ### Added
