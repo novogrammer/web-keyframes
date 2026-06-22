@@ -7,8 +7,9 @@ English: [release.md](./release.md)
 
 ## バージョン管理
 
+- ブランチ上で作業中の変更は、[CHANGELOG.md](../CHANGELOG.md) の `## [Unreleased]` に記録する
 - `package.json` の `version` を更新する
-- [CHANGELOG.md](../CHANGELOG.md) に新しいセクションを追加する
+- リリース時に `Unreleased` の内容を [CHANGELOG.md](../CHANGELOG.md) の新しいバージョン見出しへ移す
 - 必要なら [README.md](../README.md) と [README.ja.md](../README.ja.md) の install 例を次のタグへ揃える
 
 ## リリース前チェック

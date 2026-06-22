@@ -4,8 +4,9 @@ This project is currently intended to be installed from GitHub tags rather than 
 
 ## Versioning
 
+- Track unreleased changes under `## [Unreleased]` in [CHANGELOG.md](../CHANGELOG.md) while work is still on the branch
 - Update `package.json` `version`
-- Add a new section to [CHANGELOG.md](../CHANGELOG.md)
+- Promote the `Unreleased` entries into a new versioned section in [CHANGELOG.md](../CHANGELOG.md) when cutting a release
 - Keep the install example in [README.md](../README.md) aligned with the next tag when needed
 
 ## Pre-release checks
