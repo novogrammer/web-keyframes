@@ -2,6 +2,7 @@
   "timelines": [
     {
       "id": "hero-title-intro",
+      "positionType": "time",
       "duration": 3000,
       "translateConfig": {
         "unit": "%"
@@ -64,6 +65,7 @@
     },
     {
       "id": "hero-date-intro",
+      "positionType": "time",
       "duration": 3000,
       "translateConfig": {
         "unit": "%"
@@ -126,6 +128,7 @@
     },
     {
       "id": "hero-badge-intro",
+      "positionType": "time",
       "duration": 3000,
       "translateConfig": {
         "unit": "%"
@@ -159,6 +162,7 @@
     },
     {
       "id": "hero-balloon-loop",
+      "positionType": "time",
       "duration": 4000,
       "translateConfig": {
         "unit": "%"
