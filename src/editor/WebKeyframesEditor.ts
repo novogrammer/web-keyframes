@@ -139,6 +139,7 @@ const PANEL_MIN_VISIBLE_Y = 56;
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly shortcut: ShortcutDescriptor | null;
+  private readonly initialData: WebKeyframesDocument;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
   private readonly handleDragMove: (event: MouseEvent) => void;
   private readonly handleDragEnd: () => void;
@@ -162,7 +163,8 @@ export class WebKeyframesEditor {
     }
 
     this.root = options.root;
-    this.data = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA);
+    this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA);
+    this.data = cloneDocument(this.initialData);
     this.shortcut = parseShortcut(options.shortcut);
     this.handleKeydown = (event) => {
       if (event.key === "Escape" && this.previewTitle !== null) {
@@ -1180,12 +1182,12 @@ export class WebKeyframesEditor {
 
   private reset(): void {
     this.clearAppliedPreview();
-    this.data = sanitizeEditorDocument(DEFAULT_EDITOR_DATA);
+    this.data = cloneDocument(this.initialData);
     this.selectedTimelineIndex = 0;
     this.selectedKeyframeIndex = 0;
     this.previewTitle = null;
     this.previewContent = "";
-    this.setStatus("success", "Reset editor data to defaults.");
+    this.setStatus("success", "Reset editor data to the initial state.");
     this.render();
   }
 

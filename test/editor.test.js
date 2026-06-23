@@ -528,7 +528,7 @@ test("view actions open JSON and CSS previews and can be closed", async () => {
   assert.equal(getPreviewValue(window.document), "");
 });
 
-test("reset restores default document after edits", async () => {
+test("reset restores initialData after edits", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({
     root: window.document.body,
@@ -545,8 +545,9 @@ test("reset restores default document after edits", async () => {
   await clickAction(window.document, "reset");
 
   const data = editor.getData();
-  assert.equal(data.timelines.length, 1);
-  assert.equal(data.timelines[0].id, "new-animation");
+  assert.equal(data.timelines.length, 2);
+  assert.equal(data.timelines[0].id, "hero-in");
+  assert.equal(data.timelines[1].id, "hero-out");
 });
 
 function createTimeline(id, duration) {
