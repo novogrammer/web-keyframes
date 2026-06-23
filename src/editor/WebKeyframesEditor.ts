@@ -1766,9 +1766,7 @@ function createNextKeyframe(
     (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
   );
   if (sortedKeyframes.length === 0) {
-    return positionType === "time"
-      ? cloneSparseKeyframe(DEFAULT_TIMELINE_DATA.keyframes[0])
-      : { percent: 0, properties: cloneProperties(DEFAULT_TIMELINE_DATA.keyframes[0].properties ?? []) };
+    return createEmptyKeyframe(positionType, 0);
   }
 
   const selected = sortedKeyframes[selectedIndex] ?? sortedKeyframes[sortedKeyframes.length - 1];
@@ -1787,9 +1785,13 @@ function createNextKeyframe(
     position = Math.min(maxPosition, selectedPosition);
   }
 
-  const nextKeyframe = cloneSparseKeyframe(selected);
-  applyEditorKeyframePosition(nextKeyframe, positionType, position);
-  return nextKeyframe;
+  return createEmptyKeyframe(positionType, position);
+}
+
+function createEmptyKeyframe(positionType: KeyframePositionMode, position: number): WebKeyframe {
+  return positionType === "time"
+    ? { time: position, properties: [] }
+    : { percent: position, properties: [] };
 }
 
 function findClosestKeyframeIndex(

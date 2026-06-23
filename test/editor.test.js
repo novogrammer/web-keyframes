@@ -273,6 +273,19 @@ test("empty initialData stays empty until the first keyframe is added", async ()
 
   await clickAction(window.document, "add-keyframe");
   assert.equal(editor.getData().timelines[0].keyframes.length, 1);
+  assert.deepEqual(editor.getData().timelines[0].keyframes[0], { percent: 0, properties: [] });
+});
+
+test("added keyframes start with no properties", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  clickActionSync(window.document, "add-keyframe");
+
+  const addedKeyframe = editor.getData().timelines[0].keyframes.find((keyframe) => keyframe.percent === 50);
+  assert.deepEqual(addedKeyframe, { percent: 50, properties: [] });
 });
 
 test("keyframe editor updates selected frame values", () => {
