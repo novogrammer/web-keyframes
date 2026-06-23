@@ -145,6 +145,8 @@ editor.toCss();
 
 document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translateConfig`、`keyframes` を持ちます。
 
+`keyframes` は編集中であれば空配列でも構いません。新しい timeline を追加して editor 上で 0 から作り始めたい場合に使えます。
+
 各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。`transform` はその中で `value[]` に順序付き operation を持ちます。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
 
 各キーフレームは `timingFunction` も持てます。指定した場合は、そのままキーフレーム単位の `animation-timing-function` として出力されます。

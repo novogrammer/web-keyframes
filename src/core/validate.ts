@@ -88,10 +88,6 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
   if (!Array.isArray(candidate.keyframes)) {
     issues.push(`${prefix}keyframes must be an array.`);
   } else {
-    if (candidate.keyframes.length < 2) {
-      issues.push(`${prefix}keyframes must contain at least 2 items.`);
-    }
-
     candidate.keyframes.forEach((keyframe, index) => {
       issues.push(...validateKeyframe(keyframe, index, candidate.duration, prefix));
     });

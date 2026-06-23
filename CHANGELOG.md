@@ -4,6 +4,10 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Allowed timelines to keep `keyframes: []` while authoring, including empty new timelines in the editor and empty `@keyframes` output until frames are added
+
 ## [0.2.1] - 2026-06-22
 
 ### Fixed

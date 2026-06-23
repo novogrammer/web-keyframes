@@ -270,16 +270,17 @@ export class WebKeyframesEditor {
     this.selectedTimelineIndex = renderTimelines.indexOf(selectedTimeline);
     const selectedKeyframe = selectedTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedTimeline.keyframes[0];
     const selectedSourceKeyframe = selectedSourceTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedSourceTimeline.keyframes[0];
-    this.selectedKeyframeIndex = selectedTimeline.keyframes.indexOf(selectedKeyframe);
-    const opacitySourceState = hasKeyframeProperty(selectedSourceKeyframe, "opacity") ? "explicit" : "unset";
-    const selectedSourceOpacity = getOpacityValue(selectedSourceKeyframe);
-    const selectedSourceTransforms = hasKeyframeProperty(selectedSourceKeyframe, "transform")
+    this.selectedKeyframeIndex = selectedKeyframe ? selectedTimeline.keyframes.indexOf(selectedKeyframe) : 0;
+    const hasSelectedKeyframe = selectedKeyframe !== undefined && selectedSourceKeyframe !== undefined;
+    const opacitySourceState = hasSelectedKeyframe && hasKeyframeProperty(selectedSourceKeyframe, "opacity") ? "explicit" : "unset";
+    const selectedSourceOpacity = hasSelectedKeyframe ? getOpacityValue(selectedSourceKeyframe) : null;
+    const selectedSourceTransforms = hasSelectedKeyframe && hasKeyframeProperty(selectedSourceKeyframe, "transform")
       ? getTransformOperations(selectedSourceKeyframe)
       : [];
-    const selectedTimingFunction = typeof selectedSourceKeyframe.timingFunction === "string"
+    const selectedTimingFunction = hasSelectedKeyframe && typeof selectedSourceKeyframe.timingFunction === "string"
       ? selectedSourceKeyframe.timingFunction.trim()
       : "";
-    const transformSourceState = !hasKeyframeProperty(selectedSourceKeyframe, "transform")
+    const transformSourceState = !hasSelectedKeyframe || !hasKeyframeProperty(selectedSourceKeyframe, "transform")
       ? "unset"
       : selectedSourceTransforms.length === 0
         ? "none"
@@ -355,149 +356,170 @@ export class WebKeyframesEditor {
                     <div class="wkf__section-title">Keyframes</div>
                     <div class="wkf__inline-actions wkf__inline-actions--wrap">
                       <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-keyframe">Add</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe">Duplicate</button>
+                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe" ${
+                        selectedTimeline.keyframes.length === 0 ? "disabled" : ""
+                      }>Duplicate</button>
                       <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-keyframe" ${
-                        selectedTimeline.keyframes.length <= 2 ? "disabled" : ""
+                        selectedTimeline.keyframes.length === 0 ? "disabled" : ""
                       }>Delete</button>
                     </div>
                   </div>
                   <div class="wkf__keyframe-list">
-                    ${selectedTimeline.keyframes
-                      .map(
-                        (keyframe, index) => `
-                          <button
-                            type="button"
-                            class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
-                            data-wkf-action="select-keyframe"
-                            data-wkf-index="${index}"
-                          >
-                            <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
-                            <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, selectedTimeline.duration))}</span>
-                            <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
-                          </button>
-                        `,
-                      )
-                      .join("")}
+                    ${
+                      selectedTimeline.keyframes.length > 0
+                        ? selectedTimeline.keyframes
+                          .map(
+                            (keyframe, index) => `
+                              <button
+                                type="button"
+                                class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
+                                data-wkf-action="select-keyframe"
+                                data-wkf-index="${index}"
+                              >
+                                <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
+                                <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, selectedTimeline.duration))}</span>
+                                <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
+                              </button>
+                            `,
+                          )
+                          .join("")
+                        : `<div class="wkf__keyframe-item"><span class="wkf__keyframe-meta">No keyframes yet.</span></div>`
+                    }
                   </div>
                 </div>
                 <div class="wkf__section wkf__section--editor">
                   <div class="wkf__section-head">
                     <div>
                       <div class="wkf__section-title">Selected Keyframe</div>
-                      <p class="wkf__subtitle">${escapeHtml(formatPercentLabel(selectedKeyframe.time, selectedTimeline.duration))} of timeline</p>
+                      <p class="wkf__subtitle">${
+                        hasSelectedKeyframe
+                          ? `${escapeHtml(formatPercentLabel(selectedKeyframe.time, selectedTimeline.duration))} of timeline`
+                          : "Add a keyframe to start editing."
+                      }</p>
                     </div>
                   </div>
-                  <div class="wkf__grid wkf__grid--editor">
-                    ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
-                    ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
-                    ${renderTimingFunctionPresets()}
-                  </div>
-                  <div class="wkf__section-head wkf__section-head--properties">
-                    <div class="wkf__section-title">Properties</div>
-                  </div>
                   ${
-                    opacitySourceState === "unset" || transformSourceState === "unset"
+                    hasSelectedKeyframe
                       ? `
-                        <div class="wkf__property-add">
-                          <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                            ${
-                              opacitySourceState === "unset"
-                                ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
-                                : ""
-                            }
-                            ${
-                              transformSourceState === "unset"
-                                ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
-                                : ""
-                            }
-                          </div>
+                        <div class="wkf__grid wkf__grid--editor">
+                          ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
+                          ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
+                          ${renderTimingFunctionPresets()}
                         </div>
-                      `
-                      : ""
-                  }
-                  <div class="wkf__property-list">
-                    ${
-                      opacitySourceState === "explicit"
-                        ? `
-                          <div class="wkf__property">
-                            <div class="wkf__section-head">
-                              <div>
-                                <div class="wkf__section-title">Opacity</div>
-                                <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
-                              </div>
-                              <div class="wkf__inline-actions">
-                                <button
-                                  type="button"
-                                  class="wkf__button wkf__button--small wkf__button--ghost"
-                                  data-wkf-action="delete-opacity"
-                                >Delete</button>
-                              </div>
-                            </div>
-                            ${renderNullableNumberField("opacity", "Opacity", selectedSourceOpacity, 0, 0.01, 1, true)}
-                          `
-                        : ""
-                    }
-                    ${
-                      transformSourceState !== "unset"
-                        ? `
-                          <div class="wkf__property">
-                            <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-                              <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
-                            </div>
-                            ${
-                              transformSourceState === "none"
+                        <div class="wkf__section-head wkf__section-head--properties">
+                          <div class="wkf__section-title">Properties</div>
+                        </div>
+                        ${
+                          opacitySourceState === "unset" || transformSourceState === "unset"
                             ? `
-                              <div class="wkf__section-head">
-                                <div>
-                                  <div class="wkf__section-title">Transforms</div>
-                                  <p class="wkf__subtitle">None</p>
-                                </div>
-                                <div class="wkf__inline-actions">
-                                  <button
-                                    type="button"
-                                    class="wkf__button wkf__button--small wkf__button--ghost"
-                                    data-wkf-action="delete-transforms"
-                                  >Delete</button>
+                              <div class="wkf__property-add">
+                                <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                                  ${
+                                    opacitySourceState === "unset"
+                                      ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
+                                      : ""
+                                  }
+                                  ${
+                                    transformSourceState === "unset"
+                                      ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
+                                      : ""
+                                  }
                                 </div>
                               </div>
                             `
+                            : ""
+                        }
+                        <div class="wkf__property-list">
+                          ${
+                            opacitySourceState === "explicit"
+                              ? `
+                                <div class="wkf__property">
+                                  <div class="wkf__section-head">
+                                    <div>
+                                      <div class="wkf__section-title">Opacity</div>
+                                      <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
+                                    </div>
+                                    <div class="wkf__inline-actions">
+                                      <button
+                                        type="button"
+                                        class="wkf__button wkf__button--small wkf__button--ghost"
+                                        data-wkf-action="delete-opacity"
+                                      >Delete</button>
+                                    </div>
+                                  </div>
+                                  ${renderNullableNumberField("opacity", "Opacity", selectedSourceOpacity, 0, 0.01, 1, true)}
+                                `
                               : ""
-                            }
-                            ${
-                              transformSourceState === "explicit"
-                                ? `
-                            <div class="wkf__section-head">
-                              <div>
-                                <div class="wkf__section-title">Transforms</div>
-                                <p class="wkf__subtitle">${selectedSourceTransforms.length} item${selectedSourceTransforms.length === 1 ? "" : "s"}</p>
-                              </div>
-                              <div class="wkf__inline-actions">
-                                <button
-                                  type="button"
-                                  class="wkf__button wkf__button--small wkf__button--ghost"
-                                  data-wkf-action="delete-transforms"
-                                >Delete</button>
-                                <button
-                                  type="button"
-                                  class="wkf__button wkf__button--small wkf__button--ghost"
-                                  data-wkf-action="clear-transforms"
-                                >None</button>
-                              </div>
-                            </div>
-                          `
-                                : ""
-                            }
-                            <div class="wkf__transform-list">
-                              ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
-                            </div>
-                          </div>
-                        `
-                        : ""
-                    }
-                  </div>
+                          }
+                          ${
+                            transformSourceState !== "unset"
+                              ? `
+                                <div class="wkf__property">
+                                  <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+                                  </div>
+                                  ${
+                                    transformSourceState === "none"
+                                      ? `
+                                        <div class="wkf__section-head">
+                                          <div>
+                                            <div class="wkf__section-title">Transforms</div>
+                                            <p class="wkf__subtitle">None</p>
+                                          </div>
+                                          <div class="wkf__inline-actions">
+                                            <button
+                                              type="button"
+                                              class="wkf__button wkf__button--small wkf__button--ghost"
+                                              data-wkf-action="delete-transforms"
+                                            >Delete</button>
+                                          </div>
+                                        </div>
+                                      `
+                                      : ""
+                                  }
+                                  ${
+                                    transformSourceState === "explicit"
+                                      ? `
+                                        <div class="wkf__section-head">
+                                          <div>
+                                            <div class="wkf__section-title">Transforms</div>
+                                            <p class="wkf__subtitle">${selectedSourceTransforms.length} item${selectedSourceTransforms.length === 1 ? "" : "s"}</p>
+                                          </div>
+                                          <div class="wkf__inline-actions">
+                                            <button
+                                              type="button"
+                                              class="wkf__button wkf__button--small wkf__button--ghost"
+                                              data-wkf-action="delete-transforms"
+                                            >Delete</button>
+                                            <button
+                                              type="button"
+                                              class="wkf__button wkf__button--small wkf__button--ghost"
+                                              data-wkf-action="clear-transforms"
+                                            >None</button>
+                                          </div>
+                                        </div>
+                                      `
+                                      : ""
+                                  }
+                                  <div class="wkf__transform-list">
+                                    ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
+                                  </div>
+                                </div>
+                              `
+                              : ""
+                          }
+                        </div>
+                      `
+                      : `
+                        <div class="wkf__property">
+                          <p class="wkf__subtitle">This timeline has no keyframes yet.</p>
+                          <p class="wkf__subtitle">Use the Add button above to create the first keyframe.</p>
+                        </div>
+                      `
+                  }
                 </div>
               </div>
             </div>
@@ -898,7 +920,7 @@ export class WebKeyframesEditor {
 
     this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-keyframe']")?.addEventListener("click", () => {
       const timeline = this.getSelectedTimeline();
-      if (timeline.keyframes.length <= 2) {
+      if (timeline.keyframes.length === 0) {
         return;
       }
 
@@ -1385,7 +1407,7 @@ function sanitizeEditorDocument(data: WebKeyframesDocument): WebKeyframesDocumen
 
 function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: number): WebKeyframesTimeline {
   const fallback = createDefaultTimeline(index);
-  const keyframes = Array.isArray(data.keyframes) && data.keyframes.length > 0
+  const keyframes = Array.isArray(data.keyframes)
     ? data.keyframes
     : fallback.keyframes;
   const resolvedKeyframes = [...keyframes]
@@ -1427,9 +1449,13 @@ function createNextTimeline(
   timelines: WebKeyframesTimeline[],
   selectedIndex: number,
 ): WebKeyframesTimeline {
-  const base = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length);
-  base.id = createUniqueTimelineId(base.id, timelines);
-  return base;
+  const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length);
+  return {
+    id: createUniqueTimelineId(source.id, timelines),
+    duration: source.duration,
+    translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
+    keyframes: [],
+  };
 }
 
 function createDuplicatedTimeline(
@@ -1629,21 +1655,23 @@ function createNextKeyframe(
   duration: number,
 ): WebKeyframesTimeline["keyframes"][number] {
   const sortedKeyframes = [...keyframes].sort((left, right) => left.time - right.time);
+  if (sortedKeyframes.length === 0) {
+    return cloneSparseKeyframe(DEFAULT_TIMELINE_DATA.keyframes[0]);
+  }
+
   const selected = sortedKeyframes[selectedIndex] ?? sortedKeyframes[sortedKeyframes.length - 1];
   const next = sortedKeyframes[selectedIndex + 1];
   const previous = sortedKeyframes[selectedIndex - 1];
   let time = duration;
 
-  if (selected && next) {
+  if (sortedKeyframes.length === 1 && selected) {
+    time = selected.time <= 0 ? duration : 0;
+  } else if (selected && next) {
     time = Math.round((selected.time + next.time) / 2);
   } else if (selected && previous) {
     time = Math.min(duration, Math.round((selected.time + duration) / 2));
   } else if (selected) {
     time = Math.min(duration, selected.time);
-  }
-
-  if (!selected) {
-    return cloneSparseKeyframe(createDefaultTimeline(0).keyframes[0]);
   }
 
   const nextKeyframe = cloneSparseKeyframe(selected);

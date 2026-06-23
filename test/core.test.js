@@ -125,6 +125,19 @@ test("generatePreviewCss emits browser-safe transforms", () => {
   assert.match(css, /translate\(0px, 40px\)/);
 });
 
+test("generateCss allows empty keyframe lists", () => {
+  const css = generateCss({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [],
+      },
+    ],
+  });
+
+  assert.equal(css, "@keyframes hero-logo {\n\n}\n");
+});
+
 test("generateCss preserves explicit transform order including skew", () => {
   const css = generateCss({
     timelines: [
@@ -220,16 +233,28 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
             ...baseTimeline,
             id: "",
             duration: 0,
-            keyframes: [createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 0 }])],
+            keyframes: [],
           },
         ],
       }),
     (error) =>
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("timelines[0].id is required.") &&
-      error.issues.includes("timelines[0].duration must be a number greater than 0.") &&
-      error.issues.includes("timelines[0].keyframes must contain at least 2 items."),
+      error.issues.includes("timelines[0].duration must be a number greater than 0."),
   );
+});
+
+test("validateWebKeyframesDocument allows empty keyframe arrays", () => {
+  const validated = validateWebKeyframesDocument({
+    timelines: [
+      {
+        ...baseTimeline,
+        keyframes: [],
+      },
+    ],
+  });
+
+  assert.equal(validated.timelines[0].keyframes.length, 0);
 });
 
 test("validateWebKeyframesDocument rejects out-of-range keyframe times and invalid transforms", () => {

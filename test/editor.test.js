@@ -147,6 +147,7 @@ test("timeline actions add duplicate and delete timelines", async () => {
 
   await clickAction(window.document, "add-timeline");
   assert.equal(editor.getData().timelines.length, 2);
+  assert.equal(editor.getData().timelines[1].keyframes.length, 0);
 
   await clickAction(window.document, "duplicate-timeline");
   assert.equal(editor.getData().timelines.length, 3);
@@ -230,6 +231,33 @@ test("sparse initialData round-trips through getData and toJson without densifyi
 
   assert.deepEqual(editor.getData(), initialData);
   assert.deepEqual(JSON.parse(editor.toJson()), initialData);
+});
+
+test("empty initialData stays empty until the first keyframe is added", async () => {
+  const { window } = createWindow();
+  const initialData = {
+    timelines: [
+      {
+        id: "hero-title-intro",
+        duration: 3000,
+        translateConfig: { unit: "%" },
+        keyframes: [],
+      },
+    ],
+  };
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData,
+  });
+
+  editor.mount();
+
+  assert.deepEqual(editor.getData(), initialData);
+  assert.match(window.document.body.textContent ?? "", /No keyframes yet\./);
+  assert.match(window.document.body.textContent ?? "", /Use the Add button above to create the first keyframe\./);
+
+  await clickAction(window.document, "add-keyframe");
+  assert.equal(editor.getData().timelines[0].keyframes.length, 1);
 });
 
 test("keyframe editor updates selected frame values", () => {
@@ -351,6 +379,28 @@ test("add and delete keyframe actions update the list", async () => {
   clickActionSync(window.document, "delete-keyframe");
 
   assert.equal(editor.getData().timelines[0].keyframes.length, 2);
+});
+
+test("keyframes can be deleted down to an empty timeline", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData: {
+      timelines: [
+        {
+          id: "hero-logo",
+          duration: 1200,
+          keyframes: [createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }])],
+        },
+      ],
+    },
+  });
+
+  editor.mount();
+  await clickAction(window.document, "delete-keyframe");
+
+  assert.equal(editor.getData().timelines[0].keyframes.length, 0);
+  assert.match(window.document.body.textContent ?? "", /Use the Add button above to create the first keyframe\./);
 });
 
 test("duplicate keyframe action inserts a copied frame and keeps timeline percentages visible", async () => {

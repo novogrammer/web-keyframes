@@ -146,6 +146,8 @@ value for matched elements.
 
 Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translateConfig`, and `keyframes`.
 
+`keyframes` may be an empty array while authoring. This is useful when you add a new timeline and want to build it from scratch in the editor.
+
 Each keyframe expresses animated values through an ordered `properties[]` list. `transform` stores its ordered operations in `value[]`. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
 
 Each keyframe may also include `timingFunction`. When present, it is emitted directly as a keyframe-local `animation-timing-function`.
