@@ -11,6 +11,7 @@
 - transform の種類を増やしたあとでも、エディタが直接編集より速いと感じられるか検証する。
 - UI が、CSS を手で書くより遅い抽象化へ膨らまないようにする。
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、リファクタリングする。
+- editor UI の Lit 化が妥当か検討する。
 
 ## 編集 API
 
