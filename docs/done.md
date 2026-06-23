@@ -13,6 +13,7 @@
 - `scale` は常に `x` / `y` を持つモデルに統一し、CSS 出力も常に `scale(x, y)` に揃えた。
 - keyframe 単位の `timingFunction` を文字列フィールドとして追加し、CSS の `animation-timing-function` へそのまま出力できるようにした。
 - sparse な keyframe JSON を editor が勝手に密化せず、読み込みと書き出しで同じ形を維持するようにした。
+- keyframe の位置指定を `time` と `percent` の別 field に分離し、`duration` は `time` モードの timeline にだけ持たせる形へ整理した。
 
 ## プレビュー
 

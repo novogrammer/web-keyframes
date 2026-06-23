@@ -31,8 +31,8 @@ export function duplicateKeyframes(
   }
 
   const offset = Number.isFinite(timeOffset)
-    ? Math.round(timeOffset as number)
-    : Math.max(1, Math.round(normalized.duration * 0.1));
+    ? toPercentDelta(normalized, timeOffset as number)
+    : defaultPercentOffset(normalized);
 
   const duplicates = uniqueIndexes.map((index) => {
     const source = normalized.keyframes[index];
@@ -44,7 +44,7 @@ export function duplicateKeyframes(
         }
         return createOpacityProperty(property.value);
       }),
-      time: clampNumber(source.time + offset, 0, normalized.duration),
+      ...setNormalizedPercent(source, clampNumber(source.percent + offset, 0, 100), normalized.duration),
     };
   });
 
@@ -70,7 +70,7 @@ export function offsetKeyframeTimes(
     ...normalized,
     keyframes: normalized.keyframes.map((keyframe, index) =>
       selected.has(index)
-        ? { ...keyframe, time: clampNumber(keyframe.time + Math.round(amount), 0, normalized.duration) }
+        ? { ...keyframe, ...setNormalizedPercent(keyframe, clampNumber(keyframe.percent + toPercentDelta(normalized, amount), 0, 100), normalized.duration) }
         : keyframe,
     ),
   });
@@ -89,8 +89,8 @@ export function spreadKeyframeTimes(
     return normalized;
   }
 
-  const start = clampNumber(Math.round(startTime), 0, normalized.duration);
-  const end = clampNumber(Math.round(endTime), 0, normalized.duration);
+  const start = clampNumber(toPercentValue(normalized, startTime), 0, 100);
+  const end = clampNumber(toPercentValue(normalized, endTime), 0, 100);
   const [from, to] = start <= end ? [start, end] : [end, start];
   const step = indexes.length === 1 ? 0 : (to - from) / (indexes.length - 1);
 
@@ -104,7 +104,7 @@ export function spreadKeyframeTimes(
   }));
 
   indexes.forEach((index, order) => {
-    nextKeyframes[index].time = Math.round(from + step * order);
+    Object.assign(nextKeyframes[index], setNormalizedPercent(nextKeyframes[index], from + step * order, normalized.duration));
   });
 
   return sortKeyframes({
@@ -127,9 +127,9 @@ export function staggerKeyframes(
   }
 
   const anchor = startTime === undefined
-    ? normalized.keyframes[indexes[0]].time
-    : clampNumber(Math.round(startTime), 0, normalized.duration);
-  const step = Math.round(stepMs);
+    ? normalized.keyframes[indexes[0]].percent
+    : clampNumber(toPercentValue(normalized, startTime), 0, 100);
+  const step = toPercentDelta(normalized, stepMs);
   const nextKeyframes = normalized.keyframes.map((keyframe) => ({
     ...keyframe,
     properties: keyframe.properties.map((property) =>
@@ -140,7 +140,10 @@ export function staggerKeyframes(
   }));
 
   indexes.forEach((index, order) => {
-    nextKeyframes[index].time = clampNumber(anchor + step * order, 0, normalized.duration);
+    Object.assign(
+      nextKeyframes[index],
+      setNormalizedPercent(nextKeyframes[index], clampNumber(anchor + step * order, 0, 100), normalized.duration),
+    );
   });
 
   return sortKeyframes({
@@ -451,7 +454,7 @@ function setTransformField(transform: TransformOperation, field: TransformValueF
 function sortKeyframes(data: NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   return {
     ...data,
-    keyframes: [...data.keyframes].sort((left, right) => left.time - right.time),
+    keyframes: [...data.keyframes].sort((left, right) => left.percent - right.percent),
   };
 }
 
@@ -461,6 +464,47 @@ function normalizeEditableTimeline(data: WebKeyframesTimeline | NormalizedWebKey
 
 function getSortedUniqueIndexes(indexes: number[], length: number): number[] {
   return [...new Set(indexes.map((index) => Math.round(index)).filter((index) => index >= 0 && index < length))].sort((left, right) => left - right);
+}
+
+function defaultPercentOffset(normalized: NormalizedWebKeyframesTimeline): number {
+  return normalized.duration === null
+    ? 10
+    : (Math.max(1, Math.round(normalized.duration * 0.1)) / normalized.duration) * 100;
+}
+
+function toPercentDelta(normalized: NormalizedWebKeyframesTimeline, value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (normalized.duration === null) {
+    return value;
+  }
+
+  return (value / Math.max(normalized.duration, 1)) * 100;
+}
+
+function toPercentValue(normalized: NormalizedWebKeyframesTimeline, value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (normalized.duration === null) {
+    return value;
+  }
+
+  return (value / Math.max(normalized.duration, 1)) * 100;
+}
+
+function setNormalizedPercent(
+  keyframe: NormalizedWebKeyframesTimeline["keyframes"][number],
+  percent: number,
+  duration: number | null,
+): Pick<NormalizedWebKeyframesTimeline["keyframes"][number], "percent" | "time"> {
+  return {
+    percent,
+    time: duration === null ? null : Math.round((percent / 100) * duration),
+  };
 }
 
 function clampNumber(value: number, min: number, max: number): number {

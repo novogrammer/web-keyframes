@@ -1,5 +1,11 @@
 import { formatCss } from "./formatCss.js";
-import { getOpacityProperty, getTransformProperty, normalizeWebKeyframesTimeline } from "./normalize.js";
+import {
+  getKeyframePositionValue,
+  getOpacityProperty,
+  getTimelinePositionType,
+  getTransformProperty,
+  normalizeWebKeyframesTimeline,
+} from "./normalize.js";
 import { validateWebKeyframesTimeline } from "./validate.js";
 import { formatNumber, renderTransform } from "./generateCss.js";
 import type { WebKeyframesTimeline } from "./types.js";
@@ -8,10 +14,13 @@ export function generatePreviewCss(data: WebKeyframesTimeline, keyframesName?: s
   const validated = validateWebKeyframesTimeline(data);
   const normalized = normalizeWebKeyframesTimeline(data);
   const animationName = keyframesName?.trim() || normalized.id;
-  const keyframesByTime = [...validated.keyframes].sort((left, right) => left.time - right.time);
+  const positionType = getTimelinePositionType(validated);
+  const keyframesByTime = [...validated.keyframes].sort(
+    (left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType),
+  );
 
   const keyframeBlocks = keyframesByTime.map((keyframe, index) => {
-    const percent = formatPercent((normalized.keyframes[index].time / normalized.duration) * 100);
+    const percent = formatPercent(normalized.keyframes[index].percent);
     const lines = [`  ${percent} {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);

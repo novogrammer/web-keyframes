@@ -131,12 +131,27 @@ test("timeline meta inputs update selected timeline data", () => {
 
   setInputValue(window.document, "id", "hero-title");
   setSelectValue(window.document, "translateUnit", "vw");
+  setSelectValue(window.document, "positionType", "time");
   setNumberValue(window.document, "duration", 1600);
 
   const data = editor.getData();
   assert.equal(data.timelines[0].id, "hero-title");
   assert.equal(data.timelines[0].translateConfig?.unit, "vw");
   assert.equal(data.timelines[0].duration, 1600);
+});
+
+test("timeline can switch to percent mode and removes duration", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  setNumberValue(window.document, "position", 25, 1);
+
+  const data = editor.getData();
+  assert.equal(data.timelines[0].positionType, "percent");
+  assert.equal("duration" in data.timelines[0], false);
+  assert.equal(data.timelines[0].keyframes[0].percent, 25);
+  assert.equal(window.document.querySelector("[data-wkf-field='duration']"), null);
 });
 
 test("timeline actions add duplicate and delete timelines", async () => {
@@ -203,19 +218,19 @@ test("sparse initialData round-trips through getData and toJson without densifyi
     timelines: [
       {
         id: "hero-title-intro",
-        duration: 3000,
+        positionType: "percent",
         translateConfig: { unit: "%" },
         keyframes: [
           {
-            time: 0,
+            percent: 0,
             properties: [createOpacityProperty(0)],
           },
           {
-            time: 1500,
+            percent: 50,
             timingFunction: "ease-out",
           },
           {
-            time: 2000,
+            percent: 66.7,
             properties: [createTransformProperty([{ kind: "scale", x: 1, y: 1 }])],
           },
         ],
@@ -239,7 +254,7 @@ test("empty initialData stays empty until the first keyframe is added", async ()
     timelines: [
       {
         id: "hero-title-intro",
-        duration: 3000,
+        positionType: "percent",
         translateConfig: { unit: "%" },
         keyframes: [],
       },
@@ -266,12 +281,12 @@ test("keyframe editor updates selected frame values", () => {
 
   editor.mount();
 
-  setNumberValue(window.document, "time", 300, 1);
+  setNumberValue(window.document, "position", 30, 1);
   setNumberValue(window.document, "transform-x-0", 24);
   setNumberValue(window.document, "opacity", 0.45);
 
   const [firstKeyframe] = editor.getData().timelines[0].keyframes;
-  assert.equal(firstKeyframe.time, 300);
+  assert.equal(firstKeyframe.percent, 30);
   assert.equal(getTransformOperations(firstKeyframe)[0].x, 24);
   assert.equal(getOpacityValue(firstKeyframe), 0.45);
 });
@@ -292,18 +307,18 @@ test("timingFunction editor supports preset buttons and custom text", async () =
   assert.equal(editor.getData().timelines[0].keyframes[0].timingFunction, undefined);
 });
 
-test("time slider stays mounted while dragging and syncs the numeric field", () => {
+test("position slider stays mounted while dragging and syncs the numeric field", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
   editor.mount();
 
-  const range = window.document.querySelector("[data-wkf-field='time'][type='range']");
-  const number = window.document.querySelector("[data-wkf-field='time'][type='number']");
-  range.value = "240";
+  const range = window.document.querySelector("[data-wkf-field='position'][type='range']");
+  const number = window.document.querySelector("[data-wkf-field='position'][type='number']");
+  range.value = "24";
   range.dispatchEvent(new Event("input", { bubbles: true }));
 
-  assert.equal(editor.getData().timelines[0].keyframes[0].time, 240);
+  assert.equal(editor.getData().timelines[0].keyframes[0].percent, 24);
   assert.equal(range.isConnected, true);
   assert.equal(number.isConnected, true);
 });
@@ -429,7 +444,7 @@ test("duplicate keyframe action inserts a copied frame and keeps timeline percen
 
   const data = editor.getData().timelines[0];
   assert.equal(data.keyframes.length, 3);
-  assert.equal(data.keyframes[1].time, 120);
+  assert.equal(data.keyframes[1].percent, 10);
   assert.match(window.document.body.textContent ?? "", /10% of timeline/);
 });
 

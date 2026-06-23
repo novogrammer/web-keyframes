@@ -62,8 +62,8 @@ editor.toCss();
 ### 現在のエディタ機能
 
 - 1 つの document 内で複数 timeline を管理
-- 選択中 timeline の `id`、`duration`、`translateConfig` 出力設定の編集
-- 選択中キーフレーム `time`、`timingFunction`、`opacity`、順序付き transform の編集
+- 選択中 timeline の `id`、`positionType`、必要に応じた `duration`、`translateConfig` 出力設定の編集
+- 選択中キーフレーム `time` または `percent`、`timingFunction`、`opacity`、順序付き transform の編集
 - `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
 - timeline の追加、複製、選択、削除
 - キーフレームの追加、複製、削除
@@ -143,7 +143,12 @@ editor.toCss();
 }
 ```
 
-document は `timelines[]` を持ち、各 timeline が自分の `id`、`duration`、`translateConfig`、`keyframes` を持ちます。
+document は `timelines[]` を持ち、各 timeline が自分の `id`、`positionType`、`translateConfig`、`keyframes` を持ちます。`duration` は `time` モードの timeline にだけ存在します。
+
+timeline の位置指定モードは 2 種類あります。
+
+- `time` モード: 各キーフレームが `time` を持ち、timeline に `duration` が必要
+- `percent` モード: 各キーフレームが `percent` を持ち、timeline に `duration` は持てない
 
 `keyframes` は編集中であれば空配列でも構いません。新しい timeline を追加して editor 上で 0 から作り始めたい場合に使えます。
 

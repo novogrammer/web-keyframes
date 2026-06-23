@@ -1,4 +1,5 @@
 import type {
+  KeyframePositionMode,
   KeyframeProperty,
   NormalizedTranslateConfig,
   NormalizedWebKeyframe,
@@ -30,15 +31,20 @@ export function normalizeWebKeyframesDocument(data: WebKeyframesDocument): Norma
 export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   const validated = validateWebKeyframesTimeline(data);
   const translateConfig = validated.translateConfig;
-  const sortedKeyframes = [...validated.keyframes].sort((left, right) => left.time - right.time);
+  const positionType = getTimelinePositionType(validated);
+  const sortedKeyframes = [...validated.keyframes].sort(
+    (left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType),
+  );
   const keyframes = sortedKeyframes.reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
     const previous = accumulator[accumulator.length - 1];
-    accumulator.push(normalizeKeyframe(keyframe, previous));
+    accumulator.push(normalizeKeyframe(keyframe, positionType, validated.duration ?? null, previous));
     return accumulator;
   }, []);
 
   return {
-    ...validated,
+    id: validated.id,
+    positionType,
+    duration: positionType === "time" ? validated.duration ?? null : null,
     translateConfig: {
       unit: translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
       customUnit: translateConfig?.unit === "custom" ? translateConfig.customUnit?.trim() || null : null,
@@ -49,15 +55,22 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
 
 export function normalizeKeyframe(
   keyframe: WebKeyframe,
+  positionType: KeyframePositionMode,
+  duration: number | null,
   previous?: NormalizedWebKeyframe,
 ): NormalizedWebKeyframe {
   const opacityProperty = getOpacityProperty(keyframe);
   const previousOpacity = previous ? (getOpacityValue(previous, 1) ?? 1) : 1;
   const transformProperty = getTransformProperty(keyframe);
   const previousTransforms = previous ? getTransformOperations(previous) : [];
+  const time = positionType === "time" ? (keyframe.time ?? null) : null;
+  const percent = positionType === "time"
+    ? (((keyframe.time ?? 0) / Math.max(duration ?? 1, 1)) * 100)
+    : (keyframe.percent ?? 0);
 
   return {
-    time: keyframe.time,
+    time,
+    percent,
     timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
     properties: [
       createOpacityProperty(
@@ -92,9 +105,11 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
 }
 
 export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): WebKeyframesTimeline {
+  const positionType = getTimelinePositionType(timeline);
   return {
     id: timeline.id,
-    duration: timeline.duration,
+    ...(positionType === "percent" ? { positionType } : timeline.positionType ? { positionType } : {}),
+    ...(positionType === "time" && typeof timeline.duration === "number" ? { duration: timeline.duration } : {}),
     translateConfig: timeline.translateConfig
       ? {
           unit: timeline.translateConfig.unit,
@@ -102,7 +117,9 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
         }
       : undefined,
     keyframes: timeline.keyframes.map((keyframe) => ({
-      time: keyframe.time,
+      ...(positionType === "time"
+        ? { time: keyframe.time ?? 0 }
+        : { percent: keyframe.percent ?? 0 }),
       ...(keyframe.timingFunction ? { timingFunction: keyframe.timingFunction } : {}),
       ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
     })),
@@ -195,6 +212,30 @@ export function getTransformOperations(
 ): TransformOperation[] {
   const property = getTransformProperty(keyframe);
   return property ? property.value.map(cloneTransform) : fallback.map(cloneTransform);
+}
+
+export function getTimelinePositionType(
+  timeline: Pick<WebKeyframesTimeline, "positionType" | "duration" | "keyframes"> | Pick<NormalizedWebKeyframesTimeline, "positionType">,
+): KeyframePositionMode {
+  if (timeline.positionType === "percent" || timeline.positionType === "time") {
+    return timeline.positionType;
+  }
+
+  if ("keyframes" in timeline && Array.isArray(timeline.keyframes)) {
+    const firstPercentKeyframe = timeline.keyframes.find((keyframe) => typeof keyframe?.percent === "number");
+    if (firstPercentKeyframe) {
+      return "percent";
+    }
+  }
+
+  return "time";
+}
+
+export function getKeyframePositionValue(
+  keyframe: Pick<WebKeyframe, "time" | "percent"> | Pick<NormalizedWebKeyframe, "time" | "percent">,
+  positionType: KeyframePositionMode,
+): number {
+  return positionType === "time" ? (keyframe.time ?? 0) : (keyframe.percent ?? 0);
 }
 
 export function upsertKeyframeProperty(

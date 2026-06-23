@@ -45,14 +45,26 @@ export type KeyframeProperty =
 
 export type PropertyKind = KeyframeProperty["kind"];
 
-export type WebKeyframe = {
+export type KeyframePositionMode = "time" | "percent";
+
+export type TimeWebKeyframe = {
   time: number;
+  percent?: never;
+};
+
+export type PercentWebKeyframe = {
+  percent: number;
+  time?: never;
+};
+
+export type WebKeyframe = (TimeWebKeyframe | PercentWebKeyframe) & {
   timingFunction?: string;
   properties?: KeyframeProperty[];
 };
 
 export type NormalizedWebKeyframe = {
-  time: number;
+  time: number | null;
+  percent: number;
   timingFunction: string | null;
   properties: KeyframeProperty[];
 };
@@ -66,7 +78,8 @@ export type TranslateConfig = {
 
 export type WebKeyframesTimeline = {
   id: string;
-  duration: number;
+  positionType?: KeyframePositionMode;
+  duration?: number;
   translateConfig?: TranslateConfig;
   keyframes: WebKeyframe[];
 };
@@ -80,7 +93,9 @@ export type NormalizedTranslateConfig = {
   customUnit: string | null;
 };
 
-export type NormalizedWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes"> & {
+export type NormalizedWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes" | "duration" | "positionType"> & {
+  positionType: KeyframePositionMode;
+  duration: number | null;
   translateConfig: NormalizedTranslateConfig;
   keyframes: NormalizedWebKeyframe[];
 };

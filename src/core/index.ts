@@ -1,4 +1,5 @@
 export type {
+  KeyframePositionMode,
   KeyframeProperty,
   NormalizedWebKeyframesDocument,
   NormalizedWebKeyframesTimeline,
@@ -50,6 +51,8 @@ export {
   getKeyframeProperty,
   getOpacityProperty,
   getOpacityValue,
+  getKeyframePositionValue,
+  getTimelinePositionType,
   getTransformOperations,
   getTransformProperty,
   hasKeyframeProperty,

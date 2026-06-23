@@ -138,6 +138,26 @@ test("generateCss allows empty keyframe lists", () => {
   assert.equal(css, "@keyframes hero-logo {\n\n}\n");
 });
 
+test("generateCss supports percent-based keyframes without duration", () => {
+  const css = generateCss({
+    timelines: [
+      {
+        id: "hero-logo",
+        positionType: "percent",
+        keyframes: [
+          { percent: 0, properties: [createOpacityProperty(0)] },
+          { percent: 25, properties: [createOpacityProperty(0.5)] },
+          { percent: 100, properties: [createOpacityProperty(1)] },
+        ],
+      },
+    ],
+  });
+
+  assert.match(css, /0% \{\n    opacity: 0;\n  \}/);
+  assert.match(css, /25% \{\n    opacity: 0.5;\n  \}/);
+  assert.match(css, /100% \{\n    opacity: 1;\n  \}/);
+});
+
 test("generateCss preserves explicit transform order including skew", () => {
   const css = generateCss({
     timelines: [
@@ -240,7 +260,7 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
     (error) =>
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("timelines[0].id is required.") &&
-      error.issues.includes("timelines[0].duration must be a number greater than 0."),
+      error.issues.includes("timelines[0].duration must be a number greater than 0 when positionType is time."),
   );
 });
 
@@ -255,6 +275,25 @@ test("validateWebKeyframesDocument allows empty keyframe arrays", () => {
   });
 
   assert.equal(validated.timelines[0].keyframes.length, 0);
+});
+
+test("validateWebKeyframesDocument rejects duration on percent timelines", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesDocument({
+        timelines: [
+          {
+            id: "hero-logo",
+            positionType: "percent",
+            duration: 1200,
+            keyframes: [{ percent: 0 }],
+          },
+        ],
+      }),
+    (error) =>
+      error instanceof WebKeyframesValidationError &&
+      error.issues.includes("timelines[0].duration must not be provided when positionType is percent."),
+  );
 });
 
 test("validateWebKeyframesDocument rejects out-of-range keyframe times and invalid transforms", () => {
@@ -329,6 +368,26 @@ test("timeline edit helpers support duplicate, nudge, spread, and stagger workfl
 
   const staggered = staggerKeyframes(baseTimeline, [0, 1], 180, 120);
   assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.time), [120, 300]);
+});
+
+test("timeline edit helpers also operate on percent timelines", () => {
+  const percentTimeline = {
+    id: "hero-logo",
+    positionType: "percent",
+    keyframes: [
+      { percent: 0, properties: [createOpacityProperty(0)] },
+      { percent: 100, properties: [createOpacityProperty(1)] },
+    ],
+  };
+
+  const duplicated = duplicateKeyframes(percentTimeline, [0], 25);
+  assert.equal(duplicated.keyframes[1].percent, 25);
+
+  const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 100);
+  assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.percent), [0, 50, 100]);
+
+  const staggered = staggerKeyframes(percentTimeline, [0, 1], 20, 10);
+  assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.percent), [10, 30]);
 });
 
 test("validateWebKeyframesDocument rejects invalid translate settings", () => {

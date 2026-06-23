@@ -63,8 +63,8 @@ editor.toCss();
 ### Current editor features
 
 - Manage multiple timelines in one document
-- Edit the selected timeline `id`, `duration`, and `translateConfig` output settings
-- Edit selected keyframe `time`, `timingFunction`, `opacity`, and ordered transform entries
+- Edit the selected timeline `id`, `positionType`, optional `duration`, and `translateConfig` output settings
+- Edit selected keyframe `time` or `percent`, `timingFunction`, `opacity`, and ordered transform entries
 - Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
 - Add, duplicate, select, and delete timelines
 - Add, duplicate, and delete keyframes
@@ -144,7 +144,12 @@ value for matched elements.
 }
 ```
 
-Each document contains `timelines[]`. Each timeline owns its own `id`, `duration`, `translateConfig`, and `keyframes`.
+Each document contains `timelines[]`. Each timeline owns its own `id`, `positionType`, `translateConfig`, and `keyframes`. `duration` exists only for `time` mode timelines.
+
+Timelines support two position modes:
+
+- `time` mode: each keyframe uses `time`, and the timeline must include `duration`
+- `percent` mode: each keyframe uses `percent`, and the timeline must not include `duration`
 
 `keyframes` may be an empty array while authoring. This is useful when you add a new timeline and want to build it from scratch in the editor.
 

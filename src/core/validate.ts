@@ -1,4 +1,5 @@
 import type {
+  KeyframePositionMode,
   KeyframeProperty,
   OpacityProperty,
   RotateTransform,
@@ -72,13 +73,22 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
   const candidate = timeline as Partial<WebKeyframesTimeline>;
   const issues: string[] = [];
   const prefix = timelineIndex === null ? "" : `timelines[${timelineIndex}].`;
+  const positionType = resolveTimelinePositionType(candidate);
 
   if (typeof candidate.id !== "string" || candidate.id.trim() === "") {
     issues.push(`${prefix}id is required.`);
   }
 
-  if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
-    issues.push(`${prefix}duration must be a number greater than 0.`);
+  if (candidate.positionType !== undefined && candidate.positionType !== "time" && candidate.positionType !== "percent") {
+    issues.push(`${prefix}positionType must be either time or percent when provided.`);
+  }
+
+  if (positionType === "time") {
+    if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
+      issues.push(`${prefix}duration must be a number greater than 0 when positionType is time.`);
+    }
+  } else if (candidate.duration !== undefined) {
+    issues.push(`${prefix}duration must not be provided when positionType is percent.`);
   }
 
   if (candidate.translateConfig !== undefined) {
@@ -89,7 +99,7 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
     issues.push(`${prefix}keyframes must be an array.`);
   } else {
     candidate.keyframes.forEach((keyframe, index) => {
-      issues.push(...validateKeyframe(keyframe, index, candidate.duration, prefix));
+      issues.push(...validateKeyframe(keyframe, index, positionType, candidate.duration, prefix));
     });
   }
 
@@ -122,6 +132,7 @@ function validateTranslate(translate: unknown, prefix: string): string[] {
 function validateKeyframe(
   keyframe: unknown,
   index: number,
+  positionType: KeyframePositionMode,
   duration: number | undefined,
   prefix: string,
 ): string[] {
@@ -134,8 +145,20 @@ function validateKeyframe(
   const candidate = keyframe as Partial<WebKeyframe>;
   const issues: string[] = [];
 
-  if (!isFiniteNumber(candidate.time)) {
-    issues.push(`${keyframePrefix}.time must be a finite number.`);
+  if (positionType === "time") {
+    if (!isFiniteNumber(candidate.time)) {
+      issues.push(`${keyframePrefix}.time must be a finite number when positionType is time.`);
+    }
+    if (candidate.percent !== undefined) {
+      issues.push(`${keyframePrefix}.percent must not be provided when positionType is time.`);
+    }
+  } else {
+    if (!isFiniteNumber(candidate.percent)) {
+      issues.push(`${keyframePrefix}.percent must be a finite number when positionType is percent.`);
+    }
+    if (candidate.time !== undefined) {
+      issues.push(`${keyframePrefix}.time must not be provided when positionType is percent.`);
+    }
   }
 
   if (candidate.timingFunction !== undefined) {
@@ -159,7 +182,7 @@ function validateKeyframe(
     });
   }
 
-  if (typeof candidate.time === "number") {
+  if (positionType === "time" && typeof candidate.time === "number") {
     if (candidate.time < 0) {
       issues.push(`${keyframePrefix}.time must be greater than or equal to 0.`);
     }
@@ -169,7 +192,29 @@ function validateKeyframe(
     }
   }
 
+  if (positionType === "percent" && typeof candidate.percent === "number") {
+    if (candidate.percent < 0) {
+      issues.push(`${keyframePrefix}.percent must be greater than or equal to 0.`);
+    }
+
+    if (candidate.percent > 100) {
+      issues.push(`${keyframePrefix}.percent must be less than or equal to 100.`);
+    }
+  }
+
   return issues;
+}
+
+function resolveTimelinePositionType(candidate: Partial<WebKeyframesTimeline>): KeyframePositionMode {
+  if (candidate.positionType === "time" || candidate.positionType === "percent") {
+    return candidate.positionType;
+  }
+
+  if (Array.isArray(candidate.keyframes) && candidate.keyframes.some((keyframe) => isPlainObject(keyframe) && "percent" in keyframe)) {
+    return "percent";
+  }
+
+  return "time";
 }
 
 function validateProperty(property: unknown, keyframePrefix: string, propertyIndex: number): string[] {

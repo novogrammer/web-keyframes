@@ -11,13 +11,16 @@ import {
   formatNumber,
   generateCss,
   generatePreviewCss,
+  getKeyframePositionValue,
   getOpacityValue,
+  getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
   normalizeWebKeyframesTimeline,
   upsertKeyframeProperty,
 } from "../core/index.js";
 import type {
+  KeyframePositionMode,
   KeyframeProperty,
   OpacityProperty,
   TransformKind,
@@ -36,13 +39,13 @@ export type WebKeyframesEditorOptions = {
 
 const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   id: "new-animation",
-  duration: 1200,
+  positionType: "percent",
   translateConfig: {
     unit: DEFAULT_TRANSLATE_CONFIG.unit,
   },
   keyframes: [
     {
-      time: 0,
+      percent: 0,
       properties: [
         createOpacityProperty(0),
         createTransformProperty([
@@ -53,7 +56,7 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
       ],
     },
     {
-      time: 1200,
+      percent: 100,
       properties: [
         createOpacityProperty(1),
         createTransformProperty([
@@ -83,7 +86,9 @@ type RenderTranslateConfig = {
   customUnit: string;
 };
 
-type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes"> & {
+type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes" | "duration" | "positionType"> & {
+  positionType: KeyframePositionMode;
+  duration: number | null;
   translateConfig: RenderTranslateConfig;
   keyframes: WebKeyframe[];
 };
@@ -322,7 +327,7 @@ export class WebKeyframesEditor {
                         data-wkf-index="${index}"
                       >
                         <span class="wkf__keyframe-time">${escapeHtml(timeline.id)}</span>
-                        <span class="wkf__keyframe-percent">${escapeHtml(String(timeline.duration))}ms</span>
+                        <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
                         <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
                       </button>
                     `,
@@ -335,7 +340,15 @@ export class WebKeyframesEditor {
                 <div class="wkf__section-title">Selected Timeline</div>
                 <div class="wkf__grid wkf__grid--meta">
                   ${renderTextField("id", "ID", selectedTimeline.id)}
-                  ${renderNumberField("duration", "Duration", selectedTimeline.duration, 1, 1)}
+                  ${renderSelectField("positionType", "Keyframe Position", selectedTimeline.positionType, [
+                    { value: "time", label: "time" },
+                    { value: "percent", label: "percent" },
+                  ])}
+                  ${
+                    selectedTimeline.positionType === "time"
+                      ? renderNumberField("duration", "Duration", selectedTimeline.duration ?? 1, 1, 1)
+                      : ""
+                  }
                   ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translateConfig.unit, [
                     { value: "px", label: "px" },
                     { value: "vw", label: "vw" },
@@ -376,8 +389,8 @@ export class WebKeyframesEditor {
                                 data-wkf-action="select-keyframe"
                                 data-wkf-index="${index}"
                               >
-                                <span class="wkf__keyframe-time">${escapeHtml(String(keyframe.time))}ms</span>
-                                <span class="wkf__keyframe-percent">${escapeHtml(formatPercentLabel(keyframe.time, selectedTimeline.duration))}</span>
+                                <span class="wkf__keyframe-time">${escapeHtml(formatKeyframePositionLabel(keyframe, selectedTimeline))}</span>
+                                <span class="wkf__keyframe-percent">${escapeHtml(formatKeyframeSecondaryLabel(keyframe, selectedTimeline))}</span>
                                 <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
                               </button>
                             `,
@@ -393,7 +406,7 @@ export class WebKeyframesEditor {
                       <div class="wkf__section-title">Selected Keyframe</div>
                       <p class="wkf__subtitle">${
                         hasSelectedKeyframe
-                          ? `${escapeHtml(formatPercentLabel(selectedKeyframe.time, selectedTimeline.duration))} of timeline`
+                          ? escapeHtml(formatSelectedKeyframeSubtitle(selectedKeyframe, selectedTimeline))
                           : "Add a keyframe to start editing."
                       }</p>
                     </div>
@@ -402,7 +415,15 @@ export class WebKeyframesEditor {
                     hasSelectedKeyframe
                       ? `
                         <div class="wkf__grid wkf__grid--editor">
-                          ${renderRangeField("time", "Time", selectedKeyframe.time, 0, selectedTimeline.duration)}
+                          ${renderRangeField(
+                            "position",
+                            selectedTimeline.positionType === "time" ? "Time" : "Percent",
+                            getEditorKeyframePosition(selectedKeyframe, selectedTimeline.positionType),
+                            0,
+                            selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
+                            selectedTimeline.positionType === "time" ? 1 : 0.1,
+                            selectedTimeline.positionType === "time" ? "ms" : "%",
+                          )}
                           ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
                           ${renderTimingFunctionPresets()}
                         </div>
@@ -638,6 +659,41 @@ export class WebKeyframesEditor {
         timeline.id = value;
       });
     });
+    this.bindInputValue("positionType", (value) => {
+      this.updateSelectedTimeline((timeline) => {
+        const nextPositionType = value === "percent" ? "percent" : "time";
+        if (nextPositionType === timeline.positionType) {
+          return;
+        }
+
+        if (nextPositionType === "percent") {
+          const previousDuration = Math.max(timeline.duration ?? DEFAULT_TIMELINE_DATA.duration ?? 1, 1);
+          timeline.positionType = "percent";
+          delete timeline.duration;
+          timeline.keyframes = timeline.keyframes.map((keyframe) => {
+            const nextKeyframe = cloneSparseKeyframe(keyframe);
+            const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / previousDuration) * 100 : 0;
+            applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
+            return nextKeyframe;
+          });
+          return;
+        }
+
+        timeline.positionType = "time";
+        timeline.duration = DEFAULT_TIMELINE_DATA.duration ?? 1200;
+        timeline.keyframes = timeline.keyframes.map((keyframe) => {
+          const nextKeyframe = cloneSparseKeyframe(keyframe);
+          const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
+          applyEditorKeyframePosition(
+            nextKeyframe,
+            "time",
+            clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
+          );
+          return nextKeyframe;
+        });
+      });
+      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+    });
     this.bindInputValue("translateCustomUnit", (value) => {
       this.updateSelectedTimeline((timeline) => {
         timeline.translateConfig = {
@@ -656,11 +712,20 @@ export class WebKeyframesEditor {
     });
     this.bindInputNumber("duration", (value) => {
       this.updateSelectedTimeline((timeline) => {
+        if (timeline.positionType === "percent") {
+          return;
+        }
+
         timeline.duration = Math.max(1, Math.round(value));
-        timeline.keyframes = timeline.keyframes.map((keyframe) => ({
-          ...keyframe,
-          time: Math.min(keyframe.time, timeline.duration),
-        }));
+        timeline.keyframes = timeline.keyframes.map((keyframe) => {
+          const nextKeyframe = cloneSparseKeyframe(keyframe);
+          applyEditorKeyframePosition(
+            nextKeyframe,
+            "time",
+            clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
+          );
+          return nextKeyframe;
+        });
       });
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
     });
@@ -676,15 +741,17 @@ export class WebKeyframesEditor {
   }
 
   private bindKeyframeEditor(): void {
-    this.bindInputNumber("time", (value, shouldRender = true) => {
+    this.bindInputNumber("position", (value, shouldRender = true) => {
       this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
         const selected = keyframes[this.selectedKeyframeIndex];
         if (!selected) {
           return;
         }
 
-        selected.time = clampNumber(Math.round(value), 0, timeline.duration);
-        keyframes.sort((left, right) => left.time - right.time);
+        const positionType = getTimelinePositionType(timeline);
+        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+        applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
+        keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
         this.selectedKeyframeIndex = keyframes.indexOf(selected);
       }, shouldRender);
     });
@@ -909,9 +976,18 @@ export class WebKeyframesEditor {
   private bindKeyframeActions(): void {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='add-keyframe']")?.addEventListener("click", () => {
       this.updateSelectedTimeline((timeline) => {
-        const nextFrame = createNextKeyframe(timeline.keyframes, this.selectedKeyframeIndex, timeline.duration);
-        timeline.keyframes = [...timeline.keyframes, nextFrame].sort((left, right) => left.time - right.time);
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(timeline.keyframes, nextFrame.time, timeline.duration);
+        const positionType = getTimelinePositionType(timeline);
+        const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
+        timeline.keyframes = [...timeline.keyframes, nextFrame].sort(
+          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+        );
+        this.selectedKeyframeIndex = findClosestKeyframeIndex(
+          timeline,
+          timeline.keyframes,
+          positionType === "time"
+            ? ((typeof nextFrame.time === "number" ? nextFrame.time : 0) / Math.max(timeline.duration ?? 1, 1)) * 100
+            : (nextFrame.percent ?? 0),
+        );
       });
       this.render();
     });
@@ -931,19 +1007,26 @@ export class WebKeyframesEditor {
 
     this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-keyframe']")?.addEventListener("click", () => {
       this.updateSelectedTimeline((timeline) => {
+        const positionType = getTimelinePositionType(timeline);
         const source = timeline.keyframes[this.selectedKeyframeIndex];
         if (!source) {
           return;
         }
-        const offset = Math.max(1, Math.round(timeline.duration * 0.1));
         const duplicate = cloneSparseKeyframe(source);
-        duplicate.time = Math.min(timeline.duration, source.time + offset);
-        timeline.keyframes = [...timeline.keyframes, duplicate].sort((left, right) => left.time - right.time);
-        const targetTime = Math.min(
-          timeline.duration,
-          (timeline.keyframes[this.selectedKeyframeIndex]?.time ?? 0) + Math.max(1, Math.round(timeline.duration * 0.1)),
+        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+        const offset = positionType === "time"
+          ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
+          : 10;
+        const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
+        applyEditorKeyframePosition(duplicate, positionType, nextPosition);
+        timeline.keyframes = [...timeline.keyframes, duplicate].sort(
+          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
         );
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(timeline.keyframes, targetTime, timeline.duration);
+        this.selectedKeyframeIndex = findClosestKeyframeIndex(
+          timeline,
+          timeline.keyframes,
+          positionType === "time" ? (nextPosition / Math.max(timeline.duration ?? 1, 1)) * 100 : nextPosition,
+        );
       });
       this.setStatus("info", "Duplicated selected keyframe.");
       this.render();
@@ -1383,7 +1466,10 @@ function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): bo
 function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimeline[] {
   return sanitizeEditorDocument(data).timelines.map((timeline) => ({
     ...timeline,
-    duration: Number.isFinite(timeline.duration) && timeline.duration > 0 ? Math.round(timeline.duration) : 1,
+    positionType: getTimelinePositionType(timeline),
+    duration: getTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
+      ? Math.round(timeline.duration ?? 1)
+      : null,
     translateConfig: {
       unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
       customUnit: timeline.translateConfig?.unit === "custom" ? timeline.translateConfig.customUnit?.trim() || "" : "",
@@ -1405,31 +1491,43 @@ function sanitizeEditorDocument(data: WebKeyframesDocument): WebKeyframesDocumen
 
 function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: number): WebKeyframesTimeline {
   const fallback = createDefaultTimeline(index);
+  const positionType = resolveEditorPositionType(data, fallback.positionType ?? "time");
   const keyframes = Array.isArray(data.keyframes)
     ? data.keyframes
     : fallback.keyframes;
   const resolvedKeyframes = [...keyframes]
     .sort((left, right) => {
-      const leftTime = typeof left.time === "number" && Number.isFinite(left.time) ? left.time : 0;
-      const rightTime = typeof right.time === "number" && Number.isFinite(right.time) ? right.time : 0;
-      return leftTime - rightTime;
+      return getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType);
     })
     .map((keyframe) => cloneSparseKeyframe(keyframe));
 
   return {
     id: typeof data.id === "string" ? data.id : fallback.id,
-    duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0
-      ? Math.round(data.duration)
-      : fallback.duration,
+    ...(positionType === "percent" || data.positionType === "time" ? { positionType } : {}),
+    ...(positionType === "time"
+      ? {
+          duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0
+            ? Math.round(data.duration)
+            : fallback.duration,
+        }
+      : {}),
     translateConfig: {
       unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
       customUnit: typeof data.translateConfig?.customUnit === "string" ? data.translateConfig.customUnit : undefined,
     },
-    keyframes: resolvedKeyframes.map((keyframe) => ({
-      time: keyframe.time,
-      timingFunction: keyframe.timingFunction ?? undefined,
-      ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-    })),
+    keyframes: resolvedKeyframes.map((keyframe) => (
+      positionType === "time"
+        ? {
+            time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
+            timingFunction: keyframe.timingFunction ?? undefined,
+            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
+          }
+        : {
+            percent: typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0,
+            timingFunction: keyframe.timingFunction ?? undefined,
+            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
+          }
+    )),
   };
 }
 
@@ -1450,7 +1548,8 @@ function createNextTimeline(
   const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length);
   return {
     id: createUniqueTimelineId(source.id, timelines),
-    duration: source.duration,
+    positionType: source.positionType,
+    ...(source.positionType !== "percent" && typeof source.duration === "number" ? { duration: source.duration } : {}),
     translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
     keyframes: [],
   };
@@ -1480,10 +1579,15 @@ function createUniqueTimelineId(seed: string, timelines: WebKeyframesTimeline[])
 
 function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframesTimeline): void {
   target.id = source.id;
-  target.duration = source.duration;
+  target.positionType = source.positionType;
+  if (source.positionType === "percent") {
+    delete target.duration;
+  } else {
+    target.duration = source.duration;
+  }
   target.translateConfig = source.translateConfig ? { ...source.translateConfig } : undefined;
   target.keyframes = source.keyframes.map((keyframe) => ({
-    time: keyframe.time,
+    ...(source.positionType === "percent" ? { percent: keyframe.percent ?? 0 } : { time: keyframe.time ?? 0 }),
     timingFunction: keyframe.timingFunction ?? undefined,
     properties: cloneProperties(keyframe.properties ?? []),
   }));
@@ -1491,7 +1595,9 @@ function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframes
 
 function cloneSparseKeyframe(keyframe: Partial<WebKeyframe>): WebKeyframe {
   return {
-    time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
+    ...(typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent)
+      ? { percent: keyframe.percent }
+      : { time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0 }),
     ...(typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== ""
       ? { timingFunction: keyframe.timingFunction.trim() }
       : {}),
@@ -1648,51 +1754,97 @@ function clampNumber(value: number, min: number, max: number): number {
 }
 
 function createNextKeyframe(
+  timeline: WebKeyframesTimeline,
   keyframes: WebKeyframesTimeline["keyframes"],
   selectedIndex: number,
-  duration: number,
 ): WebKeyframesTimeline["keyframes"][number] {
-  const sortedKeyframes = [...keyframes].sort((left, right) => left.time - right.time);
+  const positionType = getTimelinePositionType(timeline);
+  const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+  const sortedKeyframes = [...keyframes].sort(
+    (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+  );
   if (sortedKeyframes.length === 0) {
-    return cloneSparseKeyframe(DEFAULT_TIMELINE_DATA.keyframes[0]);
+    return positionType === "time"
+      ? cloneSparseKeyframe(DEFAULT_TIMELINE_DATA.keyframes[0])
+      : { percent: 0, properties: cloneProperties(DEFAULT_TIMELINE_DATA.keyframes[0].properties ?? []) };
   }
 
   const selected = sortedKeyframes[selectedIndex] ?? sortedKeyframes[sortedKeyframes.length - 1];
   const next = sortedKeyframes[selectedIndex + 1];
   const previous = sortedKeyframes[selectedIndex - 1];
-  let time = duration;
+  const selectedPosition = getEditorKeyframePosition(selected, positionType);
+  let position = maxPosition;
 
   if (sortedKeyframes.length === 1 && selected) {
-    time = selected.time <= 0 ? duration : 0;
+    position = selectedPosition <= 0 ? maxPosition : 0;
   } else if (selected && next) {
-    time = Math.round((selected.time + next.time) / 2);
+    position = roundEditorPosition((selectedPosition + getEditorKeyframePosition(next, positionType)) / 2, positionType);
   } else if (selected && previous) {
-    time = Math.min(duration, Math.round((selected.time + duration) / 2));
+    position = roundEditorPosition(Math.min(maxPosition, (selectedPosition + maxPosition) / 2), positionType);
   } else if (selected) {
-    time = Math.min(duration, selected.time);
+    position = Math.min(maxPosition, selectedPosition);
   }
 
   const nextKeyframe = cloneSparseKeyframe(selected);
-  nextKeyframe.time = time;
+  applyEditorKeyframePosition(nextKeyframe, positionType, position);
   return nextKeyframe;
 }
 
 function findClosestKeyframeIndex(
+  timeline: WebKeyframesTimeline,
   keyframes: WebKeyframesTimeline["keyframes"],
-  time: number,
-  duration: number,
+  position: number,
 ): number {
+  const positionType = getTimelinePositionType(timeline);
   const normalized = normalizeWebKeyframesTimeline({
     id: "preview",
-    duration: Math.max(duration, 1),
+    positionType,
+    ...(positionType === "time" ? { duration: Math.max(timeline.duration ?? 1, 1) } : {}),
     keyframes,
   }).keyframes;
 
   return normalized.reduce((closestIndex, keyframe, index) => {
-    const currentDistance = Math.abs(normalized[closestIndex].time - time);
-    const nextDistance = Math.abs(keyframe.time - time);
+    const currentDistance = Math.abs(normalized[closestIndex].percent - position);
+    const nextDistance = Math.abs(keyframe.percent - position);
     return nextDistance < currentDistance ? index : closestIndex;
   }, 0);
+}
+
+function resolveEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
+  if (data.positionType === "time" || data.positionType === "percent") {
+    return data.positionType;
+  }
+
+  if (Array.isArray(data.keyframes) && data.keyframes.some((keyframe) => typeof keyframe?.percent === "number")) {
+    return "percent";
+  }
+
+  return fallback;
+}
+
+function getEditorKeyframePosition(keyframe: Partial<WebKeyframe>, positionType: KeyframePositionMode): number {
+  return positionType === "time"
+    ? (typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0)
+    : (typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0);
+}
+
+function applyEditorKeyframePosition(keyframe: WebKeyframe, positionType: KeyframePositionMode, value: number): void {
+  if (positionType === "time") {
+    keyframe.time = Math.round(value);
+    delete keyframe.percent;
+    return;
+  }
+
+  keyframe.percent = roundEditorPosition(value, positionType);
+  delete keyframe.time;
+}
+
+function roundEditorPosition(value: number, positionType: KeyframePositionMode): number {
+  if (positionType === "time") {
+    return Math.round(value);
+  }
+
+  return Math.round(value * 10) / 10;
 }
 
 function renderTextField(field: string, label: string, value: string): string {
@@ -1852,14 +2004,23 @@ function renderBoundedNumberField(
   `;
 }
 
-function renderRangeField(field: string, label: string, value: number, min: number, max: number): string {
+function renderRangeField(
+  field: string,
+  label: string,
+  value: number,
+  min: number,
+  max: number,
+  step: number,
+  suffix = "",
+): string {
   return `
     <div class="wkf__field wkf__field--time">
       <span class="wkf__label">${escapeHtml(label)}</span>
       <div class="wkf__time-row">
-        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
-        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="1">
+        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
+        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
       </div>
+      ${suffix !== "" ? `<span class="wkf__subtitle">${escapeHtml(suffix)}</span>` : ""}
     </div>
   `;
 }
@@ -1946,6 +2107,12 @@ function formatTimelineSummary(timeline: RenderWebKeyframesTimeline): string {
   return `${timeline.keyframes.length} keyframes`;
 }
 
+function formatTimelinePositionSummary(timeline: RenderWebKeyframesTimeline): string {
+  return timeline.positionType === "time"
+    ? `${String(timeline.duration ?? 1)}ms`
+    : "percent mode";
+}
+
 function formatKeyframeSummary(
   keyframe: WebKeyframesTimeline["keyframes"][number],
   translateConfig: RenderTranslateConfig,
@@ -1993,10 +2160,36 @@ function formatSummaryTranslateValue(value: number, translateConfig: RenderTrans
   return `${formatNumber(value)}${unit}`;
 }
 
-function formatPercentLabel(time: number, duration: number): string {
-  const safeDuration = duration <= 0 ? 1 : duration;
-  const percent = (time / safeDuration) * 100;
-  return `${formatNumber(percent)}%`;
+function formatKeyframePositionLabel(
+  keyframe: WebKeyframe,
+  timeline: RenderWebKeyframesTimeline,
+): string {
+  return timeline.positionType === "time"
+    ? `${formatNumber(keyframe.time ?? 0)}ms`
+    : `${formatNumber(keyframe.percent ?? 0)}%`;
+}
+
+function formatKeyframeSecondaryLabel(
+  keyframe: WebKeyframe,
+  timeline: RenderWebKeyframesTimeline,
+): string {
+  if (timeline.positionType === "time") {
+    const safeDuration = (timeline.duration ?? 1) <= 0 ? 1 : (timeline.duration ?? 1);
+    return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
+  }
+
+  return "";
+}
+
+function formatSelectedKeyframeSubtitle(
+  keyframe: WebKeyframe,
+  timeline: RenderWebKeyframesTimeline,
+): string {
+  if (timeline.positionType === "time") {
+    return `${formatKeyframeSecondaryLabel(keyframe, timeline)} of timeline`;
+  }
+
+  return `${formatNumber(keyframe.percent ?? 0)}% of timeline`;
 }
 
 function isTranslateUnit(value: unknown): value is TranslateUnit {
