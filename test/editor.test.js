@@ -308,6 +308,23 @@ test("time slider stays mounted while dragging and syncs the numeric field", () 
   assert.equal(number.isConnected, true);
 });
 
+test("opacity slider stays mounted while dragging and syncs the numeric field", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const range = window.document.querySelector("[data-wkf-field='opacity'][type='range']");
+  const number = window.document.querySelector("[data-wkf-field='opacity'][type='number']");
+  range.value = "0.35";
+  range.dispatchEvent(new Event("input", { bubbles: true }));
+
+  assert.equal(getOpacityValue(editor.getData().timelines[0].keyframes[0]), 0.35);
+  assert.equal(range.isConnected, true);
+  assert.equal(number.isConnected, true);
+  assert.equal(number.value, "0.35");
+});
+
 test("sparse keyframe actions can unset opacity and clear transforms", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });

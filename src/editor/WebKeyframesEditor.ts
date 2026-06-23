@@ -447,7 +447,7 @@ export class WebKeyframesEditor {
                                       >Delete</button>
                                     </div>
                                   </div>
-                                  ${renderNullableNumberField("opacity", "Opacity", selectedSourceOpacity, 0, 0.01, 1, true)}
+                                  ${renderBoundedNumberField("opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1)}
                                 `
                               : ""
                           }
@@ -739,20 +739,18 @@ export class WebKeyframesEditor {
       this.setStatus("info", "Editing timeline data.");
       this.render();
     });
-    this.bindNullableInputNumber("opacity", (value) => {
+    this.bindInputNumber("opacity", (value, shouldRender = true) => {
       const timeline = this.getSelectedTimeline();
       const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
       if (!keyframe) {
         return;
       }
 
-      if (value === null) {
-        deleteKeyframeProperty(keyframe, "opacity");
-      } else {
-        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-      }
+      upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
       this.setStatus("info", "Editing timeline data.");
-      this.render();
+      if (shouldRender) {
+        this.render();
+      }
     });
   }
 
@@ -1832,6 +1830,25 @@ function renderNullableNumberField(
         ${step !== undefined ? `step="${step}"` : ""}
       >
     </label>
+  `;
+}
+
+function renderBoundedNumberField(
+  field: string,
+  label: string,
+  value: number,
+  min: number,
+  step: number,
+  max: number,
+): string {
+  return `
+    <div class="wkf__field wkf__field--full">
+      <span class="wkf__label">${escapeHtml(label)}</span>
+      <div class="wkf__time-row">
+        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
+        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
+      </div>
+    </div>
   `;
 }
 
