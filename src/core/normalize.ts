@@ -24,12 +24,16 @@ export const DEFAULT_TRANSLATE_CONFIG: NormalizedTranslateConfig = {
 export function normalizeWebKeyframesDocument(data: WebKeyframesDocument): NormalizedWebKeyframesDocument {
   const validated = validateWebKeyframesDocument(data);
   return {
-    timelines: validated.timelines.map((timeline) => normalizeWebKeyframesTimeline(timeline)),
+    timelines: validated.timelines.map((timeline) => normalizeValidatedTimeline(timeline)),
   };
 }
 
 export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   const validated = validateWebKeyframesTimeline(data);
+  return normalizeValidatedTimeline(validated);
+}
+
+function normalizeValidatedTimeline(validated: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   const translateConfig = validated.translateConfig;
   const positionType = getTimelinePositionType(validated);
   const sortedKeyframes = [...validated.keyframes].sort(
@@ -49,7 +53,7 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
   };
 }
 
-export function normalizeKeyframe(
+function normalizeKeyframe(
   keyframe: WebKeyframe,
   positionType: KeyframePositionMode,
   duration: number | null,
