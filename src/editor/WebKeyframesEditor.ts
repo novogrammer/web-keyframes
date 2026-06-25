@@ -1,8 +1,6 @@
 import {
   cloneDocument,
-  cloneProperties,
   cloneTimeline,
-  cloneTransform,
   createOpacityProperty,
   createDefaultTransform,
   createTransformProperty,
@@ -10,19 +8,13 @@ import {
   deleteKeyframeProperty,
   formatNumber,
   generateCss,
-  generatePreviewCss,
-  getKeyframePositionValue,
   getOpacityValue,
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
-  normalizeWebKeyframesTimeline,
   upsertKeyframeProperty,
 } from "../core/index.js";
 import type {
-  KeyframePositionMode,
-  KeyframeProperty,
-  OpacityProperty,
   TransformKind,
   TransformOperation,
   TranslateUnit,
@@ -30,6 +22,34 @@ import type {
   WebKeyframesDocument,
   WebKeyframesTimeline,
 } from "../core/index.js";
+import {
+  addTransformToSelectedKeyframe,
+  applyEditorKeyframePosition,
+  clampIndex,
+  clampNumber,
+  cloneSparseKeyframe,
+  createDuplicatedTimeline,
+  createNextKeyframe,
+  createNextTimeline,
+  deriveEditorRenderState,
+  findClosestKeyframeIndex,
+  formatKeyframePositionLabel,
+  formatKeyframeSecondaryLabel,
+  formatKeyframeSummary,
+  formatSelectedKeyframeSubtitle,
+  formatTimelinePositionSummary,
+  formatTimelineSummary,
+  getEditorKeyframePosition,
+  moveSelectedKeyframeTransform,
+  removeSelectedKeyframeTransform,
+  replaceSelectedKeyframeTransformKind,
+  roundEditorPosition,
+  sanitizeEditorDocument,
+  updateSelectedKeyframeTransform,
+} from "./editorModel.js";
+import type { RenderTranslateConfig, RenderWebKeyframesTimeline } from "./editorModel.js";
+import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
+import type { ActivePreview } from "./previewRuntime.js";
 
 export type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -81,18 +101,6 @@ type ShortcutDescriptor = {
   altKey: boolean;
 };
 
-type RenderTranslateConfig = {
-  unit: TranslateUnit;
-  customUnit: string;
-};
-
-type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes" | "duration" | "positionType"> & {
-  positionType: KeyframePositionMode;
-  duration: number | null;
-  translateConfig: RenderTranslateConfig;
-  keyframes: WebKeyframe[];
-};
-
 type FocusSnapshot = {
   field: string;
   index: number;
@@ -108,17 +116,6 @@ type PanelPosition = {
 type DragState = {
   pointerOffsetX: number;
   pointerOffsetY: number;
-};
-
-type PreviewTargetState = {
-  element: HTMLElement;
-  inlineAnimationName: string;
-};
-
-type ActivePreview = {
-  keyframesName: string;
-  styleElement: HTMLStyleElement;
-  targets: PreviewTargetState[];
 };
 
 const TIMING_FUNCTION_PRESETS = [
@@ -163,7 +160,7 @@ export class WebKeyframesEditor {
     }
 
     this.root = options.root;
-    this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA);
+    this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.data = cloneDocument(this.initialData);
     this.shortcut = parseShortcut(options.shortcut);
     this.handleKeydown = (event) => {
@@ -209,7 +206,7 @@ export class WebKeyframesEditor {
       return;
     }
 
-    this.clearAppliedPreview();
+    this.disposeAppliedPreview();
     this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
     this.container?.remove();
@@ -244,7 +241,7 @@ export class WebKeyframesEditor {
   }
 
   setData(data: WebKeyframesDocument): void {
-    this.data = sanitizeEditorDocument(data);
+    this.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
     this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
     this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
     if (this.container !== null) {
@@ -271,27 +268,27 @@ export class WebKeyframesEditor {
       return;
     }
 
-    const renderTimelines = getRenderTimelines(this.data);
-    const selectedTimeline = renderTimelines[this.selectedTimelineIndex] ?? renderTimelines[0];
-    const selectedSourceTimeline = this.data.timelines[this.selectedTimelineIndex] ?? this.data.timelines[0];
-    this.selectedTimelineIndex = renderTimelines.indexOf(selectedTimeline);
-    const selectedKeyframe = selectedTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedTimeline.keyframes[0];
-    const selectedSourceKeyframe = selectedSourceTimeline.keyframes[this.selectedKeyframeIndex] ?? selectedSourceTimeline.keyframes[0];
-    this.selectedKeyframeIndex = selectedKeyframe ? selectedTimeline.keyframes.indexOf(selectedKeyframe) : 0;
-    const hasSelectedKeyframe = selectedKeyframe !== undefined && selectedSourceKeyframe !== undefined;
-    const opacitySourceState = hasSelectedKeyframe && hasKeyframeProperty(selectedSourceKeyframe, "opacity") ? "explicit" : "unset";
-    const selectedSourceOpacity = hasSelectedKeyframe ? getOpacityValue(selectedSourceKeyframe) : null;
-    const selectedSourceTransforms = hasSelectedKeyframe && hasKeyframeProperty(selectedSourceKeyframe, "transform")
-      ? getTransformOperations(selectedSourceKeyframe)
-      : [];
-    const selectedTimingFunction = hasSelectedKeyframe && typeof selectedSourceKeyframe.timingFunction === "string"
-      ? selectedSourceKeyframe.timingFunction.trim()
-      : "";
-    const transformSourceState = !hasSelectedKeyframe || !hasKeyframeProperty(selectedSourceKeyframe, "transform")
-      ? "unset"
-      : selectedSourceTransforms.length === 0
-        ? "none"
-        : "explicit";
+    const renderState = deriveEditorRenderState(
+      this.data,
+      this.selectedTimelineIndex,
+      this.selectedKeyframeIndex,
+      DEFAULT_TIMELINE_DATA,
+    );
+    const {
+      renderTimelines,
+      selectedTimeline,
+      selectedSourceTimeline,
+      selectedKeyframe,
+      hasSelectedKeyframe,
+      opacitySourceState,
+      selectedSourceOpacity,
+      selectedSourceTransforms,
+      selectedTimingFunction,
+      transformSourceState,
+    } = renderState;
+    const resolvedSelectedKeyframe = selectedKeyframe ?? selectedTimeline.keyframes[0];
+    this.selectedTimelineIndex = renderState.selectedTimelineIndex;
+    this.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
 
     this.container.innerHTML = `
       <div class="wkf__panel">
@@ -408,7 +405,7 @@ export class WebKeyframesEditor {
                       <div class="wkf__section-title">Selected Keyframe</div>
                       <p class="wkf__subtitle">${
                         hasSelectedKeyframe
-                          ? escapeHtml(formatSelectedKeyframeSubtitle(selectedKeyframe, selectedTimeline))
+                          ? escapeHtml(formatSelectedKeyframeSubtitle(resolvedSelectedKeyframe, selectedTimeline))
                           : "Add a keyframe to start editing."
                       }</p>
                     </div>
@@ -420,7 +417,7 @@ export class WebKeyframesEditor {
                           ${renderRangeField(
                             "position",
                             selectedTimeline.positionType === "time" ? "Time" : "Percent",
-                            getEditorKeyframePosition(selectedKeyframe, selectedTimeline.positionType),
+                            getEditorKeyframePosition(resolvedSelectedKeyframe, selectedTimeline.positionType),
                             0,
                             selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
                             selectedTimeline.positionType === "time" ? 1 : 0.1,
@@ -619,10 +616,10 @@ export class WebKeyframesEditor {
 
   private bindTimelineActions(): void {
     this.container?.querySelector<HTMLElement>("[data-wkf-action='add-timeline']")?.addEventListener("click", () => {
-      const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex);
+      const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex, DEFAULT_TIMELINE_DATA);
       this.data = sanitizeEditorDocument({
         timelines: [...this.data.timelines, nextTimeline],
-      });
+      }, DEFAULT_TIMELINE_DATA);
       this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
       this.selectedKeyframeIndex = 0;
       this.setStatus("info", "Added timeline.");
@@ -634,7 +631,7 @@ export class WebKeyframesEditor {
       const duplicate = createDuplicatedTimeline(source, this.data.timelines);
       const timelines = this.data.timelines.map((timeline) => cloneTimeline(timeline));
       timelines.splice(this.selectedTimelineIndex + 1, 0, duplicate);
-      this.data = sanitizeEditorDocument({ timelines });
+      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
       this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
       this.setStatus("info", "Duplicated timeline.");
@@ -647,7 +644,7 @@ export class WebKeyframesEditor {
       }
 
       const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
-      this.data = sanitizeEditorDocument({ timelines });
+      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
       this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
       this.setStatus("info", "Deleted timeline.");
@@ -827,7 +824,7 @@ export class WebKeyframesEditor {
     selectedTransforms.forEach((transform, index) => {
       this.bindInputValue(`transform-kind-${index}`, (value) => {
         this.updateSelectedTimeline((timeline) => {
-          replaceSelectedKeyframeTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind);
+          replaceSelectedKeyframeTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind, createDefaultTransform);
         });
       });
 
@@ -921,7 +918,7 @@ export class WebKeyframesEditor {
         }
 
         this.updateSelectedTimeline((candidate) => {
-          addTransformToSelectedKeyframe(candidate, this.selectedKeyframeIndex, kind);
+          addTransformToSelectedKeyframe(candidate, this.selectedKeyframeIndex, kind, createDefaultTransform);
         });
         this.setStatus("info", `Added ${kind} transform.`);
         this.render();
@@ -1117,7 +1114,7 @@ export class WebKeyframesEditor {
   private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
     const timeline = this.getSelectedTimeline();
     update(timeline);
-    this.data = sanitizeEditorDocument(this.data);
+    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
     this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
     this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
   }
@@ -1131,7 +1128,7 @@ export class WebKeyframesEditor {
 
     update(keyframes, timeline);
     timeline.keyframes = keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-    this.data = sanitizeEditorDocument(this.data);
+    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
     this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
     this.setStatus("info", "Editing timeline data.");
     if (shouldRender) {
@@ -1181,7 +1178,7 @@ export class WebKeyframesEditor {
   }
 
   private reset(): void {
-    this.clearAppliedPreview();
+    this.disposeAppliedPreview();
     this.data = cloneDocument(this.initialData);
     this.selectedTimelineIndex = 0;
     this.selectedKeyframeIndex = 0;
@@ -1215,46 +1212,14 @@ export class WebKeyframesEditor {
 
   private runPreview(): void {
     try {
-      const timeline = normalizeWebKeyframesTimeline(this.getSelectedTimeline());
+      const timeline = this.getSelectedTimeline();
       const ownerDocument = this.root.ownerDocument;
-      const ownerWindow = ownerDocument.defaultView;
-      if (!ownerWindow) {
-        throw new Error("Preview is not available in this environment.");
-      }
-
-      this.clearAppliedPreview();
-
-      const targets = findPreviewTargets(ownerDocument, timeline.id);
-      if (targets.length === 0) {
-        throw new Error(`No elements using animation-name "${timeline.id}" were found.`);
-      }
-
-      const previewName = `${timeline.id}__wkf_preview`;
-      const styleElement = ensurePreviewStyleElement(ownerDocument);
-      styleElement.textContent = generatePreviewCss(this.getSelectedTimeline(), previewName);
-
-      const appliedTargets = targets.map((element) => ({
-        element,
-        inlineAnimationName: element.style.animationName,
-      }));
-
-      for (const target of appliedTargets) {
-        const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
-        const nextAnimationName = replaceAnimationName(computedAnimationName, timeline.id, previewName);
-        target.element.style.animationName = "none";
-        void target.element.offsetWidth;
-        target.element.style.animationName = nextAnimationName;
-      }
-
-      this.activePreview = {
-        keyframesName: previewName,
-        styleElement,
-        targets: appliedTargets,
-      };
+      this.disposeAppliedPreview();
+      this.activePreview = applyPreview(ownerDocument, timeline);
 
       this.setStatus(
         "success",
-        `Applied preview to ${appliedTargets.length} element${appliedTargets.length === 1 ? "" : "s"} for "${timeline.id}".`,
+        `Applied preview to ${this.activePreview.targets.length} element${this.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1271,21 +1236,13 @@ export class WebKeyframesEditor {
       return;
     }
 
-    this.clearAppliedPreview();
+    this.disposeAppliedPreview();
     this.setStatus("success", "Reset preview.");
     this.render();
   }
 
-  private clearAppliedPreview(): void {
-    if (this.activePreview === null) {
-      return;
-    }
-
-    for (const target of this.activePreview.targets) {
-      target.element.style.animationName = target.inlineAnimationName;
-    }
-
-    this.activePreview.styleElement.remove();
+  private disposeAppliedPreview(): void {
+    clearAppliedPreview(this.activePreview);
     this.activePreview = null;
   }
 
@@ -1463,392 +1420,6 @@ function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): bo
     event.shiftKey === shortcut.shiftKey &&
     event.altKey === shortcut.altKey
   );
-}
-
-function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimeline[] {
-  return sanitizeEditorDocument(data).timelines.map((timeline) => ({
-    ...timeline,
-    positionType: getTimelinePositionType(timeline),
-    duration: getTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
-      ? Math.round(timeline.duration ?? 1)
-      : null,
-    translateConfig: {
-      unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: timeline.translateConfig?.unit === "custom" ? timeline.translateConfig.customUnit?.trim() || "" : "",
-    },
-    keyframes: timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe)),
-  }));
-}
-
-function sanitizeEditorDocument(data: WebKeyframesDocument): WebKeyframesDocument {
-  const candidate = data as Partial<WebKeyframesDocument>;
-  const timelines = Array.isArray(candidate.timelines) && candidate.timelines.length > 0
-    ? candidate.timelines
-    : DEFAULT_EDITOR_DATA.timelines;
-
-  return {
-    timelines: timelines.map((timeline, index) => sanitizeEditorTimeline(timeline, index)),
-  };
-}
-
-function sanitizeEditorTimeline(data: Partial<WebKeyframesTimeline>, index: number): WebKeyframesTimeline {
-  const fallback = createDefaultTimeline(index);
-  const positionType = resolveEditorPositionType(data, fallback.positionType ?? "time");
-  const keyframes = Array.isArray(data.keyframes)
-    ? data.keyframes
-    : fallback.keyframes;
-  const resolvedKeyframes = [...keyframes]
-    .sort((left, right) => {
-      return getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType);
-    })
-    .map((keyframe) => cloneSparseKeyframe(keyframe));
-
-  return {
-    id: typeof data.id === "string" ? data.id : fallback.id,
-    ...(positionType === "percent" || data.positionType === "time" ? { positionType } : {}),
-    ...(positionType === "time"
-      ? {
-          duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0
-            ? Math.round(data.duration)
-            : fallback.duration,
-        }
-      : {}),
-    translateConfig: {
-      unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: typeof data.translateConfig?.customUnit === "string" ? data.translateConfig.customUnit : undefined,
-    },
-    keyframes: resolvedKeyframes.map((keyframe) => (
-      positionType === "time"
-        ? {
-            time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
-            timingFunction: keyframe.timingFunction ?? undefined,
-            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-          }
-        : {
-            percent: typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0,
-            timingFunction: keyframe.timingFunction ?? undefined,
-            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-          }
-    )),
-  };
-}
-
-function createDefaultTimeline(index: number): WebKeyframesTimeline {
-  const timeline = cloneTimeline(DEFAULT_TIMELINE_DATA);
-  if (index === 0) {
-    return timeline;
-  }
-
-  timeline.id = `${DEFAULT_TIMELINE_DATA.id}-${index + 1}`;
-  return timeline;
-}
-
-function createNextTimeline(
-  timelines: WebKeyframesTimeline[],
-  selectedIndex: number,
-): WebKeyframesTimeline {
-  const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length);
-  return {
-    id: createUniqueTimelineId(source.id, timelines),
-    positionType: source.positionType,
-    ...(source.positionType !== "percent" && typeof source.duration === "number" ? { duration: source.duration } : {}),
-    translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
-    keyframes: [],
-  };
-}
-
-function createDuplicatedTimeline(
-  timeline: WebKeyframesTimeline,
-  timelines: WebKeyframesTimeline[],
-): WebKeyframesTimeline {
-  const duplicate = cloneTimeline(timeline);
-  duplicate.id = createUniqueTimelineId(`${timeline.id}-copy`, timelines);
-  return duplicate;
-}
-
-function createUniqueTimelineId(seed: string, timelines: WebKeyframesTimeline[]): string {
-  const existing = new Set(timelines.map((timeline) => timeline.id));
-  if (!existing.has(seed)) {
-    return seed;
-  }
-
-  let index = 2;
-  while (existing.has(`${seed}-${index}`)) {
-    index += 1;
-  }
-  return `${seed}-${index}`;
-}
-
-function replaceTimelineState(target: WebKeyframesTimeline, source: WebKeyframesTimeline): void {
-  target.id = source.id;
-  target.positionType = source.positionType;
-  if (source.positionType === "percent") {
-    delete target.duration;
-  } else {
-    target.duration = source.duration;
-  }
-  target.translateConfig = source.translateConfig ? { ...source.translateConfig } : undefined;
-  target.keyframes = source.keyframes.map((keyframe) => ({
-    ...(source.positionType === "percent" ? { percent: keyframe.percent ?? 0 } : { time: keyframe.time ?? 0 }),
-    timingFunction: keyframe.timingFunction ?? undefined,
-    properties: cloneProperties(keyframe.properties ?? []),
-  }));
-}
-
-function cloneSparseKeyframe(keyframe: Partial<WebKeyframe>): WebKeyframe {
-  return {
-    ...(typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent)
-      ? { percent: keyframe.percent }
-      : { time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0 }),
-    ...(typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== ""
-      ? { timingFunction: keyframe.timingFunction.trim() }
-      : {}),
-    ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-  };
-}
-
-function addTransformToSelectedKeyframe(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  kind: TransformKind,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  upsertKeyframeProperty(keyframe, createTransformProperty([...transforms, createDefaultTransform(kind)]));
-}
-
-function replaceSelectedKeyframeTransformKind(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  kind: TransformKind,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  if (!transforms[transformIndex]) {
-    return;
-  }
-
-  const nextTransforms = transforms.map((transform, index) =>
-    index === transformIndex ? createDefaultTransform(kind) : cloneTransform(transform)
-  );
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-function removeSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  upsertKeyframeProperty(
-    keyframe,
-    createTransformProperty(transforms.filter((_, index) => index !== transformIndex).map(cloneTransform)),
-  );
-}
-
-function moveSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  direction: -1 | 1,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  const nextIndex = clampNumber(transformIndex + direction, 0, transforms.length - 1);
-  if (!transforms[transformIndex] || nextIndex === transformIndex) {
-    return;
-  }
-
-  const nextTransforms = transforms.map(cloneTransform);
-  const [moved] = nextTransforms.splice(transformIndex, 1);
-  nextTransforms.splice(nextIndex, 0, moved);
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-function updateSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  field: "x" | "y" | "value",
-  value: number,
-): void {
-  if (!Number.isFinite(value)) {
-    return;
-  }
-
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  const target = transforms[transformIndex];
-  if (!target) {
-    return;
-  }
-
-  const nextTransforms = transforms.map((transform, index) =>
-    index === transformIndex ? setTransformValue(transform, field, value) : cloneTransform(transform)
-  );
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-function setTransformValue(
-  transform: TransformOperation,
-  field: "x" | "y" | "value",
-  value: number,
-): TransformOperation {
-  switch (transform.kind) {
-    case "translate":
-      if (field === "value") {
-        return { kind: "translate", x: value, y: transform.y };
-      }
-      return field === "x"
-        ? { kind: "translate", x: value, y: transform.y }
-        : { kind: "translate", x: transform.x, y: value };
-    case "scale":
-      if (field === "value") {
-        return { kind: "scale", x: value, y: value };
-      }
-      return field === "x"
-        ? { kind: "scale", x: value, y: transform.y }
-        : { kind: "scale", x: transform.x, y: value };
-    case "rotate":
-      return { kind: "rotate", value };
-    case "skew":
-      if (field === "value") {
-        return { kind: "skew", x: value, y: transform.y };
-      }
-      return field === "x"
-        ? { kind: "skew", x: value, y: transform.y }
-        : { kind: "skew", x: transform.x, y: value };
-  }
-}
-
-function clampIndex(index: number, length: number): number {
-  if (length <= 0) {
-    return 0;
-  }
-
-  return clampNumber(Number.isFinite(index) ? Math.round(index) : 0, 0, length - 1);
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
-function createNextKeyframe(
-  timeline: WebKeyframesTimeline,
-  keyframes: WebKeyframesTimeline["keyframes"],
-  selectedIndex: number,
-): WebKeyframesTimeline["keyframes"][number] {
-  const positionType = getTimelinePositionType(timeline);
-  const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-  const sortedKeyframes = [...keyframes].sort(
-    (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-  );
-  if (sortedKeyframes.length === 0) {
-    return createEmptyKeyframe(positionType, 0);
-  }
-
-  const selected = sortedKeyframes[selectedIndex] ?? sortedKeyframes[sortedKeyframes.length - 1];
-  const next = sortedKeyframes[selectedIndex + 1];
-  const previous = sortedKeyframes[selectedIndex - 1];
-  const selectedPosition = getEditorKeyframePosition(selected, positionType);
-  let position = maxPosition;
-
-  if (sortedKeyframes.length === 1 && selected) {
-    position = selectedPosition <= 0 ? maxPosition : 0;
-  } else if (selected && next) {
-    position = roundEditorPosition((selectedPosition + getEditorKeyframePosition(next, positionType)) / 2, positionType);
-  } else if (selected && previous) {
-    position = roundEditorPosition(Math.min(maxPosition, (selectedPosition + maxPosition) / 2), positionType);
-  } else if (selected) {
-    position = Math.min(maxPosition, selectedPosition);
-  }
-
-  return createEmptyKeyframe(positionType, position);
-}
-
-function createEmptyKeyframe(positionType: KeyframePositionMode, position: number): WebKeyframe {
-  return positionType === "time"
-    ? { time: position, properties: [] }
-    : { percent: position, properties: [] };
-}
-
-function findClosestKeyframeIndex(
-  timeline: WebKeyframesTimeline,
-  keyframes: WebKeyframesTimeline["keyframes"],
-  position: number,
-): number {
-  const positionType = getTimelinePositionType(timeline);
-  const normalized = normalizeWebKeyframesTimeline({
-    id: "preview",
-    positionType,
-    ...(positionType === "time" ? { duration: Math.max(timeline.duration ?? 1, 1) } : {}),
-    keyframes,
-  }).keyframes;
-
-  return normalized.reduce((closestIndex, keyframe, index) => {
-    const currentDistance = Math.abs(normalized[closestIndex].percent - position);
-    const nextDistance = Math.abs(keyframe.percent - position);
-    return nextDistance < currentDistance ? index : closestIndex;
-  }, 0);
-}
-
-function resolveEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
-  if (data.positionType === "time" || data.positionType === "percent") {
-    return data.positionType;
-  }
-
-  if (Array.isArray(data.keyframes) && data.keyframes.some((keyframe) => typeof keyframe?.percent === "number")) {
-    return "percent";
-  }
-
-  return fallback;
-}
-
-function getEditorKeyframePosition(keyframe: Partial<WebKeyframe>, positionType: KeyframePositionMode): number {
-  return positionType === "time"
-    ? (typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0)
-    : (typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0);
-}
-
-function applyEditorKeyframePosition(keyframe: WebKeyframe, positionType: KeyframePositionMode, value: number): void {
-  if (positionType === "time") {
-    keyframe.time = Math.round(value);
-    delete keyframe.percent;
-    return;
-  }
-
-  keyframe.percent = roundEditorPosition(value, positionType);
-  delete keyframe.time;
-}
-
-function roundEditorPosition(value: number, positionType: KeyframePositionMode): number {
-  if (positionType === "time") {
-    return Math.round(value);
-  }
-
-  return Math.round(value * 10) / 10;
 }
 
 function renderTextField(field: string, label: string, value: string): string {
@@ -2065,139 +1636,6 @@ function renderTransformFields(transform: TransformOperation, index: number): st
     case "skew":
       return `${renderNumberField(`transform-x-${index}`, "Skew X", transform.x, undefined, 0.1)}${renderNumberField(`transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1)}`;
   }
-}
-
-function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
-  const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
-  if (existing) {
-    return existing;
-  }
-
-  const styleElement = ownerDocument.createElement("style");
-  styleElement.dataset.wkfPreview = "true";
-  ownerDocument.head.append(styleElement);
-  return styleElement;
-}
-
-function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
-  const ownerWindow = ownerDocument.defaultView;
-  if (!ownerWindow) {
-    return [];
-  }
-
-  return Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) => {
-    const names = ownerWindow.getComputedStyle(element).animationName;
-    return splitAnimationNames(names).includes(animationName);
-  });
-}
-
-function splitAnimationNames(value: string): string[] {
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part !== "" && part !== "none");
-}
-
-function replaceAnimationName(value: string, currentName: string, nextName: string): string {
-  const names = splitAnimationNames(value);
-  if (names.length === 0) {
-    return nextName;
-  }
-
-  return names.map((name) => (name === currentName ? nextName : name)).join(", ");
-}
-
-function formatTimelineSummary(timeline: RenderWebKeyframesTimeline): string {
-  return `${timeline.keyframes.length} keyframes`;
-}
-
-function formatTimelinePositionSummary(timeline: RenderWebKeyframesTimeline): string {
-  return timeline.positionType === "time"
-    ? `${String(timeline.duration ?? 1)}ms`
-    : "percent mode";
-}
-
-function formatKeyframeSummary(
-  keyframe: WebKeyframesTimeline["keyframes"][number],
-  translateConfig: RenderTranslateConfig,
-): string {
-  const parts: string[] = [];
-  const transformState = hasKeyframeProperty(keyframe, "transform");
-  const transforms = transformState ? getTransformOperations(keyframe) : [];
-  const opacity = getOpacityValue(keyframe);
-
-  if (transformState) {
-    parts.push(
-      transforms.length > 0
-        ? transforms.map((transform) => formatTransformSummary(transform, translateConfig)).join(" ")
-        : "transform: none",
-    );
-  }
-
-  if (typeof opacity === "number" && Number.isFinite(opacity)) {
-    parts.push(`opacity ${formatNumber(opacity)}`);
-  }
-
-  if (typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== "") {
-    parts.push(`timingFunction ${keyframe.timingFunction.trim()}`);
-  }
-
-  return parts.join(", ");
-}
-
-
-function formatTransformSummary(transform: TransformOperation, translateConfig: RenderTranslateConfig): string {
-  switch (transform.kind) {
-    case "translate":
-      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
-    case "scale":
-      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
-    case "rotate":
-      return `rotate(${formatNumber(transform.value)}deg)`;
-    case "skew":
-      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
-  }
-}
-
-function formatSummaryTranslateValue(value: number, translateConfig: RenderTranslateConfig): string {
-  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit || "px" : translateConfig.unit;
-  return `${formatNumber(value)}${unit}`;
-}
-
-function formatKeyframePositionLabel(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  return timeline.positionType === "time"
-    ? `${formatNumber(keyframe.time ?? 0)}ms`
-    : `${formatNumber(keyframe.percent ?? 0)}%`;
-}
-
-function formatKeyframeSecondaryLabel(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  if (timeline.positionType === "time") {
-    const safeDuration = (timeline.duration ?? 1) <= 0 ? 1 : (timeline.duration ?? 1);
-    return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
-  }
-
-  return "";
-}
-
-function formatSelectedKeyframeSubtitle(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  if (timeline.positionType === "time") {
-    return `${formatKeyframeSecondaryLabel(keyframe, timeline)} of timeline`;
-  }
-
-  return `${formatNumber(keyframe.percent ?? 0)}% of timeline`;
-}
-
-function isTranslateUnit(value: unknown): value is TranslateUnit {
-  return value === "px" || value === "vw" || value === "vh" || value === "%" || value === "custom";
 }
 
 async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {
