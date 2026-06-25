@@ -62,7 +62,7 @@ export function normalizeKeyframe(
   return {
     time,
     percent,
-    timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
+    timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction : null,
     properties: Array.isArray(keyframe.properties) ? cloneProperties(keyframe.properties) : [],
   };
 }

@@ -44,7 +44,7 @@ function renderTimelineCss(
     const lines = [`  ${percent} {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);
-    const timingFunction = normalized.keyframes[index].timingFunction;
+    const timingFunction = typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() : "";
 
     if (transformProperty) {
       lines.push(
