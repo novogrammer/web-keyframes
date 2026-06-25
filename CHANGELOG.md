@@ -4,10 +4,13 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-25
+
 ### Changed
 
 - Allowed timelines to keep `keyframes: []` while authoring, including empty new timelines in the editor and empty `@keyframes` output until frames are added
-- Split keyframe positioning into explicit `time` and `percent` modes so `duration` is only used on time-based timelines
+- Split timeline positioning into explicit `time` and `percent` modes via `positionType`, so `duration` is only used on time-based timelines
+- Updated the timeline JSON shape and bundled examples to support explicit position mode metadata and percent-based keyframes
 
 ## [0.2.1] - 2026-06-22
 

@@ -1,6 +1,6 @@
 {
   "name": "web-keyframes",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Lightweight keyframe editor core and CSS generator for web animations.",
   "type": "module",
   "types": "./dist/index.d.ts",
