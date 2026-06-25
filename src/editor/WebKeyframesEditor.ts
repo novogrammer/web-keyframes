@@ -1,47 +1,21 @@
+import { generateCss } from "../core/generateCss.js";
+import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
+import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
+import { deriveEditorRenderState, sanitizeEditorDocument, clampIndex } from "./editorModel.js";
+import { createEditorCollectionController } from "./editorCollectionController.js";
+import { createEditorKeyframePropertyController } from "./editorKeyframePropertyController.js";
+import { createEditorLifecycleController } from "./editorLifecycleController.js";
+import { createEditorPreviewController } from "./editorPreviewController.js";
+import { createEditorSectionInputController } from "./editorSectionInputController.js";
 import {
-  addTransform,
-  moveTransform,
-  removeTransform,
-  replaceTransformKind,
-  setTransformFieldValue,
-} from "../core/edit.js";
-import { formatNumber, generateCss } from "../core/generateCss.js";
-import {
-  cloneDocument,
-  cloneTimeline,
-  createOpacityProperty,
-  createDefaultTransform,
-  createTransformProperty,
-  DEFAULT_TRANSLATE_CONFIG,
-  deleteKeyframeProperty,
-  getOpacityValue,
-  getTimelinePositionType,
-  getTransformOperations,
-  hasKeyframeProperty,
-  normalizeWebKeyframesTimeline,
-  upsertKeyframeProperty,
-} from "../core/normalize.js";
-import type {
-  TransformKind,
-  TransformOperation,
-  TranslateUnit,
-  WebKeyframe,
-  WebKeyframesDocument,
-  WebKeyframesTimeline,
-} from "../core/types.js";
-import {
-  applyEditorKeyframePosition,
-  clampIndex,
-  clampNumber,
-  cloneSparseKeyframe,
-  createDuplicatedTimeline,
-  createNextKeyframe,
-  createNextTimeline,
-  deriveEditorRenderState,
-  getEditorKeyframePosition,
-  roundEditorPosition,
-  sanitizeEditorDocument,
-} from "./editorModel.js";
+  clearPreviewPanel,
+  createEditorState,
+  normalizeEditorState,
+  resetEditorState,
+  setStatus,
+} from "./editorStateController.js";
+import { createEditorContainer } from "./editorShell.js";
+import { renderEditorPanel } from "./editorView.js";
 
 type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -59,23 +33,29 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
     {
       percent: 0,
       properties: [
-        createOpacityProperty(0),
-        createTransformProperty([
-          { kind: "translate", x: 0, y: 40 },
-          { kind: "scale", x: 1, y: 1 },
-          { kind: "rotate", value: 0 },
-        ]),
+        { kind: "opacity", value: 0 },
+        {
+          kind: "transform",
+          value: [
+            { kind: "translate", x: 0, y: 40 },
+            { kind: "scale", x: 1, y: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     },
     {
       percent: 100,
       properties: [
-        createOpacityProperty(1),
-        createTransformProperty([
-          { kind: "translate", x: 0, y: 0 },
-          { kind: "scale", x: 1, y: 1 },
-          { kind: "rotate", value: 0 },
-        ]),
+        { kind: "opacity", value: 1 },
+        {
+          kind: "transform",
+          value: [
+            { kind: "translate", x: 0, y: 0 },
+            { kind: "scale", x: 1, y: 1 },
+            { kind: "rotate", value: 0 },
+          ],
+        },
       ],
     },
   ],
@@ -85,81 +65,17 @@ const DEFAULT_EDITOR_DATA: WebKeyframesDocument = {
   timelines: [cloneTimeline(DEFAULT_TIMELINE_DATA)],
 };
 
-type ShortcutDescriptor = {
-  key: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-};
-
-type FocusSnapshot = {
-  field: string;
-  index: number;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-};
-
-type PanelPosition = {
-  left: number;
-  top: number;
-};
-
-type DragState = {
-  pointerOffsetX: number;
-  pointerOffsetY: number;
-};
-
-type PreviewTargetState = {
-  element: HTMLElement;
-  inlineAnimationName: string;
-};
-
-type ActivePreview = {
-  styleElement: HTMLStyleElement;
-  targets: PreviewTargetState[];
-};
-
-type EditorRenderState = ReturnType<typeof deriveEditorRenderState>;
-
-const TIMING_FUNCTION_PRESETS = [
-  "linear",
-  "ease",
-  "ease-in",
-  "ease-out",
-  "ease-in-out",
-  "step-start",
-  "step-end",
-  "cubic-bezier(0.2, 0.8, 0.2, 1)",
-  "steps(4, end)",
-] as const;
-
-const PANEL_MIN_VISIBLE_X = 72;
-const PANEL_MIN_VISIBLE_Y = 56;
-
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
-  private readonly shortcut: ShortcutDescriptor | null;
   private readonly initialData: WebKeyframesDocument;
-  private readonly handleKeydown: (event: KeyboardEvent) => void;
-  private readonly handleContainerClick: (event: MouseEvent) => void;
-  private readonly handleContainerInput: (event: Event) => void;
-  private readonly handleContainerChange: (event: Event) => void;
-  private readonly handleDragMove: (event: MouseEvent) => void;
-  private readonly handleDragEnd: () => void;
+  private readonly state;
+  private readonly collectionController;
+  private readonly propertyController;
+  private readonly previewController;
+  private readonly sectionInputController;
+  private readonly lifecycleController;
   private container: HTMLElement | null = null;
   private mounted = false;
-  private data: WebKeyframesDocument;
-  private selectedTimelineIndex = 0;
-  private selectedKeyframeIndex = 0;
-  private statusMessage = "Timeline order is explicit. Preview and CSS use the selected timeline or the full document consistently.";
-  private statusTone: "info" | "success" | "error" = "info";
-  private previewTitle: string | null = null;
-  private previewContent = "";
-  private pendingFocus: FocusSnapshot | null = null;
-  private panelPosition: PanelPosition | null = null;
-  private dragState: DragState | null = null;
-  private activePreview: ActivePreview | null = null;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -168,35 +84,24 @@ export class WebKeyframesEditor {
 
     this.root = options.root;
     this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
-    this.data = cloneDocument(this.initialData);
-    this.shortcut = parseShortcut(options.shortcut);
-    this.handleKeydown = (event) => {
-      if (event.key === "Escape" && this.previewTitle !== null) {
-        event.preventDefault();
-        this.closePreview("Closed preview.");
-        return;
-      }
-
-      if (this.shortcut !== null && matchesShortcut(event, this.shortcut)) {
-        event.preventDefault();
-        this.toggle();
-      }
-    };
-    this.handleContainerClick = (event) => {
-      this.handleDelegatedClick(event);
-    };
-    this.handleContainerInput = (event) => {
-      this.handleDelegatedInput(event);
-    };
-    this.handleContainerChange = (event) => {
-      this.handleDelegatedChange(event);
-    };
-    this.handleDragMove = (event) => {
-      this.updateDragPosition(event);
-    };
-    this.handleDragEnd = () => {
-      this.stopDragging();
-    };
+    this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
+    this.collectionController = createEditorCollectionController(this.state, DEFAULT_TIMELINE_DATA);
+    this.propertyController = createEditorKeyframePropertyController(this.state, DEFAULT_TIMELINE_DATA);
+    this.previewController = createEditorPreviewController(this.root, this.state, () => this.toJson(), () => this.toCss());
+    this.sectionInputController = createEditorSectionInputController(this.state, DEFAULT_TIMELINE_DATA);
+    this.lifecycleController = createEditorLifecycleController(this.root, {
+      shortcut: options.shortcut,
+      onToggle: () => this.toggle(),
+      onEscape: () => {
+        if (this.state.previewTitle !== null) {
+          this.previewController.closePreview("Closed preview.");
+          this.render();
+        }
+      },
+      onClick: (event) => this.handleDelegatedClick(event),
+      onInput: (event) => this.handleDelegatedInput(event),
+      onChange: (event) => this.handleDelegatedChange(event),
+    });
   }
 
   mount(): void {
@@ -205,18 +110,11 @@ export class WebKeyframesEditor {
     }
 
     const ownerDocument = this.root.ownerDocument;
-    const container = ownerDocument.createElement("section");
-    container.className = "wkf";
-    container.setAttribute("aria-hidden", "true");
-
+    const container = createEditorContainer(ownerDocument);
     this.container = container;
     this.render();
-    container.addEventListener("click", this.handleContainerClick);
-    container.addEventListener("input", this.handleContainerInput);
-    container.addEventListener("change", this.handleContainerChange);
+    this.lifecycleController.mount(container);
     this.root.append(container);
-    ownerDocument.addEventListener("keydown", this.handleKeydown);
-
     this.mounted = true;
   }
 
@@ -225,12 +123,8 @@ export class WebKeyframesEditor {
       return;
     }
 
-    this.disposeAppliedPreview();
-    this.stopDragging();
-    this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
-    this.container?.removeEventListener("click", this.handleContainerClick);
-    this.container?.removeEventListener("input", this.handleContainerInput);
-    this.container?.removeEventListener("change", this.handleContainerChange);
+    this.previewController.disposeAppliedPreview();
+    this.lifecycleController.unmount(this.container);
     this.container?.remove();
     this.container = null;
     this.mounted = false;
@@ -238,44 +132,37 @@ export class WebKeyframesEditor {
 
   show(): void {
     this.ensureMounted();
-    this.container!.classList.add("wkf--visible");
-    this.container!.setAttribute("aria-hidden", "false");
+    this.lifecycleController.show(this.container!);
   }
 
   hide(): void {
     this.ensureMounted();
-    this.container!.classList.remove("wkf--visible");
-    this.container!.setAttribute("aria-hidden", "true");
+    this.lifecycleController.hide(this.container!);
   }
 
   toggle(): void {
     this.ensureMounted();
-    if (this.container!.classList.contains("wkf--visible")) {
-      this.hide();
-      return;
-    }
-
-    this.show();
+    this.lifecycleController.toggle(this.container!);
   }
 
   getData(): WebKeyframesDocument {
-    return cloneDocument(this.data);
+    return cloneDocument(this.state.data);
   }
 
   setData(data: WebKeyframesDocument): void {
-    this.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
-    this.normalizeEditorState();
+    this.state.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
+    normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
     if (this.container !== null) {
       this.render();
     }
   }
 
   toJson(): string {
-    return JSON.stringify(cloneDocument(this.data), null, 2);
+    return JSON.stringify(cloneDocument(this.state.data), null, 2);
   }
 
   toCss(): string {
-    return generateCss(this.data);
+    return generateCss(this.state.data);
   }
 
   private ensureMounted(): void {
@@ -290,418 +177,27 @@ export class WebKeyframesEditor {
     }
 
     const renderState = deriveEditorRenderState(
-      this.data,
-      this.selectedTimelineIndex,
-      this.selectedKeyframeIndex,
+      this.state.data,
+      this.state.selectedTimelineIndex,
+      this.state.selectedKeyframeIndex,
       DEFAULT_TIMELINE_DATA,
     );
-    this.selectedTimelineIndex = renderState.selectedTimelineIndex;
-    this.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
-
-    this.container.innerHTML = this.renderEditorPanel(renderState);
-    this.bindDragging();
-    this.applyPanelPosition();
-    queueMicrotask(() => this.restoreFocus());
-  }
-
-  private renderEditorPanel(renderState: EditorRenderState): string {
-    return `
-      <div class="wkf__panel">
-        ${this.renderHeader()}
-        ${this.renderMainLayout(renderState)}
-        ${this.renderPreviewPanel()}
-        ${this.renderFooter()}
-      </div>
-    `;
-  }
-
-  private renderHeader(): string {
-    return `
-      <div class="wkf__header" data-wkf-drag-handle="true">
-        <div>
-          <p class="wkf__kicker">web-keyframes editor</p>
-          <h2 class="wkf__title">Keyframe Data Editor</h2>
-        </div>
-        <div class="wkf__actions" data-wkf-no-drag="true">
-          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="reset">Reset</button>
-          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide">Hide</button>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderMainLayout(renderState: EditorRenderState): string {
-    return `
-      <div class="wkf__layout">
-        <div class="wkf__columns">
-          ${this.renderTimelineListSection(renderState)}
-          <div class="wkf__section">
-            ${this.renderSelectedTimelineSection(renderState)}
-            <div class="wkf__columns wkf__columns--stacked">
-              ${this.renderKeyframeListSection(renderState)}
-              ${this.renderSelectedKeyframeSection(renderState)}
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderTimelineListSection({ renderTimelines }: EditorRenderState): string {
-    return `
-      <div class="wkf__section wkf__section--list">
-        <div class="wkf__section-head">
-          <div class="wkf__section-title">Timelines</div>
-          <div class="wkf__inline-actions wkf__inline-actions--wrap">
-            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-timeline">Add</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-timeline">Duplicate</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-timeline" ${
-              renderTimelines.length <= 1 ? "disabled" : ""
-            }>Delete</button>
-          </div>
-        </div>
-        <div class="wkf__keyframe-list">
-          ${renderTimelines
-            .map(
-              (timeline, index) => `
-                <button
-                  type="button"
-                  class="wkf__keyframe-item${index === this.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}"
-                  data-wkf-action="select-timeline"
-                  data-wkf-index="${index}"
-                >
-                  <span class="wkf__keyframe-time">${escapeHtml(timeline.id)}</span>
-                  <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
-                  <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
-                </button>
-              `,
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderSelectedTimelineSection({ selectedTimeline }: EditorRenderState): string {
-    return `
-      <div class="wkf__section">
-        <div class="wkf__section-title">Selected Timeline</div>
-        <div class="wkf__grid wkf__grid--meta">
-          ${renderTextField("id", "ID", selectedTimeline.id)}
-          ${renderSelectField("positionType", "Keyframe Position", selectedTimeline.positionType, [
-            { value: "time", label: "time" },
-            { value: "percent", label: "percent" },
-          ])}
-          ${
-            selectedTimeline.positionType === "time"
-              ? renderNumberField("duration", "Duration", selectedTimeline.duration ?? 1, 1, 1)
-              : ""
-          }
-          ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translateConfig.unit, [
-            { value: "px", label: "px" },
-            { value: "vw", label: "vw" },
-            { value: "vh", label: "vh" },
-            { value: "%", label: "%" },
-            { value: "custom", label: "custom" },
-          ])}
-          ${
-            selectedTimeline.translateConfig.unit === "custom"
-              ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translateConfig.customUnit ?? "")
-              : ""
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  private renderKeyframeListSection({ selectedTimeline, selectedSourceTimeline }: EditorRenderState): string {
-    return `
-      <div class="wkf__section wkf__section--list">
-        <div class="wkf__section-head">
-          <div class="wkf__section-title">Keyframes</div>
-          <div class="wkf__inline-actions wkf__inline-actions--wrap">
-            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-keyframe">Add</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe" ${
-              selectedTimeline.keyframes.length === 0 ? "disabled" : ""
-            }>Duplicate</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-keyframe" ${
-              selectedTimeline.keyframes.length === 0 ? "disabled" : ""
-            }>Delete</button>
-          </div>
-        </div>
-        <div class="wkf__keyframe-list">
-          ${
-            selectedTimeline.keyframes.length > 0
-              ? selectedTimeline.keyframes
-                .map(
-                  (keyframe, index) => `
-                    <button
-                      type="button"
-                      class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
-                      data-wkf-action="select-keyframe"
-                      data-wkf-index="${index}"
-                    >
-                      <span class="wkf__keyframe-time">${escapeHtml(formatKeyframePositionLabel(keyframe, selectedTimeline))}</span>
-                      <span class="wkf__keyframe-percent">${escapeHtml(formatKeyframeSecondaryLabel(keyframe, selectedTimeline))}</span>
-                      <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
-                    </button>
-                  `,
-                )
-                .join("")
-              : `<div class="wkf__keyframe-item"><span class="wkf__keyframe-meta">No keyframes yet.</span></div>`
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  private renderSelectedKeyframeSection(renderState: EditorRenderState): string {
-    const {
-      selectedTimeline,
-      selectedKeyframe,
-      hasSelectedKeyframe,
-      opacitySourceState,
-      selectedSourceOpacity,
-      selectedSourceTransforms,
-      selectedTimingFunction,
-      transformSourceState,
-    } = renderState;
-    const resolvedSelectedKeyframe = selectedKeyframe ?? selectedTimeline.keyframes[0];
-
-    return `
-      <div class="wkf__section wkf__section--editor">
-        <div class="wkf__section-head">
-          <div>
-            <div class="wkf__section-title">Selected Keyframe</div>
-            <p class="wkf__subtitle">${
-              hasSelectedKeyframe
-                ? escapeHtml(formatSelectedKeyframeSubtitle(resolvedSelectedKeyframe, selectedTimeline))
-                : "Add a keyframe to start editing."
-            }</p>
-          </div>
-        </div>
-        ${
-          hasSelectedKeyframe
-            ? this.renderSelectedKeyframeEditor(
-              selectedTimeline,
-              resolvedSelectedKeyframe,
-              selectedTimingFunction,
-              opacitySourceState,
-              selectedSourceOpacity,
-              transformSourceState,
-              selectedSourceTransforms,
-            )
-            : `
-              <div class="wkf__property">
-                <p class="wkf__subtitle">This timeline has no keyframes yet.</p>
-                <p class="wkf__subtitle">Use the Add button above to create the first keyframe.</p>
-              </div>
-            `
-        }
-      </div>
-    `;
-  }
-
-  private renderSelectedKeyframeEditor(
-    selectedTimeline: EditorRenderState["selectedTimeline"],
-    selectedKeyframe: WebKeyframe,
-    selectedTimingFunction: string,
-    opacitySourceState: EditorRenderState["opacitySourceState"],
-    selectedSourceOpacity: number | null,
-    transformSourceState: EditorRenderState["transformSourceState"],
-    selectedSourceTransforms: TransformOperation[],
-  ): string {
-    return `
-      <div class="wkf__grid wkf__grid--editor">
-        ${renderRangeField(
-          "position",
-          selectedTimeline.positionType === "time" ? "Time" : "Percent",
-          getEditorKeyframePosition(selectedKeyframe, selectedTimeline.positionType),
-          0,
-          selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
-          selectedTimeline.positionType === "time" ? 1 : 0.1,
-          selectedTimeline.positionType === "time" ? "ms" : "%",
-        )}
-        ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
-        ${renderTimingFunctionPresets()}
-      </div>
-      <div class="wkf__section-head wkf__section-head--properties">
-        <div class="wkf__section-title">Properties</div>
-      </div>
-      ${this.renderKeyframePropertyActions(opacitySourceState, transformSourceState)}
-      <div class="wkf__property-list">
-        ${this.renderOpacityProperty(opacitySourceState, selectedSourceOpacity)}
-        ${this.renderTransformProperty(transformSourceState, selectedSourceTransforms)}
-      </div>
-    `;
-  }
-
-  private renderKeyframePropertyActions(
-    opacitySourceState: EditorRenderState["opacitySourceState"],
-    transformSourceState: EditorRenderState["transformSourceState"],
-  ): string {
-    if (opacitySourceState !== "unset" && transformSourceState !== "unset") {
-      return "";
-    }
-
-    return `
-      <div class="wkf__property-add">
-        <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          ${
-            opacitySourceState === "unset"
-              ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
-              : ""
-          }
-          ${
-            transformSourceState === "unset"
-              ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
-              : ""
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  private renderOpacityProperty(
-    opacitySourceState: EditorRenderState["opacitySourceState"],
-    selectedSourceOpacity: number | null,
-  ): string {
-    if (opacitySourceState !== "explicit") {
-      return "";
-    }
-
-    return `
-      <div class="wkf__property">
-        <div class="wkf__section-head">
-          <div>
-            <div class="wkf__section-title">Opacity</div>
-            <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
-          </div>
-          <div class="wkf__inline-actions">
-            <button
-              type="button"
-              class="wkf__button wkf__button--small wkf__button--ghost"
-              data-wkf-action="delete-opacity"
-            >Delete</button>
-          </div>
-        </div>
-        ${renderBoundedNumberField("opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1)}
-      </div>
-    `;
-  }
-
-  private renderTransformProperty(
-    transformSourceState: EditorRenderState["transformSourceState"],
-    selectedSourceTransforms: TransformOperation[],
-  ): string {
-    if (transformSourceState === "unset") {
-      return "";
-    }
-
-    return `
-      <div class="wkf__property">
-        <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
-        </div>
-        ${this.renderTransformPropertySummary(transformSourceState, selectedSourceTransforms.length)}
-        <div class="wkf__transform-list">
-          ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderTransformPropertySummary(
-    transformSourceState: EditorRenderState["transformSourceState"],
-    transformCount: number,
-  ): string {
-    if (transformSourceState === "none") {
-      return `
-        <div class="wkf__section-head">
-          <div>
-            <div class="wkf__section-title">Transforms</div>
-            <p class="wkf__subtitle">None</p>
-          </div>
-          <div class="wkf__inline-actions">
-            <button
-              type="button"
-              class="wkf__button wkf__button--small wkf__button--ghost"
-              data-wkf-action="delete-transforms"
-            >Delete</button>
-          </div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="wkf__section-head">
-        <div>
-          <div class="wkf__section-title">Transforms</div>
-          <p class="wkf__subtitle">${transformCount} item${transformCount === 1 ? "" : "s"}</p>
-        </div>
-        <div class="wkf__inline-actions">
-          <button
-            type="button"
-            class="wkf__button wkf__button--small wkf__button--ghost"
-            data-wkf-action="delete-transforms"
-          >Delete</button>
-          <button
-            type="button"
-            class="wkf__button wkf__button--small wkf__button--ghost"
-            data-wkf-action="clear-transforms"
-          >None</button>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderPreviewPanel(): string {
-    if (this.previewTitle === null) {
-      return "";
-    }
-
-    return `
-      <div class="wkf__preview">
-        <div class="wkf__preview-head">
-          <div>
-            <div class="wkf__section-title">${escapeHtml(this.previewTitle)}</div>
-            <p class="wkf__subtitle">Current generated output</p>
-          </div>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
-        </div>
-        <textarea class="wkf__preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
-      </div>
-    `;
-  }
-
-  private renderFooter(): string {
-    return `
-      <div class="wkf__footer" data-wkf-drag-handle="true">
-        <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
-        <div class="wkf__inline-actions">
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-json">View JSON</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-css">View CSS</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="copy-json">Copy JSON</button>
-          <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-css">Copy CSS</button>
-        </div>
-      </div>
-    `;
-  }
-
-  private bindDragging(): void {
-    const handles = this.container?.querySelectorAll<HTMLElement>("[data-wkf-drag-handle='true']");
-    if (!handles || handles.length === 0) {
-      return;
-    }
-
-    handles.forEach((handle) => {
-      handle.addEventListener("mousedown", (event) => this.startDragging(event));
+    this.state.selectedTimelineIndex = renderState.selectedTimelineIndex;
+    this.state.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
+    this.container.innerHTML = renderEditorPanel(renderState, {
+      selectedTimelineIndex: this.state.selectedTimelineIndex,
+      selectedKeyframeIndex: this.state.selectedKeyframeIndex,
+      previewTitle: this.state.previewTitle,
+      previewContent: this.state.previewContent,
+      statusMessage: this.state.statusMessage,
+      statusTone: this.state.statusTone,
     });
+    this.lifecycleController.bindDragging(this.container, this.state.panelPosition, (position) => {
+      this.state.panelPosition = position;
+    });
+    queueMicrotask(() => this.lifecycleController.restoreFocus(this.container, this.state.pendingFocus, () => {
+      this.state.pendingFocus = null;
+    }));
   }
 
   private handleDelegatedClick(event: MouseEvent): void {
@@ -720,128 +216,111 @@ export class WebKeyframesEditor {
       return;
     }
 
-    if (this.handleEditorChromeAction(action)) {
+    if (action === "hide") {
+      this.hide();
       return;
     }
-    if (this.handleTimelineAction(action, actionTarget)) {
+    if (action === "reset") {
+      this.previewController.disposeAppliedPreview();
+      resetEditorState(this.state, this.initialData);
+      setStatus(this.state, "success", "Reset editor data to the initial state.");
+      this.render();
       return;
     }
-    if (this.handleKeyframeAction(action, actionTarget)) {
+    if (action === "select-timeline") {
+      this.state.selectedTimelineIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.state.data.timelines.length);
+      normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
+      this.render();
       return;
     }
-    this.handlePreviewAction(action);
-  }
-
-  private handleEditorChromeAction(action: string): boolean {
-    switch (action) {
-      case "hide":
-        this.hide();
-        return true;
-      case "reset":
-        this.reset();
-        return true;
-      default:
-        return false;
+    if (action === "add-timeline" || action === "duplicate-timeline" || action === "delete-timeline") {
+      this.collectionController[action === "add-timeline" ? "addTimeline" : action === "duplicate-timeline" ? "duplicateTimeline" : "deleteTimeline"]();
+      this.render();
+      return;
+    }
+    if (action === "select-keyframe") {
+      this.state.selectedKeyframeIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), renderStateKeyframeLength(this.state));
+      this.render();
+      return;
+    }
+    if (action === "set-timing-function") {
+      this.propertyController.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
+      this.render();
+      return;
+    }
+    if (action === "clear-timing-function") {
+      this.propertyController.clearTimingFunction();
+      this.render();
+      return;
+    }
+    if (action === "move-transform-up" || action === "move-transform-down") {
+      this.propertyController.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), action === "move-transform-up" ? -1 : 1);
+      this.render();
+      return;
+    }
+    if (action === "delete-transform") {
+      this.propertyController.deleteSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"));
+      this.render();
+      return;
+    }
+    if (action === "add-transform") {
+      this.propertyController.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
+      this.render();
+      return;
+    }
+    if (action === "add-opacity") {
+      this.propertyController.addOpacityProperty();
+      this.render();
+      return;
+    }
+    if (action === "delete-opacity") {
+      this.propertyController.deleteOpacityProperty();
+      this.render();
+      return;
+    }
+    if (action === "delete-transforms") {
+      this.propertyController.deleteTransformProperty();
+      this.render();
+      return;
+    }
+    if (action === "clear-transforms") {
+      this.propertyController.clearTransformProperty();
+      this.render();
+      return;
+    }
+    if (action === "add-keyframe" || action === "delete-keyframe" || action === "duplicate-keyframe") {
+      this.collectionController[action === "add-keyframe" ? "addKeyframe" : action === "delete-keyframe" ? "deleteKeyframe" : "duplicateKeyframe"]();
+      this.render();
+      return;
+    }
+    if (action === "copy-json" || action === "copy-css") {
+      void this.handleCopyAction(action === "copy-json" ? "json" : "css");
+      return;
+    }
+    if (action === "run-preview") {
+      this.previewController.runPreview();
+      this.render();
+      return;
+    }
+    if (action === "reset-preview") {
+      this.previewController.resetAppliedPreview();
+      this.render();
+      return;
+    }
+    if (action === "view-json" || action === "view-css") {
+      this.previewController.openGeneratedPreview(action === "view-json" ? "json" : "css");
+      this.render();
+      return;
+    }
+    if (action === "close-preview") {
+      this.previewController.closePreview("Closed preview.");
+      this.render();
     }
   }
 
-  private handleTimelineAction(action: string, actionTarget: HTMLElement): boolean {
-    switch (action) {
-      case "select-timeline":
-        this.selectedTimelineIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.data.timelines.length);
-        this.normalizeEditorState();
-        this.render();
-        return true;
-      case "add-timeline":
-        this.addTimeline();
-        return true;
-      case "duplicate-timeline":
-        this.duplicateTimeline();
-        return true;
-      case "delete-timeline":
-        this.deleteTimeline();
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private handleKeyframeAction(action: string, actionTarget: HTMLElement): boolean {
-    switch (action) {
-      case "select-keyframe":
-        this.selectedKeyframeIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
-        this.render();
-        return true;
-      case "set-timing-function":
-        this.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
-        return true;
-      case "clear-timing-function":
-        this.clearTimingFunction();
-        return true;
-      case "move-transform-up":
-        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), -1);
-        return true;
-      case "move-transform-down":
-        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), 1);
-        return true;
-      case "delete-transform":
-        this.deleteSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"));
-        return true;
-      case "add-transform":
-        this.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
-        return true;
-      case "add-opacity":
-        this.addOpacityProperty();
-        return true;
-      case "delete-opacity":
-        this.deleteOpacityProperty();
-        return true;
-      case "delete-transforms":
-        this.deleteTransformProperty();
-        return true;
-      case "clear-transforms":
-        this.clearTransformProperty();
-        return true;
-      case "add-keyframe":
-        this.addKeyframe();
-        return true;
-      case "delete-keyframe":
-        this.deleteKeyframe();
-        return true;
-      case "duplicate-keyframe":
-        this.duplicateKeyframe();
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private handlePreviewAction(action: string): void {
-    switch (action) {
-      case "copy-json":
-        void this.copyPayload("json");
-        return;
-      case "copy-css":
-        void this.copyPayload("css");
-        return;
-      case "run-preview":
-        this.runPreview();
-        return;
-      case "reset-preview":
-        this.resetAppliedPreview();
-        return;
-      case "view-json":
-        this.openGeneratedPreview("json");
-        return;
-      case "view-css":
-        this.openGeneratedPreview("css");
-        return;
-      case "close-preview":
-        this.closePreview("Closed preview.");
-        return;
-      default:
-        return;
-    }
+  private async handleCopyAction(kind: "json" | "css"): Promise<void> {
+    await this.previewController.copyPayload(kind);
+    this.render();
   }
 
   private handleDelegatedInput(event: Event): void {
@@ -869,14 +348,24 @@ export class WebKeyframesEditor {
   ): void {
     if (input instanceof HTMLSelectElement) {
       if (eventType === "change") {
-        this.applyTextFieldChange(field, input);
+        this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
+        if (this.sectionInputController.applyStringField(field, input.value)) {
+          setStatus(this.state, "info", "Editing timeline data.");
+          this.render();
+        }
       }
       return;
     }
 
     if (input.type === "range") {
       if (eventType === "input") {
-        this.applyRangeFieldInput(field, input);
+        const value = Number(input.value);
+        if (!Number.isFinite(value) || !this.sectionInputController.applyNumberField(field, value)) {
+          return;
+        }
+
+        this.lifecycleController.syncNumberFieldValues(this.container, field, value, input);
+        setStatus(this.state, "info", "Editing timeline data.");
         return;
       }
 
@@ -892,103 +381,12 @@ export class WebKeyframesEditor {
     }
 
     if (eventType === "input") {
-      this.applyTextFieldChange(field, input);
-    }
-  }
-
-  private addTimeline(): void {
-      const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex, DEFAULT_TIMELINE_DATA);
-      this.data = sanitizeEditorDocument({
-        timelines: [...this.data.timelines, nextTimeline],
-      }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
-      this.selectedKeyframeIndex = 0;
-      this.renderWithStatus("info", "Added timeline.");
-  }
-
-  private duplicateTimeline(): void {
-      const source = this.getSelectedTimeline();
-      const duplicate = createDuplicatedTimeline(source, this.data.timelines);
-      const timelines = this.data.timelines.map((timeline) => cloneTimeline(timeline));
-      timelines.splice(this.selectedTimelineIndex + 1, 0, duplicate);
-      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
-      this.normalizeEditorState();
-      this.renderWithStatus("info", "Duplicated timeline.");
-  }
-
-  private deleteTimeline(): void {
-    if (this.data.timelines.length <= 1) {
-      return;
-    }
-
-    const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
-    this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-    this.normalizeEditorState();
-    this.renderWithStatus("info", "Deleted timeline.");
-  }
-
-  private addKeyframe(): void {
-      this.updateSelectedTimeline((timeline) => {
-        const positionType = getTimelinePositionType(timeline);
-        const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
-        timeline.keyframes = this.sortKeyframesByPosition([...timeline.keyframes, nextFrame], positionType);
-        this.selectedKeyframeIndex = timeline.keyframes.indexOf(nextFrame);
-      });
-      this.render();
-  }
-
-  private deleteKeyframe(): void {
-    const timeline = this.getSelectedTimeline();
-    if (timeline.keyframes.length === 0) {
-      return;
-    }
-
-    this.updateSelectedTimeline((candidate) => {
-      candidate.keyframes = candidate.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex);
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, candidate.keyframes.length);
-    });
-    this.render();
-  }
-
-  private duplicateKeyframe(): void {
-    this.updateSelectedTimeline((timeline) => {
-      const positionType = getTimelinePositionType(timeline);
-      const source = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!source) {
-        return;
+      this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
+      if (this.sectionInputController.applyStringField(field, input.value)) {
+        setStatus(this.state, "info", "Editing timeline data.");
+        this.render();
       }
-      const duplicate = cloneSparseKeyframe(source);
-      const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-      const offset = positionType === "time"
-        ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
-        : 10;
-      const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
-      applyEditorKeyframePosition(duplicate, positionType, nextPosition);
-      timeline.keyframes = this.sortKeyframesByPosition([...timeline.keyframes, duplicate], positionType);
-      this.selectedKeyframeIndex = timeline.keyframes.indexOf(duplicate);
-    });
-    this.renderWithStatus("info", "Duplicated selected keyframe.");
-  }
-
-  private applyTextFieldChange(field: string, input: HTMLInputElement | HTMLSelectElement): void {
-    this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-    if (!this.applyStringField(field, input.value)) {
-      return;
     }
-
-    this.setStatus("info", "Editing timeline data.");
-    this.render();
-  }
-
-  private applyRangeFieldInput(field: string, input: HTMLInputElement): void {
-    const value = Number(input.value);
-    if (!Number.isFinite(value) || !this.applyNumberField(field, value, false)) {
-      return;
-    }
-
-    syncNumberFieldValues(this.container, field, value, input);
-    this.setStatus("info", "Editing timeline data.");
   }
 
   private applyNumericFieldChange(field: string, input: HTMLInputElement): void {
@@ -997,1040 +395,16 @@ export class WebKeyframesEditor {
       return;
     }
 
-    this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-    if (!this.applyNumberField(field, value, true)) {
+    this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
+    if (!this.sectionInputController.applyNumberField(field, value)) {
       return;
     }
 
-    this.setStatus("info", "Editing timeline data.");
+    setStatus(this.state, "info", "Editing timeline data.");
     this.render();
   }
-
-  private applyStringField(field: string, value: string): boolean {
-    return this.applyTimelineStringField(field, value)
-      || this.applyKeyframeStringField(field, value)
-      || this.applyTransformStringField(field, value);
-  }
-
-  private applyNumberField(field: string, value: number, shouldRender: boolean): boolean {
-    return this.applyTimelineNumberField(field, value)
-      || this.applyKeyframeNumberField(field, value, shouldRender)
-      || this.applyTransformNumberField(field, value);
-  }
-
-  private applyTimelineStringField(field: string, value: string): boolean {
-    switch (field) {
-      case "id":
-        this.updateSelectedTimeline((timeline) => {
-          timeline.id = value;
-        });
-        return true;
-      case "positionType":
-        this.updateSelectedTimeline((timeline) => {
-          const nextPositionType = value === "percent" ? "percent" : "time";
-          if (nextPositionType === timeline.positionType) {
-            return;
-          }
-
-          if (nextPositionType === "percent") {
-            convertTimelineKeyframesToPercent(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1);
-            return;
-          }
-
-          convertTimelineKeyframesToTime(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1200);
-        });
-        this.normalizeEditorState();
-        return true;
-      case "translateCustomUnit":
-        this.updateSelectedTimeline((timeline) => {
-          timeline.translateConfig = {
-            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-            customUnit: value,
-          };
-        });
-        return true;
-      case "translateUnit":
-        this.updateSelectedTimeline((timeline) => {
-          timeline.translateConfig = {
-            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-            unit: value as TranslateUnit,
-          };
-        });
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private applyKeyframeStringField(field: string, value: string): boolean {
-    if (field !== "timingFunction") {
-      return false;
-    }
-
-    this.withSelectedKeyframe((_, keyframe) => {
-      const trimmed = value.trim();
-      if (trimmed === "") {
-        delete keyframe.timingFunction;
-      } else {
-        keyframe.timingFunction = trimmed;
-      }
-    });
-    return true;
-  }
-
-  private applyTransformStringField(field: string, value: string): boolean {
-    if (!field.startsWith("transform-kind-")) {
-      return false;
-    }
-
-    const index = Number(field.slice("transform-kind-".length));
-    this.applyEditedTransforms((timeline) =>
-      replaceTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind)
-    );
-    return true;
-  }
-
-  private applyTimelineNumberField(field: string, value: number): boolean {
-    switch (field) {
-      case "duration":
-        this.updateSelectedTimeline((timeline) => {
-          if (timeline.positionType === "percent") {
-            return;
-          }
-
-          timeline.duration = Math.max(1, Math.round(value));
-          clampTimelineKeyframesToDuration(timeline);
-        });
-        this.normalizeEditorState();
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private applyKeyframeNumberField(field: string, value: number, shouldRender: boolean): boolean {
-    switch (field) {
-      case "position":
-        this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
-          const selected = keyframes[this.selectedKeyframeIndex];
-          if (!selected) {
-            return;
-          }
-
-          const positionType = getTimelinePositionType(timeline);
-          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-          applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
-          keyframes.splice(0, keyframes.length, ...this.sortKeyframesByPosition(keyframes, positionType));
-          this.selectedKeyframeIndex = keyframes.indexOf(selected);
-        }, shouldRender);
-        return true;
-      case "opacity":
-        this.commitEditorChange(() => {
-          this.withSelectedKeyframe((_, keyframe) => {
-            upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-          });
-        }, {
-          status: { tone: "info", message: "Editing timeline data." },
-          render: shouldRender,
-        });
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private applyTransformNumberField(field: string, value: number): boolean {
-    const match = /^transform-(x|y|value)-(\d+)$/.exec(field);
-    if (!match) {
-      return false;
-    }
-
-    const transformField = match[1] as "x" | "y" | "value";
-    const index = Number(match[2]);
-    this.applyEditedTransforms((timeline) =>
-      setTransformFieldValue(timeline, this.selectedKeyframeIndex, index, transformField, value)
-    );
-    return true;
-  }
-
-  private setTimingFunctionPreset(value: string): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        keyframe.timingFunction = value;
-      });
-      this.pendingFocus = {
-        field: "timingFunction",
-        index: 0,
-        selectionStart: value.length,
-        selectionEnd: value.length,
-      };
-    }, { status: { tone: "info", message: "Editing timeline data." } });
-  }
-
-  private clearTimingFunction(): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        delete keyframe.timingFunction;
-      });
-      this.pendingFocus = {
-        field: "timingFunction",
-        index: 0,
-        selectionStart: 0,
-        selectionEnd: 0,
-      };
-    }, { status: { tone: "info", message: "Editing timeline data." } });
-  }
-
-  private moveSelectedTransform(index: number, direction: -1 | 1): void {
-    this.commitEditorChange(() => {
-      this.applyEditedTransforms((timeline) => moveTransform(
-        timeline,
-        this.selectedKeyframeIndex,
-        index,
-        direction,
-      ));
-    }, { status: { tone: "info", message: "Reordered transforms." } });
-  }
-
-  private deleteSelectedTransform(index: number): void {
-    this.commitEditorChange(() => {
-      this.applyEditedTransforms((timeline) => removeTransform(
-        timeline,
-        this.selectedKeyframeIndex,
-        index,
-      ));
-    }, { status: { tone: "info", message: "Removed transform." } });
-  }
-
-  private addSelectedTransform(kind: TransformKind): void {
-    this.commitEditorChange(() => {
-      let addedInline = false;
-      this.withSelectedKeyframe((_, keyframe) => {
-        if (hasKeyframeProperty(keyframe, "transform")) {
-          return;
-        }
-
-        upsertKeyframeProperty(keyframe, createTransformProperty([createDefaultTransform(kind)]));
-        addedInline = true;
-      });
-      if (!addedInline) {
-        this.applyEditedTransforms((timeline) => addTransform(
-          timeline,
-          this.selectedKeyframeIndex,
-          kind,
-        ));
-      }
-    }, { status: { tone: "info", message: `Added ${kind} transform.` } });
-  }
-
-  private addOpacityProperty(): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
-      });
-    }, { status: { tone: "info", message: "Added opacity to the selected keyframe." } });
-  }
-
-  private deleteOpacityProperty(): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        deleteKeyframeProperty(keyframe, "opacity");
-      });
-    }, { status: { tone: "info", message: "Deleted opacity from the selected keyframe." } });
-  }
-
-  private deleteTransformProperty(): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        deleteKeyframeProperty(keyframe, "transform");
-      });
-    }, { status: { tone: "info", message: "Deleted transforms from the selected keyframe." } });
-  }
-
-  private clearTransformProperty(): void {
-    this.commitEditorChange(() => {
-      this.withSelectedKeyframe((_, keyframe) => {
-        upsertKeyframeProperty(keyframe, createTransformProperty([]));
-      });
-    }, { status: { tone: "info", message: "Cleared transforms to none for the selected keyframe." } });
-  }
-
-  private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
-    const timeline = this.getSelectedTimeline();
-    update(timeline);
-    this.normalizeEditorState();
-  }
-
-  private updateSelectedTimelineKeyframes(
-    update: (keyframes: WebKeyframe[], timeline: WebKeyframesTimeline) => void,
-    shouldRender = true,
-  ): void {
-    const timeline = this.getSelectedTimeline();
-    const keyframes = timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-
-    update(keyframes, timeline);
-    timeline.keyframes = keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-    this.normalizeEditorState();
-    this.setStatus("info", "Editing timeline data.");
-    if (shouldRender) {
-      this.render();
-    }
-  }
-
-  private commitEditorChange(
-    update: () => void,
-    options: {
-      status?: { tone: "info" | "success" | "error"; message: string };
-      render?: boolean;
-    } = {},
-  ): void {
-    update();
-    if (options.status) {
-      this.setStatus(options.status.tone, options.status.message);
-    }
-    if (options.render ?? true) {
-      this.render();
-    }
-  }
-
-  private withSelectedKeyframe(
-    run: (timeline: WebKeyframesTimeline, keyframe: WebKeyframe) => void,
-  ): void {
-    const timeline = this.getSelectedTimeline();
-    const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-    if (!keyframe) {
-      return;
-    }
-
-    run(timeline, keyframe);
-  }
-
-  private applyEditedTransforms(
-    edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline | ReturnType<typeof moveTransform>,
-  ): void {
-    this.updateSelectedTimeline((timeline) => {
-      timeline.keyframes = cloneTimeline(edit(timeline)).keyframes;
-    });
-  }
-
-  private sortKeyframesByPosition(
-    keyframes: WebKeyframe[],
-    positionType: ReturnType<typeof getTimelinePositionType>,
-  ): WebKeyframe[] {
-    return [...keyframes].sort(
-      (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-    );
-  }
-
-  private async copyPayload(kind: "json" | "css"): Promise<void> {
-    try {
-      const text = kind === "json" ? this.toJson() : this.toCss();
-      await writeClipboardText(this.root.ownerDocument.defaultView, text);
-      this.setStatus("success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.setStatus("error", message);
-    }
-
-    this.render();
-  }
-
-  private setStatus(tone: "info" | "success" | "error", message: string): void {
-    this.statusTone = tone;
-    this.statusMessage = message;
-  }
-
-  private renderWithStatus(tone: "info" | "success" | "error", message: string): void {
-    this.setStatus(tone, message);
-    this.render();
-  }
-
-  private normalizeEditorState(): void {
-    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
-    this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-  }
-
-  private reset(): void {
-    this.disposeAppliedPreview();
-    this.data = cloneDocument(this.initialData);
-    this.selectedTimelineIndex = 0;
-    this.selectedKeyframeIndex = 0;
-    this.clearPreviewPanel();
-    this.setStatus("success", "Reset editor data to the initial state.");
-    this.render();
-  }
-
-  private openGeneratedPreview(kind: "json" | "css"): void {
-    this.openPreview(
-      kind === "json" ? "JSON Preview" : "CSS Preview",
-      () => (kind === "json" ? this.toJson() : this.toCss()),
-    );
-  }
-
-  private openPreview(title: string, getContent: () => string): void {
-    try {
-      this.setPreviewPanel(title, getContent());
-      this.setStatus("success", `Opened ${title.toLowerCase()}.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.clearPreviewPanel();
-      this.setStatus("error", message);
-    }
-
-    this.render();
-  }
-
-  private closePreview(message: string): void {
-    this.clearPreviewPanel();
-    this.setStatus("info", message);
-    this.render();
-  }
-
-  private runPreview(): void {
-    try {
-      const timeline = this.getSelectedTimeline();
-      const ownerDocument = this.root.ownerDocument;
-      this.disposeAppliedPreview();
-      this.activePreview = applyPreview(ownerDocument, timeline);
-
-      this.setStatus(
-        "success",
-        `Applied preview to ${this.activePreview.targets.length} element${this.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.setStatus("error", message);
-    }
-
-    this.render();
-  }
-
-  private resetAppliedPreview(): void {
-    if (this.activePreview === null) {
-      this.setStatus("info", "Preview is not active.");
-      this.render();
-      return;
-    }
-
-    this.disposeAppliedPreview();
-    this.setStatus("success", "Reset preview.");
-    this.render();
-  }
-
-  private disposeAppliedPreview(): void {
-    clearAppliedPreview(this.activePreview);
-    this.activePreview = null;
-  }
-
-  private setPreviewPanel(title: string, content: string): void {
-    this.previewTitle = title;
-    this.previewContent = content;
-  }
-
-  private clearPreviewPanel(): void {
-    this.previewTitle = null;
-    this.previewContent = "";
-  }
-
-  private restoreFocus(): void {
-    if (this.container === null || this.pendingFocus === null) {
-      return;
-    }
-
-    const selector = `[data-wkf-field='${this.pendingFocus.field}']`;
-    const inputs = this.container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(selector);
-    const input = inputs[this.pendingFocus.index];
-    if (!input) {
-      this.pendingFocus = null;
-      return;
-    }
-
-    input.focus();
-    if (
-      input instanceof HTMLInputElement &&
-      this.pendingFocus.selectionStart !== null &&
-      this.pendingFocus.selectionEnd !== null &&
-      typeof input.setSelectionRange === "function"
-    ) {
-      input.setSelectionRange(this.pendingFocus.selectionStart, this.pendingFocus.selectionEnd);
-    }
-
-    this.pendingFocus = null;
-  }
-
-  private startDragging(event: MouseEvent): void {
-    if (event.button !== 0) {
-      return;
-    }
-
-    const target = event.target;
-    if (
-      target instanceof Element &&
-      target.closest("[data-wkf-no-drag='true'], button, input, select, textarea, label")
-    ) {
-      return;
-    }
-
-    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
-    const ownerWindow = this.root.ownerDocument.defaultView;
-    if (!panel || !ownerWindow) {
-      return;
-    }
-
-    const rect = panel.getBoundingClientRect();
-    this.panelPosition = { left: rect.left, top: rect.top };
-    this.dragState = {
-      pointerOffsetX: event.clientX - rect.left,
-      pointerOffsetY: event.clientY - rect.top,
-    };
-
-    panel.classList.add("wkf__panel--dragging");
-    ownerWindow.addEventListener("mousemove", this.handleDragMove);
-    ownerWindow.addEventListener("mouseup", this.handleDragEnd);
-    event.preventDefault();
-  }
-
-  private updateDragPosition(event: MouseEvent): void {
-    if (this.dragState === null || this.container === null) {
-      return;
-    }
-
-    const panel = this.container.querySelector<HTMLElement>(".wkf__panel");
-    const ownerWindow = this.root.ownerDocument.defaultView;
-    if (!panel || !ownerWindow) {
-      return;
-    }
-
-    const rect = panel.getBoundingClientRect();
-    const minLeft = Math.min(0, PANEL_MIN_VISIBLE_X - rect.width);
-    const maxLeft = Math.max(0, ownerWindow.innerWidth - PANEL_MIN_VISIBLE_X);
-    const minTop = Math.min(0, PANEL_MIN_VISIBLE_Y - rect.height);
-    const maxTop = Math.max(0, ownerWindow.innerHeight - PANEL_MIN_VISIBLE_Y);
-    this.panelPosition = {
-      left: clampNumber(event.clientX - this.dragState.pointerOffsetX, minLeft, maxLeft),
-      top: clampNumber(event.clientY - this.dragState.pointerOffsetY, minTop, maxTop),
-    };
-    this.applyPanelPosition();
-  }
-
-  private stopDragging(): void {
-    const ownerWindow = this.root.ownerDocument.defaultView;
-    if (ownerWindow) {
-      ownerWindow.removeEventListener("mousemove", this.handleDragMove);
-      ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
-    }
-
-    this.container?.querySelector<HTMLElement>(".wkf__panel")?.classList.remove("wkf__panel--dragging");
-    this.dragState = null;
-  }
-
-  private applyPanelPosition(): void {
-    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
-    if (!panel) {
-      return;
-    }
-
-    if (this.panelPosition === null) {
-      panel.style.left = "";
-      panel.style.top = "";
-      panel.style.bottom = "";
-      panel.style.transform = "";
-      return;
-    }
-
-    panel.style.left = `${this.panelPosition.left}px`;
-    panel.style.top = `${this.panelPosition.top}px`;
-    panel.style.bottom = "auto";
-    panel.style.transform = "none";
-  }
-
-  private getSelectedTimeline(): WebKeyframesTimeline {
-    return this.data.timelines[this.selectedTimelineIndex] ?? this.data.timelines[0];
-  }
 }
 
-function parseShortcut(shortcut: string | false | undefined): ShortcutDescriptor | null {
-  if (shortcut === false || shortcut === undefined || shortcut.trim() === "") {
-    return null;
-  }
-
-  const tokens = shortcut.split("+").map((token) => token.trim().toLowerCase()).filter(Boolean);
-  if (tokens.length === 0) {
-    return null;
-  }
-
-  const descriptor: ShortcutDescriptor = {
-    key: "",
-    ctrlKey: false,
-    metaKey: false,
-    shiftKey: false,
-    altKey: false,
-  };
-
-  for (const token of tokens) {
-    switch (token) {
-      case "ctrl":
-      case "control":
-        descriptor.ctrlKey = true;
-        break;
-      case "cmd":
-      case "command":
-      case "meta":
-        descriptor.metaKey = true;
-        break;
-      case "shift":
-        descriptor.shiftKey = true;
-        break;
-      case "alt":
-      case "option":
-        descriptor.altKey = true;
-        break;
-      default:
-        descriptor.key = token;
-        break;
-    }
-  }
-
-  if (descriptor.key === "") {
-    throw new Error("shortcut must include a non-modifier key.");
-  }
-
-  return descriptor;
-}
-
-function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): boolean {
-  return (
-    event.key.toLowerCase() === shortcut.key &&
-    event.ctrlKey === shortcut.ctrlKey &&
-    event.metaKey === shortcut.metaKey &&
-    event.shiftKey === shortcut.shiftKey &&
-    event.altKey === shortcut.altKey
-  );
-}
-
-type EditorTimelineView = ReturnType<typeof deriveEditorRenderState>["selectedTimeline"];
-type EditorTranslateView = EditorTimelineView["translateConfig"];
-
-function convertTimelineKeyframesToPercent(timeline: WebKeyframesTimeline, fallbackDuration: number): void {
-  const duration = Math.max(timeline.duration ?? fallbackDuration, 1);
-  timeline.positionType = "percent";
-  delete timeline.duration;
-  timeline.keyframes = timeline.keyframes.map((keyframe) => {
-    const nextKeyframe = cloneSparseKeyframe(keyframe);
-    const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / duration) * 100 : 0;
-    applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
-    return nextKeyframe;
-  });
-}
-
-function convertTimelineKeyframesToTime(timeline: WebKeyframesTimeline, nextDuration: number): void {
-  timeline.positionType = "time";
-  timeline.duration = Math.max(1, Math.round(nextDuration));
-  timeline.keyframes = timeline.keyframes.map((keyframe) => {
-    const nextKeyframe = cloneSparseKeyframe(keyframe);
-    const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
-    applyEditorKeyframePosition(
-      nextKeyframe,
-      "time",
-      clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
-    );
-    return nextKeyframe;
-  });
-}
-
-function clampTimelineKeyframesToDuration(timeline: WebKeyframesTimeline): void {
-  timeline.keyframes = timeline.keyframes.map((keyframe) => {
-    const nextKeyframe = cloneSparseKeyframe(keyframe);
-    applyEditorKeyframePosition(
-      nextKeyframe,
-      "time",
-      clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
-    );
-    return nextKeyframe;
-  });
-}
-
-function formatTimelineSummary(timeline: EditorTimelineView): string {
-  return `${timeline.keyframes.length} keyframes`;
-}
-
-function formatTimelinePositionSummary(timeline: EditorTimelineView): string {
-  return timeline.positionType === "time"
-    ? `${String(timeline.duration ?? 1)}ms`
-    : "percent mode";
-}
-
-function formatKeyframeSummary(
-  keyframe: WebKeyframesTimeline["keyframes"][number],
-  translateConfig: EditorTranslateView,
-): string {
-  const parts: string[] = [];
-  const transformState = hasKeyframeProperty(keyframe, "transform");
-  const transforms = transformState ? getTransformOperations(keyframe) : [];
-  const opacity = getOpacityValue(keyframe);
-
-  if (transformState) {
-    parts.push(
-      transforms.length > 0
-        ? transforms.map((transform) => formatTransformSummary(transform, translateConfig)).join(" ")
-        : "transform: none",
-    );
-  }
-
-  if (typeof opacity === "number" && Number.isFinite(opacity)) {
-    parts.push(`opacity ${formatNumber(opacity)}`);
-  }
-
-  if (typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== "") {
-    parts.push(`timingFunction ${keyframe.timingFunction.trim()}`);
-  }
-
-  return parts.join(", ");
-}
-
-function formatTransformSummary(transform: TransformOperation, translateConfig: EditorTranslateView): string {
-  switch (transform.kind) {
-    case "translate":
-      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
-    case "scale":
-      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
-    case "rotate":
-      return `rotate(${formatNumber(transform.value)}deg)`;
-    case "skew":
-      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
-  }
-}
-
-function formatSummaryTranslateValue(value: number, translateConfig: EditorTranslateView): string {
-  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit || "px" : translateConfig.unit;
-  return `${formatNumber(value)}${unit}`;
-}
-
-function formatKeyframePositionLabel(
-  keyframe: WebKeyframe,
-  timeline: EditorTimelineView,
-): string {
-  return timeline.positionType === "time"
-    ? `${formatNumber(keyframe.time ?? 0)}ms`
-    : `${formatNumber(keyframe.percent ?? 0)}%`;
-}
-
-function formatKeyframeSecondaryLabel(
-  keyframe: WebKeyframe,
-  timeline: EditorTimelineView,
-): string {
-  if (timeline.positionType === "time") {
-    const safeDuration = (timeline.duration ?? 1) <= 0 ? 1 : (timeline.duration ?? 1);
-    return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
-  }
-
-  return "";
-}
-
-function formatSelectedKeyframeSubtitle(
-  keyframe: WebKeyframe,
-  timeline: EditorTimelineView,
-): string {
-  if (timeline.positionType === "time") {
-    return `${formatKeyframeSecondaryLabel(keyframe, timeline)} of timeline`;
-  }
-
-  return `${formatNumber(keyframe.percent ?? 0)}% of timeline`;
-}
-
-function renderTextField(field: string, label: string, value: string): string {
-  return `
-    <label class="wkf__field">
-      <span class="wkf__label">${escapeHtml(label)}</span>
-      <input class="wkf__input" type="text" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(value)}">
-    </label>
-  `;
-}
-
-function renderTimingFunctionPresets(): string {
-  return `
-    <div class="wkf__field wkf__field--full">
-      <span class="wkf__label">Insert Preset</span>
-      <div class="wkf__inline-actions wkf__inline-actions--wrap">
-        ${TIMING_FUNCTION_PRESETS.map(
-          (value) =>
-            `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="set-timing-function" data-wkf-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`,
-        ).join("")}
-        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="clear-timing-function">Clear</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderSelectField(
-  field: string,
-  label: string,
-  value: string,
-  options: Array<{ value: string; label: string }>,
-): string {
-  return `
-    <label class="wkf__field">
-      <span class="wkf__label">${escapeHtml(label)}</span>
-      <select class="wkf__input" data-wkf-field="${escapeHtml(field)}">
-        ${options
-          .map(
-            (option) =>
-              `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`,
-          )
-          .join("")}
-      </select>
-    </label>
-  `;
-}
-
-function captureFocusSnapshot(
-  container: HTMLElement | null,
-  field: string,
-  input: HTMLInputElement | HTMLSelectElement,
-): FocusSnapshot {
-  const inputs = container?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`) ?? [];
-  const index = Math.max(0, Array.from(inputs).indexOf(input));
-
-  return {
-    field,
-    index,
-    selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
-    selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
-  };
-}
-
-function syncNumberFieldValues(
-  container: HTMLElement | null,
-  field: string,
-  value: number,
-  source: HTMLInputElement,
-): void {
-  container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-    if (input === source) {
-      return;
-    }
-
-    input.value = String(value);
-  });
-}
-
-function renderNumberField(
-  field: string,
-  label: string,
-  value: number,
-  min?: number,
-  step?: number,
-  max?: number,
-): string {
-  return `
-    <label class="wkf__field">
-      <span class="wkf__label">${escapeHtml(label)}</span>
-      <input
-        class="wkf__input"
-        type="number"
-        data-wkf-field="${escapeHtml(field)}"
-        value="${escapeHtml(String(value))}"
-        ${min !== undefined ? `min="${min}"` : ""}
-        ${max !== undefined ? `max="${max}"` : ""}
-        ${step !== undefined ? `step="${step}"` : ""}
-      >
-    </label>
-  `;
-}
-
-function renderBoundedNumberField(
-  field: string,
-  label: string,
-  value: number,
-  min: number,
-  step: number,
-  max: number,
-): string {
-  return `
-    <div class="wkf__field wkf__field--full">
-      <span class="wkf__label">${escapeHtml(label)}</span>
-      <div class="wkf__time-row">
-        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-      </div>
-    </div>
-  `;
-}
-
-function renderRangeField(
-  field: string,
-  label: string,
-  value: number,
-  min: number,
-  max: number,
-  step: number,
-  suffix = "",
-): string {
-  return `
-    <div class="wkf__field wkf__field--time">
-      <span class="wkf__label">${escapeHtml(label)}</span>
-      <div class="wkf__time-row">
-        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-      </div>
-      ${suffix !== "" ? `<span class="wkf__subtitle">${escapeHtml(suffix)}</span>` : ""}
-    </div>
-  `;
-}
-
-function renderTransformEditor(transform: TransformOperation, index: number, total: number): string {
-  return `
-    <div class="wkf__field">
-      <div class="wkf__section-head">
-        <div class="wkf__inline-actions">
-          ${renderSelectField(`transform-kind-${index}`, `Transform ${index + 1}`, transform.kind, [
-            { value: "translate", label: "translate" },
-            { value: "scale", label: "scale" },
-            { value: "rotate", label: "rotate" },
-            { value: "skew", label: "skew" },
-          ])}
-        </div>
-        <div class="wkf__inline-actions">
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-up" data-wkf-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="move-transform-down" data-wkf-index="${index}" ${index === total - 1 ? "disabled" : ""}>Down</button>
-          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-transform" data-wkf-index="${index}">Delete</button>
-        </div>
-      </div>
-      <div class="wkf__grid wkf__grid--editor">
-        ${renderTransformFields(transform, index)}
-      </div>
-    </div>
-  `;
-}
-
-function renderTransformFields(transform: TransformOperation, index: number): string {
-  switch (transform.kind) {
-    case "translate":
-      return `${renderNumberField(`transform-x-${index}`, "X", transform.x)}${renderNumberField(`transform-y-${index}`, "Y", transform.y)}`;
-    case "scale":
-      return `${renderNumberField(`transform-x-${index}`, "Scale X", transform.x, 0.001, 0.001)}${renderNumberField(`transform-y-${index}`, "Scale Y", transform.y, 0.001, 0.001)}`;
-    case "rotate":
-      return renderNumberField(`transform-value-${index}`, "Rotate", transform.value, undefined, 0.1);
-    case "skew":
-      return `${renderNumberField(`transform-x-${index}`, "Skew X", transform.x, undefined, 0.1)}${renderNumberField(`transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1)}`;
-  }
-}
-
-function applyPreview(
-  ownerDocument: Document,
-  timeline: WebKeyframesTimeline,
-): ActivePreview {
-  const ownerWindow = ownerDocument.defaultView;
-  if (!ownerWindow) {
-    throw new Error("Preview is not available in this environment.");
-  }
-
-  const normalizedTimeline = normalizeWebKeyframesTimeline(timeline);
-  const targets = findPreviewTargets(ownerDocument, normalizedTimeline.id);
-  if (targets.length === 0) {
-    throw new Error(`No elements using animation-name "${normalizedTimeline.id}" were found.`);
-  }
-
-  const previewName = `${normalizedTimeline.id}__wkf_preview`;
-  const styleElement = ensurePreviewStyleElement(ownerDocument);
-  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.id);
-
-  const appliedTargets = targets.map((element) => ({
-    element,
-    inlineAnimationName: element.style.animationName,
-  }));
-
-  for (const target of appliedTargets) {
-    const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
-    const nextAnimationName = replaceAnimationName(computedAnimationName, normalizedTimeline.id, previewName);
-    target.element.style.animationName = "none";
-    void target.element.offsetWidth;
-    target.element.style.animationName = nextAnimationName;
-  }
-
-  return {
-    styleElement,
-    targets: appliedTargets,
-  };
-}
-
-function clearAppliedPreview(activePreview: ActivePreview | null): void {
-  if (activePreview === null) {
-    return;
-  }
-
-  for (const target of activePreview.targets) {
-    target.element.style.animationName = target.inlineAnimationName;
-  }
-
-  activePreview.styleElement.remove();
-}
-
-function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
-  const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
-  if (existing) {
-    return existing;
-  }
-
-  const styleElement = ownerDocument.createElement("style");
-  styleElement.dataset.wkfPreview = "true";
-  ownerDocument.head.append(styleElement);
-  return styleElement;
-}
-
-function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
-  const ownerWindow = ownerDocument.defaultView;
-  if (!ownerWindow) {
-    return [];
-  }
-
-  return Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) => {
-    const names = ownerWindow.getComputedStyle(element).animationName;
-    return splitAnimationNames(names).includes(animationName);
-  });
-}
-
-function splitAnimationNames(value: string): string[] {
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part !== "" && part !== "none");
-}
-
-function replaceAnimationName(value: string, currentName: string, nextName: string): string {
-  const names = splitAnimationNames(value);
-  if (names.length === 0) {
-    return nextName;
-  }
-
-  return names.map((name) => (name === currentName ? nextName : name)).join(", ");
-}
-
-function generatePreviewCssText(timeline: WebKeyframesTimeline, previewName: string, currentName: string): string {
-  const css = generateCss({ timelines: [timeline] });
-  if (previewName === currentName) {
-    return css;
-  }
-
-  return css.replace(/^@keyframes\s+[^\s{]+\s+\{/, `@keyframes ${previewName} {`);
-}
-
-async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {
-  const clipboard = windowObject?.navigator?.clipboard;
-
-  if (!clipboard?.writeText) {
-    throw new Error("Clipboard API is not available.");
-  }
-
-  await clipboard.writeText(text);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
+function renderStateKeyframeLength(state: ReturnType<typeof createEditorState>): number {
+  return state.data.timelines[state.selectedTimelineIndex]?.keyframes.length ?? 0;
 }

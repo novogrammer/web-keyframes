@@ -1,0 +1,198 @@
+import { generateCss } from "../core/generateCss.js";
+import { normalizeWebKeyframesTimeline } from "../core/normalize.js";
+import type { WebKeyframesTimeline } from "../core/types.js";
+import { type EditorState, clearPreviewPanel, getSelectedTimeline, setPreviewPanel, setStatus } from "./editorStateController.js";
+
+type PreviewTargetState = {
+  element: HTMLElement;
+  inlineAnimationName: string;
+};
+
+export type ActivePreview = {
+  styleElement: HTMLStyleElement;
+  targets: PreviewTargetState[];
+};
+
+export function createEditorPreviewController(
+  root: HTMLElement,
+  state: EditorState,
+  getJson: () => string,
+  getCss: () => string,
+): {
+  copyPayload: (kind: "json" | "css") => Promise<void>;
+  openGeneratedPreview: (kind: "json" | "css") => void;
+  closePreview: (message: string) => void;
+  runPreview: () => void;
+  resetAppliedPreview: () => void;
+  disposeAppliedPreview: () => void;
+} {
+  return {
+    copyPayload: async (kind) => {
+      try {
+        const text = kind === "json" ? getJson() : getCss();
+        await writeClipboardText(root.ownerDocument.defaultView, text);
+        setStatus(state, "success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(state, "error", message);
+      }
+    },
+    openGeneratedPreview: (kind) => {
+      try {
+        setPreviewPanel(
+          state,
+          kind === "json" ? "JSON Preview" : "CSS Preview",
+          kind === "json" ? getJson() : getCss(),
+        );
+        setStatus(state, "success", `Opened ${(kind === "json" ? "JSON Preview" : "CSS Preview").toLowerCase()}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        clearPreviewPanel(state);
+        setStatus(state, "error", message);
+      }
+    },
+    closePreview: (message) => {
+      clearPreviewPanel(state);
+      setStatus(state, "info", message);
+    },
+    runPreview: () => {
+      try {
+        const timeline = getSelectedTimeline(state);
+        const ownerDocument = root.ownerDocument;
+        clearAppliedPreview(state.activePreview);
+        state.activePreview = applyPreview(ownerDocument, timeline);
+        setStatus(
+          state,
+          "success",
+          `Applied preview to ${state.activePreview.targets.length} element${state.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(state, "error", message);
+      }
+    },
+    resetAppliedPreview: () => {
+      if (state.activePreview === null) {
+        setStatus(state, "info", "Preview is not active.");
+        return;
+      }
+
+      clearAppliedPreview(state.activePreview);
+      state.activePreview = null;
+      setStatus(state, "success", "Reset preview.");
+    },
+    disposeAppliedPreview: () => {
+      clearAppliedPreview(state.activePreview);
+      state.activePreview = null;
+    },
+  };
+}
+
+function applyPreview(
+  ownerDocument: Document,
+  timeline: WebKeyframesTimeline,
+): ActivePreview {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    throw new Error("Preview is not available in this environment.");
+  }
+
+  const normalizedTimeline = normalizeWebKeyframesTimeline(timeline);
+  const targets = findPreviewTargets(ownerDocument, normalizedTimeline.id);
+  if (targets.length === 0) {
+    throw new Error(`No elements using animation-name "${normalizedTimeline.id}" were found.`);
+  }
+
+  const previewName = `${normalizedTimeline.id}__wkf_preview`;
+  const styleElement = ensurePreviewStyleElement(ownerDocument);
+  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.id);
+
+  const appliedTargets = targets.map((element) => ({
+    element,
+    inlineAnimationName: element.style.animationName,
+  }));
+
+  for (const target of appliedTargets) {
+    const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
+    const nextAnimationName = replaceAnimationName(computedAnimationName, normalizedTimeline.id, previewName);
+    target.element.style.animationName = "none";
+    void target.element.offsetWidth;
+    target.element.style.animationName = nextAnimationName;
+  }
+
+  return {
+    styleElement,
+    targets: appliedTargets,
+  };
+}
+
+function clearAppliedPreview(activePreview: ActivePreview | null): void {
+  if (activePreview === null) {
+    return;
+  }
+
+  for (const target of activePreview.targets) {
+    target.element.style.animationName = target.inlineAnimationName;
+  }
+
+  activePreview.styleElement.remove();
+}
+
+function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
+  const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
+  if (existing) {
+    return existing;
+  }
+
+  const styleElement = ownerDocument.createElement("style");
+  styleElement.dataset.wkfPreview = "true";
+  ownerDocument.head.append(styleElement);
+  return styleElement;
+}
+
+function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    return [];
+  }
+
+  return Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) => {
+    const names = ownerWindow.getComputedStyle(element).animationName;
+    return splitAnimationNames(names).includes(animationName);
+  });
+}
+
+function splitAnimationNames(value: string): string[] {
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && part !== "none");
+}
+
+function replaceAnimationName(value: string, currentName: string, nextName: string): string {
+  const names = splitAnimationNames(value);
+  if (names.length === 0) {
+    return nextName;
+  }
+
+  return names.map((name) => (name === currentName ? nextName : name)).join(", ");
+}
+
+function generatePreviewCssText(timeline: WebKeyframesTimeline, previewName: string, currentName: string): string {
+  const css = generateCss({ timelines: [timeline] });
+  if (previewName === currentName) {
+    return css;
+  }
+
+  return css.replace(/^@keyframes\s+[^\s{]+\s+\{/, `@keyframes ${previewName} {`);
+}
+
+async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {
+  const clipboard = windowObject?.navigator?.clipboard;
+
+  if (!clipboard?.writeText) {
+    throw new Error("Clipboard API is not available.");
+  }
+
+  await clipboard.writeText(text);
+}
