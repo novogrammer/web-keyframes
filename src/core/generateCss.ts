@@ -1,44 +1,33 @@
 import { formatCss } from "./formatCss.js";
 import {
-  getKeyframePositionValue,
   getOpacityProperty,
-  getTimelinePositionType,
   getTransformProperty,
   normalizeWebKeyframesDocument,
-  normalizeWebKeyframesTimeline,
 } from "./normalize.js";
-import { validateWebKeyframesDocument } from "./validate.js";
 import type {
   NormalizedTranslateConfig,
+  NormalizedWebKeyframesTimeline,
   TransformOperation,
   WebKeyframesDocument,
-  WebKeyframesTimeline,
 } from "./types.js";
 
 export function generateCss(data: WebKeyframesDocument): string {
-  const validated = validateWebKeyframesDocument(data);
   const normalized = normalizeWebKeyframesDocument(data);
 
   return formatCss(
-    validated.timelines.map((timeline, index) => renderTimelineCss(timeline, normalized.timelines[index])),
+    normalized.timelines.map((timeline) => renderTimelineCss(timeline)),
   );
 }
 
 function renderTimelineCss(
-  validated: WebKeyframesTimeline,
-  normalized: ReturnType<typeof normalizeWebKeyframesTimeline>,
+  normalized: NormalizedWebKeyframesTimeline,
 ): string {
-  const positionType = getTimelinePositionType(validated);
-  const keyframesByTime = [...validated.keyframes].sort(
-    (left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType),
-  );
-
-  const keyframeBlocks = keyframesByTime.map((keyframe, index) => {
-    const percent = formatPercent(normalized.keyframes[index].percent);
+  const keyframeBlocks = normalized.keyframes.map((keyframe) => {
+    const percent = formatPercent(keyframe.percent);
     const lines = [`  ${percent} {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);
-    const timingFunction = typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() : "";
+    const timingFunction = keyframe.timingFunction?.trim() ?? "";
 
     if (transformProperty) {
       lines.push(
