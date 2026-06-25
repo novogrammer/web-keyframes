@@ -39,6 +39,16 @@ import {
   roundEditorPosition,
   sanitizeEditorDocument,
 } from "./editorModel.js";
+import {
+  applyPanelPosition,
+  beginPanelDrag,
+  captureFocusSnapshot,
+  type FocusSnapshot,
+  finishPanelDrag,
+  restoreFocusSnapshot,
+  syncNumberFieldValues,
+  updatePanelDrag,
+} from "./editorInteraction.js";
 import { renderEditorPanel } from "./editorView.js";
 
 type WebKeyframesEditorOptions = {
@@ -92,13 +102,6 @@ type ShortcutDescriptor = {
   altKey: boolean;
 };
 
-type FocusSnapshot = {
-  field: string;
-  index: number;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-};
-
 type PanelPosition = {
   left: number;
   top: number;
@@ -118,9 +121,6 @@ type ActivePreview = {
   styleElement: HTMLStyleElement;
   targets: PreviewTargetState[];
 };
-
-const PANEL_MIN_VISIBLE_X = 72;
-const PANEL_MIN_VISIBLE_Y = 56;
 
 export class WebKeyframesEditor {
   private readonly root: HTMLElement | ShadowRoot;
@@ -1051,29 +1051,7 @@ export class WebKeyframesEditor {
   }
 
   private restoreFocus(): void {
-    if (this.container === null || this.pendingFocus === null) {
-      return;
-    }
-
-    const selector = `[data-wkf-field='${this.pendingFocus.field}']`;
-    const inputs = this.container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(selector);
-    const input = inputs[this.pendingFocus.index];
-    if (!input) {
-      this.pendingFocus = null;
-      return;
-    }
-
-    input.focus();
-    if (
-      input instanceof HTMLInputElement &&
-      this.pendingFocus.selectionStart !== null &&
-      this.pendingFocus.selectionEnd !== null &&
-      typeof input.setSelectionRange === "function"
-    ) {
-      input.setSelectionRange(this.pendingFocus.selectionStart, this.pendingFocus.selectionEnd);
-    }
-
-    this.pendingFocus = null;
+    this.pendingFocus = restoreFocusSnapshot(this.container, this.pendingFocus);
   }
 
   private notifyDataChangeIfNeeded(): void {
@@ -1091,57 +1069,26 @@ export class WebKeyframesEditor {
   }
 
   private startDragging(event: MouseEvent): void {
-    if (event.button !== 0) {
-      return;
-    }
-
-    const target = event.target;
-    if (
-      target instanceof Element &&
-      target.closest("[data-wkf-no-drag='true'], button, input, select, textarea, label")
-    ) {
-      return;
-    }
-
-    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
     const ownerWindow = this.root.ownerDocument.defaultView;
-    if (!panel || !ownerWindow) {
+    const session = beginPanelDrag(this.container, ownerWindow, event);
+    if (!session || !ownerWindow) {
       return;
     }
 
-    const rect = panel.getBoundingClientRect();
-    this.panelPosition = { left: rect.left, top: rect.top };
-    this.dragState = {
-      pointerOffsetX: event.clientX - rect.left,
-      pointerOffsetY: event.clientY - rect.top,
-    };
-
-    panel.classList.add("wkf__panel--dragging");
+    this.panelPosition = session.panelPosition;
+    this.dragState = session.dragState;
     ownerWindow.addEventListener("mousemove", this.handleDragMove);
     ownerWindow.addEventListener("mouseup", this.handleDragEnd);
-    event.preventDefault();
   }
 
   private updateDragPosition(event: MouseEvent): void {
-    if (this.dragState === null || this.container === null) {
-      return;
-    }
-
-    const panel = this.container.querySelector<HTMLElement>(".wkf__panel");
     const ownerWindow = this.root.ownerDocument.defaultView;
-    if (!panel || !ownerWindow) {
+    const panelPosition = updatePanelDrag(this.container, ownerWindow, this.dragState, event);
+    if (panelPosition === null) {
       return;
     }
 
-    const rect = panel.getBoundingClientRect();
-    const minLeft = Math.min(0, PANEL_MIN_VISIBLE_X - rect.width);
-    const maxLeft = Math.max(0, ownerWindow.innerWidth - PANEL_MIN_VISIBLE_X);
-    const minTop = Math.min(0, PANEL_MIN_VISIBLE_Y - rect.height);
-    const maxTop = Math.max(0, ownerWindow.innerHeight - PANEL_MIN_VISIBLE_Y);
-    this.panelPosition = {
-      left: clampNumber(event.clientX - this.dragState.pointerOffsetX, minLeft, maxLeft),
-      top: clampNumber(event.clientY - this.dragState.pointerOffsetY, minTop, maxTop),
-    };
+    this.panelPosition = panelPosition;
     this.applyPanelPosition();
   }
 
@@ -1152,28 +1099,12 @@ export class WebKeyframesEditor {
       ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
     }
 
-    this.container?.querySelector<HTMLElement>(".wkf__panel")?.classList.remove("wkf__panel--dragging");
+    finishPanelDrag(this.container);
     this.dragState = null;
   }
 
   private applyPanelPosition(): void {
-    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
-    if (!panel) {
-      return;
-    }
-
-    if (this.panelPosition === null) {
-      panel.style.left = "";
-      panel.style.top = "";
-      panel.style.bottom = "";
-      panel.style.transform = "";
-      return;
-    }
-
-    panel.style.left = `${this.panelPosition.left}px`;
-    panel.style.top = `${this.panelPosition.top}px`;
-    panel.style.bottom = "auto";
-    panel.style.transform = "none";
+    applyPanelPosition(this.container, this.panelPosition);
   }
 
   private getSelectedTimeline(): WebKeyframesTimeline {
@@ -1283,37 +1214,6 @@ function clampTimelineKeyframesToDuration(timeline: WebKeyframesTimeline): void 
       clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
     );
     return nextKeyframe;
-  });
-}
-
-function captureFocusSnapshot(
-  container: HTMLElement | null,
-  field: string,
-  input: HTMLInputElement | HTMLSelectElement,
-): FocusSnapshot {
-  const inputs = container?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`) ?? [];
-  const index = Math.max(0, Array.from(inputs).indexOf(input));
-
-  return {
-    field,
-    index,
-    selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
-    selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
-  };
-}
-
-function syncNumberFieldValues(
-  container: HTMLElement | null,
-  field: string,
-  value: number,
-  source: HTMLInputElement,
-): void {
-  container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-    if (input === source) {
-      return;
-    }
-
-    input.value = String(value);
   });
 }
 
