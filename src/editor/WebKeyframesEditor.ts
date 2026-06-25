@@ -244,8 +244,7 @@ export class WebKeyframesEditor {
 
   setData(data: WebKeyframesDocument): void {
     this.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
-    this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+    this.normalizeEditorState();
     if (this.container !== null) {
       this.render();
     }
@@ -610,7 +609,7 @@ export class WebKeyframesEditor {
     this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-timeline']").forEach((button) => {
       button.addEventListener("click", () => {
         this.selectedTimelineIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.data.timelines.length);
-        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+        this.normalizeEditorState();
         this.render();
       });
     });
@@ -624,8 +623,7 @@ export class WebKeyframesEditor {
       }, DEFAULT_TIMELINE_DATA);
       this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
       this.selectedKeyframeIndex = 0;
-      this.setStatus("info", "Added timeline.");
-      this.render();
+      this.renderWithStatus("info", "Added timeline.");
     });
 
     this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-timeline']")?.addEventListener("click", () => {
@@ -635,9 +633,8 @@ export class WebKeyframesEditor {
       timelines.splice(this.selectedTimelineIndex + 1, 0, duplicate);
       this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
       this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-      this.setStatus("info", "Duplicated timeline.");
-      this.render();
+      this.normalizeEditorState();
+      this.renderWithStatus("info", "Duplicated timeline.");
     });
 
     this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-timeline']")?.addEventListener("click", () => {
@@ -647,10 +644,8 @@ export class WebKeyframesEditor {
 
       const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
       this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-      this.setStatus("info", "Deleted timeline.");
-      this.render();
+      this.normalizeEditorState();
+      this.renderWithStatus("info", "Deleted timeline.");
     });
   }
 
@@ -674,7 +669,7 @@ export class WebKeyframesEditor {
 
         convertTimelineKeyframesToTime(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1200);
       });
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+      this.normalizeEditorState();
     });
     this.bindInputValue("translateCustomUnit", (value) => {
       this.updateSelectedTimeline((timeline) => {
@@ -701,7 +696,7 @@ export class WebKeyframesEditor {
         timeline.duration = Math.max(1, Math.round(value));
         clampTimelineKeyframesToDuration(timeline);
       });
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+      this.normalizeEditorState();
     });
   }
 
@@ -989,8 +984,7 @@ export class WebKeyframesEditor {
         );
         this.selectedKeyframeIndex = timeline.keyframes.indexOf(duplicate);
       });
-      this.setStatus("info", "Duplicated selected keyframe.");
-      this.render();
+      this.renderWithStatus("info", "Duplicated selected keyframe.");
     });
   }
 
@@ -1054,9 +1048,7 @@ export class WebKeyframesEditor {
   private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
     const timeline = this.getSelectedTimeline();
     update(timeline);
-    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
-    this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+    this.normalizeEditorState();
   }
 
   private updateSelectedTimelineKeyframes(
@@ -1068,8 +1060,7 @@ export class WebKeyframesEditor {
 
     update(keyframes, timeline);
     timeline.keyframes = keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
-    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+    this.normalizeEditorState();
     this.setStatus("info", "Editing timeline data.");
     if (shouldRender) {
       this.render();
@@ -1126,6 +1117,17 @@ export class WebKeyframesEditor {
   private setStatus(tone: "info" | "success" | "error", message: string): void {
     this.statusTone = tone;
     this.statusMessage = message;
+  }
+
+  private renderWithStatus(tone: "info" | "success" | "error", message: string): void {
+    this.setStatus(tone, message);
+    this.render();
+  }
+
+  private normalizeEditorState(): void {
+    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
+    this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
+    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
   }
 
   private reset(): void {
