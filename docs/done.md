@@ -41,6 +41,7 @@
 - `timingFunction` の入力 UI は、構造化フォームではなく text を主にしてプリセットボタンで補助する形にした。
 - keyframe 追加時は既存値を複製せず、`properties: []` の空状態から編集を始めるようにした。
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
+- editor UI の Lit 化を検討したが、現段階では導入しない判断にした。
 
 ## Examples
 
