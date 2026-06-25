@@ -90,7 +90,7 @@ matches the selected timeline `id`.
 
 When matches are found, the editor:
 
-- generates browser-safe preview CSS with a temporary keyframes name
+- generates the same keyframe CSS as export, but under a temporary keyframes name
 - injects one preview `<style>` tag at the end of `<head>`
 - temporarily swaps matching elements to that preview animation name so the animation reruns
 
@@ -190,13 +190,13 @@ Each input file may contain one or more timelines. When the input is a directory
 ```css
 @keyframes hero-logo {
   0% {
-    transform: translate(global.vw(0px), global.vw(40px)) scale(1, 1) rotate(0deg);
+    transform: translate(0px, 40px) scale(1, 1) rotate(0deg);
     opacity: 0;
     animation-timing-function: ease-out;
   }
 
   100% {
-    transform: translate(global.vw(0px), global.vw(0px)) scale(1, 1) rotate(0deg);
+    transform: translate(0px, 0px) scale(1, 1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -207,7 +207,7 @@ Transform array order is preserved exactly in both `generateCss()` and `generate
 `scale` always stores `x` and `y`, and CSS output always uses `scale(x, y)`.
 `timingFunction` is passed through as-is, so values like `ease`, `linear`, `cubic-bezier(...)`, and `steps(...)` are all valid.
 `generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
-`generatePreviewCss()` emits browser-safe preview CSS.
+`generatePreviewCss()` emits the same declarations as `generateTimelineCss()`, using a temporary keyframes name for preview replay.
 
 ## Development
 

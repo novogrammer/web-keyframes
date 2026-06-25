@@ -49,7 +49,7 @@ function renderTimelineCss(
     if (transformProperty) {
       lines.push(
         transformProperty.value.length > 0
-          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translateConfig, false)).join(" ")};`
+          ? `    transform: ${transformProperty.value.map((item) => renderTransform(item, normalized.translateConfig)).join(" ")};`
           : "    transform: none;",
       );
     }
@@ -72,11 +72,10 @@ function renderTimelineCss(
 export function renderTransform(
   transform: TransformOperation,
   translate: NormalizedTranslateConfig,
-  previewMode: boolean,
 ): string {
   switch (transform.kind) {
     case "translate":
-      return `translate(${renderTranslateValue(transform.x, translate, previewMode)}, ${renderTranslateValue(transform.y, translate, previewMode)})`;
+      return `translate(${renderTranslateValue(transform.x, translate)}, ${renderTranslateValue(transform.y, translate)})`;
     case "scale":
       return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
     case "rotate":
@@ -89,10 +88,8 @@ export function renderTransform(
 function renderTranslateValue(
   value: number,
   translateConfig: NormalizedTranslateConfig,
-  previewMode: boolean,
 ): string {
   const unit = translateConfig.unit === "custom" ? translateConfig.customUnit ?? "px" : translateConfig.unit;
-  void previewMode;
   return `${formatNumber(value)}${unit}`;
 }
 

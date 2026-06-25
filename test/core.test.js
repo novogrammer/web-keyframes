@@ -116,13 +116,17 @@ test("generateCss supports direct units", () => {
   assert.match(css, /translate\(0vw, 40vw\)/);
 });
 
-test("generatePreviewCss emits browser-safe transforms", () => {
-  const css = generatePreviewCss({
+test("generatePreviewCss matches timeline CSS except for the temporary animation name", () => {
+  const timelineCss = generateCss({ timelines: [baseTimeline] });
+  const previewCss = generatePreviewCss({
     ...baseTimeline,
   }, "hero-logo__wkf_preview");
 
-  assert.match(css, /@keyframes hero-logo__wkf_preview/);
-  assert.match(css, /translate\(0px, 40px\)/);
+  assert.match(previewCss, /@keyframes hero-logo__wkf_preview/);
+  assert.equal(
+    previewCss,
+    timelineCss.replace("@keyframes hero-logo {", "@keyframes hero-logo__wkf_preview {"),
+  );
 });
 
 test("generateCss allows empty keyframe lists", () => {
