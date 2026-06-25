@@ -1,6 +1,4 @@
-import { generateCss } from "../core/generateCss.js";
 import {
-  cloneDocument,
   cloneTimeline,
   createOpacityProperty,
   createTransformProperty,
@@ -12,15 +10,14 @@ import type {
   WebKeyframesTimeline,
 } from "../core/types.js";
 import {
-  clampIndex,
   deriveEditorRenderState,
-  sanitizeEditorDocument,
 } from "./editorModel.js";
 import {
   selectKeyframeIndex,
   selectTimelineIndex,
 } from "./editorCollectionActions.js";
 import { EditorCollectionController } from "./editorCollectionController.js";
+import { EditorDataController } from "./editorDataController.js";
 import {
   type FocusSnapshot,
   restoreFocusSnapshot,
@@ -97,6 +94,7 @@ export class WebKeyframesEditor {
   private readonly onDataChange: ((data: WebKeyframesDocument) => void) | null;
   private readonly lifecycleController: EditorLifecycleController;
   private readonly dragController: EditorDragController;
+  private readonly dataController: EditorDataController;
   private readonly inputController: EditorInputController;
   private readonly collectionController: EditorCollectionController;
   private readonly stateController: EditorStateController;
@@ -122,10 +120,10 @@ export class WebKeyframesEditor {
     }
 
     this.root = options.root;
-    this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
-    this.data = cloneDocument(this.initialData);
+    this.initialData = options.initialData ?? DEFAULT_EDITOR_DATA;
+    this.data = this.initialData;
     this.onDataChange = options.onDataChange ?? null;
-    this.lastNotifiedDataJson = JSON.stringify(this.data);
+    this.lastNotifiedDataJson = JSON.stringify(this.initialData);
     this.lifecycleController = new EditorLifecycleController({
       root: this.root,
       createContainer: (ownerDocument) => createEditorContainer(ownerDocument),
@@ -139,6 +137,27 @@ export class WebKeyframesEditor {
       getContainer: () => this.lifecycleController.getContainer(),
       getOwnerWindow: () => this.root.ownerDocument.defaultView,
     });
+    this.dataController = new EditorDataController({
+      defaultTimelineData: DEFAULT_TIMELINE_DATA,
+      getData: () => this.data,
+      setData: (data) => {
+        this.data = data;
+      },
+      getSelectedTimelineIndex: () => this.selectedTimelineIndex,
+      setSelectedTimelineIndex: (index) => {
+        this.selectedTimelineIndex = index;
+      },
+      getSelectedKeyframeIndex: () => this.selectedKeyframeIndex,
+      setSelectedKeyframeIndex: (index) => {
+        this.selectedKeyframeIndex = index;
+      },
+      getLastNotifiedDataJson: () => this.lastNotifiedDataJson,
+      setLastNotifiedDataJson: (value) => {
+        this.lastNotifiedDataJson = value;
+      },
+      onDataChange: this.onDataChange,
+    });
+    this.dataController.setData(this.initialData);
     this.inputController = new EditorInputController({
       getFieldRegistry: () => this.fieldRegistry,
       setPendingFocus: (snapshot) => {
@@ -157,7 +176,7 @@ export class WebKeyframesEditor {
       setSelectedKeyframeIndex: (index) => {
         this.selectedKeyframeIndex = index;
       },
-      normalizeEditorState: () => this.normalizeEditorState(),
+      normalizeEditorState: () => this.dataController.normalizeState(),
       render: () => this.render(),
       setStatus: (tone, message) => this.setStatus(tone, message),
     });
@@ -175,7 +194,7 @@ export class WebKeyframesEditor {
       setSelectedKeyframeIndex: (index) => {
         this.selectedKeyframeIndex = index;
       },
-      normalizeEditorState: () => this.normalizeEditorState(),
+      normalizeEditorState: () => this.dataController.normalizeState(),
       render: () => this.render(),
       renderWithStatus: (tone, message) => this.renderWithStatus(tone, message),
       stateController: this.stateController,
@@ -213,7 +232,7 @@ export class WebKeyframesEditor {
     this.timelineActions = {
       "select-timeline": (payload) => {
         this.selectedTimelineIndex = selectTimelineIndex(this.data, payload?.index ?? 0);
-        this.normalizeEditorState();
+        this.dataController.normalizeState();
         this.render();
       },
       "add-timeline": () => this.collectionController.addTimeline(),
@@ -283,24 +302,23 @@ export class WebKeyframesEditor {
   }
 
   getData(): WebKeyframesDocument {
-    return cloneDocument(this.data);
+    return this.dataController.getData();
   }
 
   setData(data: WebKeyframesDocument): void {
-    this.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
-    this.normalizeEditorState();
-    this.notifyDataChangeIfNeeded();
+    this.dataController.setData(data);
+    this.dataController.notifyDataChangeIfNeeded();
     if (this.lifecycleController.getContainer() !== null) {
       this.render();
     }
   }
 
   toJson(): string {
-    return JSON.stringify(cloneDocument(this.data), null, 2);
+    return this.dataController.getJson();
   }
 
   toCss(): string {
-    return generateCss(this.data);
+    return this.dataController.getCss();
   }
 
   private render(): void {
@@ -348,7 +366,7 @@ export class WebKeyframesEditor {
     container.replaceChildren(panel);
     this.dragController.bindHandles();
     this.dragController.applyPosition();
-    this.notifyDataChangeIfNeeded();
+    this.dataController.notifyDataChangeIfNeeded();
     queueMicrotask(() => this.restoreFocus());
   }
 
@@ -374,17 +392,9 @@ export class WebKeyframesEditor {
     this.render();
   }
 
-  private normalizeEditorState(): void {
-    this.data = sanitizeEditorDocument(this.data, DEFAULT_TIMELINE_DATA);
-    this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-    this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-  }
-
   private reset(): void {
     this.previewController.clearState();
-    this.data = cloneDocument(this.initialData);
-    this.selectedTimelineIndex = 0;
-    this.selectedKeyframeIndex = 0;
+    this.dataController.resetData(this.initialData);
     this.setStatus("success", "Reset editor data to the initial state.");
     this.render();
   }
@@ -393,22 +403,8 @@ export class WebKeyframesEditor {
     this.pendingFocus = restoreFocusSnapshot(this.fieldRegistry, this.pendingFocus);
   }
 
-  private notifyDataChangeIfNeeded(): void {
-    if (this.onDataChange === null) {
-      return;
-    }
-
-    const nextDataJson = JSON.stringify(this.data);
-    if (nextDataJson === this.lastNotifiedDataJson) {
-      return;
-    }
-
-    this.lastNotifiedDataJson = nextDataJson;
-    this.onDataChange(cloneDocument(this.data));
-  }
-
   private getSelectedTimeline(): WebKeyframesTimeline {
-    return this.data.timelines[this.selectedTimelineIndex] ?? this.data.timelines[0];
+    return this.dataController.getSelectedTimeline();
   }
 }
 

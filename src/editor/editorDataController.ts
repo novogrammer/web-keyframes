@@ -1,7 +1,7 @@
 import { generateCss } from "../core/generateCss.js";
-import { cloneDocument, sanitizeEditorDocument } from "../core/normalize.js";
+import { cloneDocument } from "../core/normalize.js";
 import type { WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
-import { clampIndex } from "./editorModel.js";
+import { clampIndex, sanitizeEditorDocument } from "./editorModel.js";
 
 type EditorDataControllerOptions = {
   defaultTimelineData: WebKeyframesTimeline;
