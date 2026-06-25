@@ -35,7 +35,6 @@ import {
   createNextKeyframe,
   createNextTimeline,
   deriveEditorRenderState,
-  findClosestKeyframeIndex,
   formatKeyframePositionLabel,
   formatKeyframeSecondaryLabel,
   formatKeyframeSummary,
@@ -975,13 +974,7 @@ export class WebKeyframesEditor {
         timeline.keyframes = [...timeline.keyframes, nextFrame].sort(
           (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
         );
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(
-          timeline,
-          timeline.keyframes,
-          positionType === "time"
-            ? ((typeof nextFrame.time === "number" ? nextFrame.time : 0) / Math.max(timeline.duration ?? 1, 1)) * 100
-            : (nextFrame.percent ?? 0),
-        );
+        this.selectedKeyframeIndex = timeline.keyframes.indexOf(nextFrame);
       });
       this.render();
     });
@@ -1016,11 +1009,7 @@ export class WebKeyframesEditor {
         timeline.keyframes = [...timeline.keyframes, duplicate].sort(
           (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
         );
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(
-          timeline,
-          timeline.keyframes,
-          positionType === "time" ? (nextPosition / Math.max(timeline.duration ?? 1, 1)) * 100 : nextPosition,
-        );
+        this.selectedKeyframeIndex = timeline.keyframes.indexOf(duplicate);
       });
       this.setStatus("info", "Duplicated selected keyframe.");
       this.render();

@@ -7,7 +7,6 @@ import {
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
-  normalizeWebKeyframesTimeline,
 } from "../core/normalize.js";
 import type {
   KeyframePositionMode,
@@ -271,26 +270,6 @@ function createEmptyKeyframe(positionType: KeyframePositionMode, position: numbe
   return positionType === "time"
     ? { time: position, properties: [] }
     : { percent: position, properties: [] };
-}
-
-export function findClosestKeyframeIndex(
-  timeline: WebKeyframesTimeline,
-  keyframes: WebKeyframesTimeline["keyframes"],
-  position: number,
-): number {
-  const positionType = getTimelinePositionType(timeline);
-  const normalized = normalizeWebKeyframesTimeline({
-    id: "preview",
-    positionType,
-    ...(positionType === "time" ? { duration: Math.max(timeline.duration ?? 1, 1) } : {}),
-    keyframes,
-  }).keyframes;
-
-  return normalized.reduce((closestIndex, keyframe, index) => {
-    const currentDistance = Math.abs(normalized[closestIndex].percent - position);
-    const nextDistance = Math.abs(keyframe.percent - position);
-    return nextDistance < currentDistance ? index : closestIndex;
-  }, 0);
 }
 
 function resolveEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
