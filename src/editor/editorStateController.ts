@@ -6,7 +6,7 @@ import {
   cloneSparseKeyframe,
   getEditorKeyframePosition,
 } from "./editorModel.js";
-import type { ActivePreview } from "./editorPreviewController.js";
+import type { ActivePreview } from "./EditorPreviewController.js";
 
 export type StatusTone = "info" | "success" | "error";
 

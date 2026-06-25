@@ -2,11 +2,11 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { deriveEditorRenderState, sanitizeEditorDocument, clampIndex } from "./editorModel.js";
-import { EditorCollectionController } from "./editorCollectionController.js";
-import { EditorKeyframePropertyController } from "./editorKeyframePropertyController.js";
-import { EditorLifecycleController } from "./editorLifecycleController.js";
-import { EditorPreviewController } from "./editorPreviewController.js";
-import { EditorSectionInputController } from "./editorSectionInputController.js";
+import { EditorCollectionController } from "./EditorCollectionController.js";
+import { EditorKeyframePropertyController } from "./EditorKeyframePropertyController.js";
+import { EditorLifecycleController } from "./EditorLifecycleController.js";
+import { EditorPreviewController } from "./EditorPreviewController.js";
+import { EditorSectionInputController } from "./EditorSectionInputController.js";
 import {
   type EditorState,
   createEditorState,
