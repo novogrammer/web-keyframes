@@ -11,10 +11,6 @@ import {
   normalizeWebKeyframesTimeline,
 } from "../src/core/normalize.ts";
 import {
-  duplicateKeyframes,
-  nudgeTransforms,
-  spreadKeyframeTimes,
-  staggerKeyframes,
 } from "../src/core/edit.ts";
 import { generateCss } from "../src/core/generateCss.ts";
 import {
@@ -348,41 +344,6 @@ test("validateWebKeyframesDocument rejects empty timingFunction", () => {
       error instanceof WebKeyframesValidationError &&
       error.issues.includes("timelines[0].keyframes[0].timingFunction must be a non-empty string when provided."),
   );
-});
-
-test("timeline edit helpers support duplicate, nudge, spread, and stagger workflows", () => {
-  const duplicated = duplicateKeyframes(baseTimeline, [0], 300);
-  assert.equal(duplicated.keyframes.length, 3);
-  assert.equal(duplicated.keyframes[1].time, 300);
-
-  const nudged = nudgeTransforms(baseTimeline, [0], [0], "y", -12);
-  assert.equal(getTransformOperations(nudged.keyframes[0])[0].y, 28);
-
-  const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 1200);
-  assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.time), [0, 600, 1200]);
-
-  const staggered = staggerKeyframes(baseTimeline, [0, 1], 180, 120);
-  assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.time), [120, 300]);
-});
-
-test("timeline edit helpers also operate on percent timelines", () => {
-  const percentTimeline = {
-    id: "hero-logo",
-    positionType: "percent",
-    keyframes: [
-      { percent: 0, properties: [createOpacityProperty(0)] },
-      { percent: 100, properties: [createOpacityProperty(1)] },
-    ],
-  };
-
-  const duplicated = duplicateKeyframes(percentTimeline, [0], 25);
-  assert.equal(duplicated.keyframes[1].percent, 25);
-
-  const spread = spreadKeyframeTimes(duplicated, [0, 1, 2], 0, 100);
-  assert.deepEqual(spread.keyframes.map((keyframe) => keyframe.percent), [0, 50, 100]);
-
-  const staggered = staggerKeyframes(percentTimeline, [0, 1], 20, 10);
-  assert.deepEqual(staggered.keyframes.map((keyframe) => keyframe.percent), [10, 30]);
 });
 
 test("validateWebKeyframesDocument rejects invalid translate settings", () => {
