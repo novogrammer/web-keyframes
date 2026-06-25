@@ -1,3 +1,5 @@
+import type { EditorFieldRegistry } from "./editorViewTypes.js";
+
 export type FocusSnapshot = {
   field: string;
   index: number;
@@ -24,12 +26,12 @@ export type EditorDragSession = {
 };
 
 export function captureFocusSnapshot(
-  container: HTMLElement | null,
+  fieldRegistry: EditorFieldRegistry | null,
   field: string,
   input: HTMLInputElement | HTMLSelectElement,
 ): FocusSnapshot {
-  const inputs = container?.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`) ?? [];
-  const index = Math.max(0, Array.from(inputs).indexOf(input));
+  const inputs = fieldRegistry?.get(field) ?? [];
+  const index = Math.max(0, inputs.indexOf(input));
 
   return {
     field,
@@ -40,15 +42,14 @@ export function captureFocusSnapshot(
 }
 
 export function restoreFocusSnapshot(
-  container: HTMLElement | null,
+  fieldRegistry: EditorFieldRegistry | null,
   snapshot: FocusSnapshot | null,
 ): FocusSnapshot | null {
-  if (container === null || snapshot === null) {
+  if (fieldRegistry === null || snapshot === null) {
     return snapshot;
   }
 
-  const selector = `[data-wkf-field='${snapshot.field}']`;
-  const inputs = container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(selector);
+  const inputs = fieldRegistry.get(snapshot.field) ?? [];
   const input = inputs[snapshot.index];
   if (!input) {
     return null;
@@ -68,12 +69,16 @@ export function restoreFocusSnapshot(
 }
 
 export function syncNumberFieldValues(
-  container: HTMLElement | null,
+  fieldRegistry: EditorFieldRegistry | null,
   field: string,
   value: number,
   source: HTMLInputElement,
 ): void {
-  container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
+  const inputs = fieldRegistry?.get(field) ?? [];
+  inputs.forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
     if (input === source) {
       return;
     }
