@@ -50,6 +50,8 @@ import {
 import type { RenderTranslateConfig, RenderWebKeyframesTimeline } from "./editorModel.js";
 import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
 import type { ActivePreview } from "./previewRuntime.js";
+import "./litDocumentShim.js";
+const { html, render } = await import("lit");
 
 export type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -138,6 +140,10 @@ export class WebKeyframesEditor {
   private readonly shortcut: ShortcutDescriptor | null;
   private readonly initialData: WebKeyframesDocument;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
+  private readonly handleContainerMouseDown: (event: MouseEvent) => void;
+  private readonly handleContainerClick: (event: MouseEvent) => void;
+  private readonly handleContainerInput: (event: Event) => void;
+  private readonly handleContainerChange: (event: Event) => void;
   private readonly handleDragMove: (event: MouseEvent) => void;
   private readonly handleDragEnd: () => void;
   private container: HTMLElement | null = null;
@@ -181,6 +187,23 @@ export class WebKeyframesEditor {
     this.handleDragEnd = () => {
       this.stopDragging();
     };
+    this.handleContainerMouseDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("[data-wkf-drag-handle='true']")) {
+        return;
+      }
+
+      this.startDragging(event);
+    };
+    this.handleContainerClick = (event) => {
+      this.onContainerClick(event);
+    };
+    this.handleContainerInput = (event) => {
+      this.onContainerInput(event);
+    };
+    this.handleContainerChange = (event) => {
+      this.onContainerChange(event);
+    };
   }
 
   mount(): void {
@@ -195,6 +218,10 @@ export class WebKeyframesEditor {
 
     this.container = container;
     this.render();
+    container.addEventListener("mousedown", this.handleContainerMouseDown);
+    container.addEventListener("click", this.handleContainerClick);
+    container.addEventListener("input", this.handleContainerInput);
+    container.addEventListener("change", this.handleContainerChange);
     this.root.append(container);
     ownerDocument.addEventListener("keydown", this.handleKeydown);
 
@@ -209,6 +236,10 @@ export class WebKeyframesEditor {
     this.disposeAppliedPreview();
     this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
+    this.container?.removeEventListener("mousedown", this.handleContainerMouseDown);
+    this.container?.removeEventListener("click", this.handleContainerClick);
+    this.container?.removeEventListener("input", this.handleContainerInput);
+    this.container?.removeEventListener("change", this.handleContainerChange);
     this.container?.remove();
     this.container = null;
     this.mounted = false;
@@ -290,7 +321,7 @@ export class WebKeyframesEditor {
     this.selectedTimelineIndex = renderState.selectedTimelineIndex;
     this.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
 
-    this.container.innerHTML = `
+    const markup = `
       <div class="wkf__panel">
         <div class="wkf__header" data-wkf-drag-handle="true">
           <div>
@@ -545,22 +576,7 @@ export class WebKeyframesEditor {
             </div>
           </div>
         </div>
-        ${
-          this.previewTitle !== null
-            ? `
-              <div class="wkf__preview">
-                <div class="wkf__preview-head">
-                  <div>
-                    <div class="wkf__section-title">${escapeHtml(this.previewTitle)}</div>
-                    <p class="wkf__subtitle">Current generated output</p>
-                  </div>
-                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
-                </div>
-                <textarea class="wkf__preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
-              </div>
-            `
-            : ""
-        }
+        <div data-wkf-preview-host="true"></div>
         <div class="wkf__footer" data-wkf-drag-handle="true">
           <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
           <div class="wkf__inline-actions">
@@ -575,202 +591,109 @@ export class WebKeyframesEditor {
       </div>
     `;
 
-    this.container.querySelector<HTMLElement>("[data-wkf-action='hide']")?.addEventListener("click", () => this.hide());
-    this.container.querySelector<HTMLElement>("[data-wkf-action='reset']")?.addEventListener("click", () => this.reset());
-
-    this.bindDragging();
-    this.bindTimelineSelection();
-    this.bindTimelineActions();
-    this.bindMetaFields();
-    this.bindKeyframeSelection();
-    this.bindKeyframeEditor();
-    this.bindTransformEditor(selectedSourceTransforms);
-    this.bindSparseKeyframeActions();
-    this.bindKeyframeActions();
-    this.bindCopyActions();
-    this.bindPreviewActions();
+    this.container.innerHTML = markup;
+    this.renderPreviewHost();
     this.applyPanelPosition();
     queueMicrotask(() => this.restoreFocus());
   }
 
-  private bindDragging(): void {
-    const handles = this.container?.querySelectorAll<HTMLElement>("[data-wkf-drag-handle='true']");
-    if (!handles || handles.length === 0) {
+  private renderPreviewHost(): void {
+    const previewHost = this.container?.querySelector<HTMLElement>("[data-wkf-preview-host='true']");
+    if (!previewHost) {
       return;
     }
 
-    handles.forEach((handle) => {
-      handle.addEventListener("mousedown", (event) => this.startDragging(event));
-    });
+    render(
+      this.previewTitle === null
+        ? html``
+        : html`
+            <div class="wkf__preview">
+              <div class="wkf__preview-head">
+                <div>
+                  <div class="wkf__section-title">${this.previewTitle}</div>
+                  <p class="wkf__subtitle">Current generated output</p>
+                </div>
+                <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
+              </div>
+              <textarea class="wkf__preview-textarea" readonly></textarea>
+            </div>
+          `,
+      previewHost,
+      { creationScope: previewHost.ownerDocument },
+    );
+
+    const previewTextarea = previewHost.querySelector<HTMLTextAreaElement>(".wkf__preview-textarea");
+    if (previewTextarea) {
+      previewTextarea.value = this.previewContent;
+    }
   }
 
-  private bindTimelineSelection(): void {
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-timeline']").forEach((button) => {
-      button.addEventListener("click", () => {
-        this.selectedTimelineIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.data.timelines.length);
+  private onContainerClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const actionElement = target.closest<HTMLElement>("[data-wkf-action]");
+    if (!actionElement) {
+      return;
+    }
+
+    const action = actionElement.dataset.wkfAction ?? "";
+    switch (action) {
+      case "hide":
+        this.hide();
+        return;
+      case "reset":
+        this.reset();
+        return;
+      case "select-timeline":
+        this.selectedTimelineIndex = clampIndex(Number(actionElement.dataset.wkfIndex ?? "0"), this.data.timelines.length);
         this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
         this.render();
-      });
-    });
-  }
-
-  private bindTimelineActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-timeline']")?.addEventListener("click", () => {
-      const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex, DEFAULT_TIMELINE_DATA);
-      this.data = sanitizeEditorDocument({
-        timelines: [...this.data.timelines, nextTimeline],
-      }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
-      this.selectedKeyframeIndex = 0;
-      this.setStatus("info", "Added timeline.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-timeline']")?.addEventListener("click", () => {
-      const source = this.getSelectedTimeline();
-      const duplicate = createDuplicatedTimeline(source, this.data.timelines);
-      const timelines = this.data.timelines.map((timeline) => cloneTimeline(timeline));
-      timelines.splice(this.selectedTimelineIndex + 1, 0, duplicate);
-      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-      this.setStatus("info", "Duplicated timeline.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-timeline']")?.addEventListener("click", () => {
-      if (this.data.timelines.length <= 1) {
         return;
-      }
-
-      const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
-      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-      this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-      this.setStatus("info", "Deleted timeline.");
-      this.render();
-    });
-  }
-
-  private bindMetaFields(): void {
-    this.bindInputValue("id", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.id = value;
-      });
-    });
-    this.bindInputValue("positionType", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        const nextPositionType = value === "percent" ? "percent" : "time";
-        if (nextPositionType === timeline.positionType) {
-          return;
-        }
-
-        if (nextPositionType === "percent") {
-          const previousDuration = Math.max(timeline.duration ?? DEFAULT_TIMELINE_DATA.duration ?? 1, 1);
-          timeline.positionType = "percent";
-          delete timeline.duration;
-          timeline.keyframes = timeline.keyframes.map((keyframe) => {
-            const nextKeyframe = cloneSparseKeyframe(keyframe);
-            const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / previousDuration) * 100 : 0;
-            applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
-            return nextKeyframe;
-          });
-          return;
-        }
-
-        timeline.positionType = "time";
-        timeline.duration = DEFAULT_TIMELINE_DATA.duration ?? 1200;
-        timeline.keyframes = timeline.keyframes.map((keyframe) => {
-          const nextKeyframe = cloneSparseKeyframe(keyframe);
-          const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
-          applyEditorKeyframePosition(
-            nextKeyframe,
-            "time",
-            clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
-          );
-          return nextKeyframe;
-        });
-      });
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-    });
-    this.bindInputValue("translateCustomUnit", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.translateConfig = {
-          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-          customUnit: value,
-        };
-      });
-    });
-    this.bindInputValue("translateUnit", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.translateConfig = {
-          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-          unit: value as TranslateUnit,
-        };
-      });
-    });
-    this.bindInputNumber("duration", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        if (timeline.positionType === "percent") {
-          return;
-        }
-
-        timeline.duration = Math.max(1, Math.round(value));
-        timeline.keyframes = timeline.keyframes.map((keyframe) => {
-          const nextKeyframe = cloneSparseKeyframe(keyframe);
-          applyEditorKeyframePosition(
-            nextKeyframe,
-            "time",
-            clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
-          );
-          return nextKeyframe;
-        });
-      });
-      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
-    });
-  }
-
-  private bindKeyframeSelection(): void {
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-keyframe']").forEach((button) => {
-      button.addEventListener("click", () => {
-        this.selectedKeyframeIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
+      case "add-timeline": {
+        const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex, DEFAULT_TIMELINE_DATA);
+        this.data = sanitizeEditorDocument({
+          timelines: [...this.data.timelines, nextTimeline],
+        }, DEFAULT_TIMELINE_DATA);
+        this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
+        this.selectedKeyframeIndex = 0;
+        this.setStatus("info", "Added timeline.");
         this.render();
-      });
-    });
-  }
-
-  private bindKeyframeEditor(): void {
-    this.bindInputNumber("position", (value, shouldRender = true) => {
-      this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
-        const selected = keyframes[this.selectedKeyframeIndex];
-        if (!selected) {
+        return;
+      }
+      case "duplicate-timeline": {
+        const source = this.getSelectedTimeline();
+        const duplicate = createDuplicatedTimeline(source, this.data.timelines);
+        const timelines = this.data.timelines.map((timeline) => cloneTimeline(timeline));
+        timelines.splice(this.selectedTimelineIndex + 1, 0, duplicate);
+        this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
+        this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
+        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+        this.setStatus("info", "Duplicated timeline.");
+        this.render();
+        return;
+      }
+      case "delete-timeline":
+        if (this.data.timelines.length <= 1) {
           return;
         }
 
-        const positionType = getTimelinePositionType(timeline);
-        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-        applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
-        keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
-        this.selectedKeyframeIndex = keyframes.indexOf(selected);
-      }, shouldRender);
-    });
-    this.bindInputValue("timingFunction", (value) => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
+        this.data = sanitizeEditorDocument({
+          timelines: this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex),
+        }, DEFAULT_TIMELINE_DATA);
+        this.selectedTimelineIndex = clampIndex(this.selectedTimelineIndex, this.data.timelines.length);
+        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+        this.setStatus("info", "Deleted timeline.");
+        this.render();
         return;
-      }
-
-      const trimmed = value.trim();
-      if (trimmed === "") {
-        delete keyframe.timingFunction;
-      } else {
-        keyframe.timingFunction = trimmed;
-      }
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='set-timing-function']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const value = button.dataset.wkfValue ?? "";
+      case "select-keyframe":
+        this.selectedKeyframeIndex = clampIndex(Number(actionElement.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
+        this.render();
+        return;
+      case "set-timing-function": {
+        const value = actionElement.dataset.wkfValue ?? "";
         const timeline = this.getSelectedTimeline();
         const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
         if (!keyframe) {
@@ -786,128 +709,48 @@ export class WebKeyframesEditor {
         };
         this.setStatus("info", "Editing timeline data.");
         this.render();
-      });
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-timing-function']")?.addEventListener("click", () => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
         return;
       }
+      case "clear-timing-function": {
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
 
-      delete keyframe.timingFunction;
-      this.pendingFocus = {
-        field: "timingFunction",
-        index: 0,
-        selectionStart: 0,
-        selectionEnd: 0,
-      };
-      this.setStatus("info", "Editing timeline data.");
-      this.render();
-    });
-    this.bindInputNumber("opacity", (value, shouldRender = true) => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-      this.setStatus("info", "Editing timeline data.");
-      if (shouldRender) {
+        delete keyframe.timingFunction;
+        this.pendingFocus = {
+          field: "timingFunction",
+          index: 0,
+          selectionStart: 0,
+          selectionEnd: 0,
+        };
+        this.setStatus("info", "Editing timeline data.");
         this.render();
+        return;
       }
-    });
-  }
-
-  private bindTransformEditor(selectedTransforms: TransformOperation[]): void {
-    selectedTransforms.forEach((transform, index) => {
-      this.bindInputValue(`transform-kind-${index}`, (value) => {
+      case "move-transform-up":
+      case "move-transform-down": {
+        const index = Number(actionElement.dataset.wkfIndex ?? "0");
+        const direction = action === "move-transform-up" ? -1 : 1;
         this.updateSelectedTimeline((timeline) => {
-          replaceSelectedKeyframeTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind, createDefaultTransform);
-        });
-      });
-
-      switch (transform.kind) {
-        case "translate":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
-          });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
-        case "scale":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
-          });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
-        case "rotate":
-          this.bindInputNumber(`transform-value-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "value", value);
-            });
-          });
-          break;
-        case "skew":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
-          });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
-      }
-    });
-
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-up']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
-        this.updateSelectedTimeline((timeline) => {
-          moveSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, -1);
+          moveSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, direction);
         });
         this.setStatus("info", "Reordered transforms.");
         this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-down']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
-        this.updateSelectedTimeline((timeline) => {
-          moveSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, 1);
-        });
-        this.setStatus("info", "Reordered transforms.");
-        this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='delete-transform']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
+        return;
+      }
+      case "delete-transform": {
+        const index = Number(actionElement.dataset.wkfIndex ?? "0");
         this.updateSelectedTimeline((timeline) => {
           removeSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index);
         });
         this.setStatus("info", "Removed transform.");
         this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='add-transform']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const kind = (button.dataset.wkfKind ?? "translate") as TransformKind;
+        return;
+      }
+      case "add-transform": {
+        const kind = (actionElement.dataset.wkfKind ?? "translate") as TransformKind;
         const timeline = this.getSelectedTimeline();
         const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
         if (keyframe && !hasKeyframeProperty(keyframe, "transform")) {
@@ -922,193 +765,420 @@ export class WebKeyframesEditor {
         });
         this.setStatus("info", `Added ${kind} transform.`);
         this.render();
-      });
-    });
-  }
-
-  private bindSparseKeyframeActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-opacity']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
         return;
       }
-
-      upsertKeyframeProperty(keyframe, createOpacityProperty(1));
-      this.setStatus("info", "Added opacity to the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-opacity']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      deleteKeyframeProperty(keyframe, "opacity");
-      this.setStatus("info", "Deleted opacity from the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-transforms']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      deleteKeyframeProperty(keyframe, "transform");
-      this.setStatus("info", "Deleted transforms from the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-transforms']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      upsertKeyframeProperty(keyframe, createTransformProperty([]));
-      this.setStatus("info", "Cleared transforms to none for the selected keyframe.");
-      this.render();
-    });
-  }
-
-  private bindKeyframeActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-keyframe']")?.addEventListener("click", () => {
-      this.updateSelectedTimeline((timeline) => {
-        const positionType = getTimelinePositionType(timeline);
-        const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
-        timeline.keyframes = [...timeline.keyframes, nextFrame].sort(
-          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-        );
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(
-          timeline,
-          timeline.keyframes,
-          positionType === "time"
-            ? ((typeof nextFrame.time === "number" ? nextFrame.time : 0) / Math.max(timeline.duration ?? 1, 1)) * 100
-            : (nextFrame.percent ?? 0),
-        );
-      });
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-keyframe']")?.addEventListener("click", () => {
-      const timeline = this.getSelectedTimeline();
-      if (timeline.keyframes.length === 0) {
-        return;
-      }
-
-      this.updateSelectedTimeline((candidate) => {
-        candidate.keyframes = candidate.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex);
-        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, candidate.keyframes.length);
-      });
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-keyframe']")?.addEventListener("click", () => {
-      this.updateSelectedTimeline((timeline) => {
-        const positionType = getTimelinePositionType(timeline);
-        const source = timeline.keyframes[this.selectedKeyframeIndex];
-        if (!source) {
+      case "add-opacity": {
+        const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
           return;
         }
-        const duplicate = cloneSparseKeyframe(source);
-        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-        const offset = positionType === "time"
-          ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
-          : 10;
-        const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
-        applyEditorKeyframePosition(duplicate, positionType, nextPosition);
-        timeline.keyframes = [...timeline.keyframes, duplicate].sort(
-          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-        );
-        this.selectedKeyframeIndex = findClosestKeyframeIndex(
-          timeline,
-          timeline.keyframes,
-          positionType === "time" ? (nextPosition / Math.max(timeline.duration ?? 1, 1)) * 100 : nextPosition,
-        );
-      });
-      this.setStatus("info", "Duplicated selected keyframe.");
-      this.render();
-    });
+
+        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+        this.setStatus("info", "Added opacity to the selected keyframe.");
+        this.render();
+        return;
+      }
+      case "delete-opacity": {
+        const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        deleteKeyframeProperty(keyframe, "opacity");
+        this.setStatus("info", "Deleted opacity from the selected keyframe.");
+        this.render();
+        return;
+      }
+      case "delete-transforms": {
+        const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        deleteKeyframeProperty(keyframe, "transform");
+        this.setStatus("info", "Deleted transforms from the selected keyframe.");
+        this.render();
+        return;
+      }
+      case "clear-transforms": {
+        const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        upsertKeyframeProperty(keyframe, createTransformProperty([]));
+        this.setStatus("info", "Cleared transforms to none for the selected keyframe.");
+        this.render();
+        return;
+      }
+      case "add-keyframe":
+        this.updateSelectedTimeline((timeline) => {
+          const positionType = getTimelinePositionType(timeline);
+          const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
+          timeline.keyframes = [...timeline.keyframes, nextFrame].sort(
+            (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+          );
+          this.selectedKeyframeIndex = findClosestKeyframeIndex(
+            timeline,
+            timeline.keyframes,
+            positionType === "time"
+              ? ((typeof nextFrame.time === "number" ? nextFrame.time : 0) / Math.max(timeline.duration ?? 1, 1)) * 100
+              : (nextFrame.percent ?? 0),
+          );
+        });
+        this.render();
+        return;
+      case "delete-keyframe": {
+        const timeline = this.getSelectedTimeline();
+        if (timeline.keyframes.length === 0) {
+          return;
+        }
+
+        this.updateSelectedTimeline((candidate) => {
+          candidate.keyframes = candidate.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex);
+          this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, candidate.keyframes.length);
+        });
+        this.render();
+        return;
+      }
+      case "duplicate-keyframe":
+        this.updateSelectedTimeline((timeline) => {
+          const positionType = getTimelinePositionType(timeline);
+          const source = timeline.keyframes[this.selectedKeyframeIndex];
+          if (!source) {
+            return;
+          }
+          const duplicate = cloneSparseKeyframe(source);
+          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+          const offset = positionType === "time"
+            ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
+            : 10;
+          const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
+          applyEditorKeyframePosition(duplicate, positionType, nextPosition);
+          timeline.keyframes = [...timeline.keyframes, duplicate].sort(
+            (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+          );
+          this.selectedKeyframeIndex = findClosestKeyframeIndex(
+            timeline,
+            timeline.keyframes,
+            positionType === "time" ? (nextPosition / Math.max(timeline.duration ?? 1, 1)) * 100 : nextPosition,
+          );
+        });
+        this.setStatus("info", "Duplicated selected keyframe.");
+        this.render();
+        return;
+      case "copy-json":
+        void this.copyPayload("json");
+        return;
+      case "copy-css":
+        void this.copyPayload("css");
+        return;
+      case "run-preview":
+        this.runPreview();
+        return;
+      case "reset-preview":
+        this.resetAppliedPreview();
+        return;
+      case "view-json":
+        this.openPreview("JSON Preview", () => this.toJson());
+        return;
+      case "view-css":
+        this.openPreview("CSS Preview", () => this.toCss());
+        return;
+      case "close-preview":
+        this.closePreview("Closed preview.");
+        return;
+    }
   }
 
-  private bindInputValue(field: string, assign: (value: string) => void): void {
-    const input = this.container?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`);
-    if (!input) {
+  private onContainerInput(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.dataset.wkfField === undefined) {
       return;
     }
 
-    const eventName = input instanceof HTMLSelectElement ? "change" : "input";
-    input.addEventListener(eventName, () => {
-      this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-      assign(input.value);
-      this.setStatus("info", "Editing timeline data.");
-      this.render();
-    });
-  }
+    if (target.type === "range") {
+      this.handleRangeFieldInput(target.dataset.wkfField, target);
+      return;
+    }
 
-  private bindInputNumber(field: string, assign: (value: number, shouldRender?: boolean) => void): void {
-    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-      if (input.type === "range") {
-        input.addEventListener("input", () => {
-          const value = Number(input.value);
-          if (!Number.isFinite(value)) {
-            return;
-          }
+    if (target.type !== "text") {
+      return;
+    }
 
-          assign(value, false);
-          syncNumberFieldValues(this.container, field, value, input);
-          this.setStatus("info", "Editing timeline data.");
+    this.pendingFocus = captureFocusSnapshot(this.container, target.dataset.wkfField, target);
+    switch (target.dataset.wkfField) {
+      case "id":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.id = target.value;
         });
-
-        input.addEventListener("change", () => {
-          const value = Number(input.value);
-          if (!Number.isFinite(value)) {
-            return;
-          }
-
-          this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-          assign(value, true);
-          this.setStatus("info", "Editing timeline data.");
-          this.render();
+        break;
+      case "translateCustomUnit":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.translateConfig = {
+            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+            customUnit: target.value,
+          };
         });
-        return;
-      }
-
-      input.addEventListener("change", () => {
-        const value = Number(input.value);
-        if (!Number.isFinite(value)) {
+        break;
+      case "timingFunction": {
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
           return;
         }
 
-        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-        assign(value, true);
-        this.setStatus("info", "Editing timeline data.");
-        this.render();
-      });
-    });
+        const trimmed = target.value.trim();
+        if (trimmed === "") {
+          delete keyframe.timingFunction;
+        } else {
+          keyframe.timingFunction = trimmed;
+        }
+        break;
+      }
+      default:
+        return;
+    }
+
+    this.setStatus("info", "Editing timeline data.");
+    this.render();
   }
 
-  private bindNullableInputNumber(field: string, assign: (value: number | null) => void): void {
-    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-      input.addEventListener("change", () => {
-        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-        const trimmed = input.value.trim();
+  private onContainerChange(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || target.dataset.wkfField === undefined) {
+      return;
+    }
 
-        if (trimmed === "") {
-          assign(null);
-        } else {
-          const value = Number(trimmed);
-          if (!Number.isFinite(value)) {
+    const field = target.dataset.wkfField;
+    this.pendingFocus = captureFocusSnapshot(this.container, field, target);
+    if (target instanceof HTMLSelectElement) {
+      this.handleSelectFieldChange(field, target.value);
+      return;
+    }
+
+    const value = Number(target.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    if (target.type === "range") {
+      this.handleRangeFieldChange(field, value);
+      return;
+    }
+
+    if (target.type === "number") {
+      this.handleNumberFieldChange(field, value);
+    }
+  }
+
+  private handleSelectFieldChange(field: string, value: string): void {
+    switch (field) {
+      case "positionType":
+        this.updateSelectedTimeline((timeline) => {
+          const nextPositionType = value === "percent" ? "percent" : "time";
+          if (nextPositionType === timeline.positionType) {
             return;
           }
-          assign(value);
+
+          if (nextPositionType === "percent") {
+            const previousDuration = Math.max(timeline.duration ?? DEFAULT_TIMELINE_DATA.duration ?? 1, 1);
+            timeline.positionType = "percent";
+            delete timeline.duration;
+            timeline.keyframes = timeline.keyframes.map((keyframe) => {
+              const nextKeyframe = cloneSparseKeyframe(keyframe);
+              const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / previousDuration) * 100 : 0;
+              applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
+              return nextKeyframe;
+            });
+            return;
+          }
+
+          timeline.positionType = "time";
+          timeline.duration = DEFAULT_TIMELINE_DATA.duration ?? 1200;
+          timeline.keyframes = timeline.keyframes.map((keyframe) => {
+            const nextKeyframe = cloneSparseKeyframe(keyframe);
+            const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
+            applyEditorKeyframePosition(
+              nextKeyframe,
+              "time",
+              clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
+            );
+            return nextKeyframe;
+          });
+        });
+        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+        break;
+      case "translateUnit":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.translateConfig = {
+            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+            unit: value as TranslateUnit,
+          };
+        });
+        break;
+      default:
+        if (field.startsWith("transform-kind-")) {
+          const index = Number(field.replace("transform-kind-", ""));
+          this.updateSelectedTimeline((timeline) => {
+            replaceSelectedKeyframeTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind, createDefaultTransform);
+          });
+          break;
+        }
+        return;
+    }
+
+    this.setStatus("info", "Editing timeline data.");
+    this.render();
+  }
+
+  private handleRangeFieldInput(field: string, input: HTMLInputElement): void {
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    switch (field) {
+      case "position":
+        this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
+          const selected = keyframes[this.selectedKeyframeIndex];
+          if (!selected) {
+            return;
+          }
+
+          const positionType = getTimelinePositionType(timeline);
+          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+          applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
+          keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
+          this.selectedKeyframeIndex = keyframes.indexOf(selected);
+        }, false);
+        break;
+      case "opacity": {
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
         }
 
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+        this.setStatus("info", "Editing timeline data.");
+        break;
+      }
+      default:
+        return;
+    }
+
+    syncNumberFieldValues(this.container, field, value, input);
+    this.setStatus("info", "Editing timeline data.");
+  }
+
+  private handleRangeFieldChange(field: string, value: number): void {
+    switch (field) {
+      case "position":
+        this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
+          const selected = keyframes[this.selectedKeyframeIndex];
+          if (!selected) {
+            return;
+          }
+
+          const positionType = getTimelinePositionType(timeline);
+          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+          applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
+          keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
+          this.selectedKeyframeIndex = keyframes.indexOf(selected);
+        }, true);
+        break;
+      case "opacity": {
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
         this.setStatus("info", "Editing timeline data.");
         this.render();
-      });
+        break;
+      }
+      default:
+        return;
+    }
+  }
+
+  private handleNumberFieldChange(field: string, value: number): void {
+    switch (field) {
+      case "duration":
+        this.updateSelectedTimeline((timeline) => {
+          if (timeline.positionType === "percent") {
+            return;
+          }
+
+          timeline.duration = Math.max(1, Math.round(value));
+          timeline.keyframes = timeline.keyframes.map((keyframe) => {
+            const nextKeyframe = cloneSparseKeyframe(keyframe);
+            applyEditorKeyframePosition(
+              nextKeyframe,
+              "time",
+              clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
+            );
+            return nextKeyframe;
+          });
+        });
+        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
+        break;
+      case "position":
+        this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
+          const selected = keyframes[this.selectedKeyframeIndex];
+          if (!selected) {
+            return;
+          }
+
+          const positionType = getTimelinePositionType(timeline);
+          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+          applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
+          keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
+          this.selectedKeyframeIndex = keyframes.indexOf(selected);
+        }, true);
+        return;
+      case "opacity": {
+        const timeline = this.getSelectedTimeline();
+        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+        if (!keyframe) {
+          return;
+        }
+
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+        break;
+      }
+      default:
+        if (!this.handleTransformNumberFieldChange(field, value)) {
+          return;
+        }
+        break;
+    }
+
+    this.setStatus("info", "Editing timeline data.");
+    this.render();
+  }
+
+  private handleTransformNumberFieldChange(field: string, value: number): boolean {
+    const matched = /^transform-(x|y|value)-(\d+)$/.exec(field);
+    if (!matched) {
+      return false;
+    }
+
+    const [, property, indexValue] = matched;
+    const index = Number(indexValue);
+    this.updateSelectedTimeline((timeline) => {
+      if (property === "value") {
+        updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "value", value);
+        return;
+      }
+
+      const axis = property === "x" ? "x" : "y";
+      updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, axis, value);
     });
+    return true;
   }
 
   private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
