@@ -1,5 +1,5 @@
 import { cloneDocument, cloneTimeline } from "../core/normalize.js";
-import type { WebKeyframe, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
+import type { NormalizedWebKeyframesTimeline, WebKeyframe, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import {
   clampIndex,
   sanitizeEditorDocument,
@@ -130,7 +130,7 @@ export function withSelectedKeyframe(
 export function applyEditedTransforms(
   state: EditorState,
   defaultTimelineData: WebKeyframesTimeline,
-  edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline,
+  edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
 ): void {
   updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
     timeline.keyframes = cloneTimeline(edit(timeline)).keyframes;
