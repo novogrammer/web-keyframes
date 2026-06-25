@@ -44,5 +44,6 @@
 ## Examples
 
 - `examples/basic` を、editor 初期値を JS に埋め込む方式から timeline JSON を読み込む方式へ揃えた。
+- examples の timeline JSON を `percent` ベースへ揃えた。
 - `examples/basic` に keyframe 単位の `timingFunction` 使用例を追加した。
 - `examples/hero-animation` を `hello-theatrejs` の構成から移植し、`100vw` 前提の hero と説明文配置を含めて example として整えた。

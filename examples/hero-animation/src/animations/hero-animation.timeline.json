@@ -2,14 +2,13 @@
   "timelines": [
     {
       "id": "hero-title-intro",
-      "positionType": "time",
-      "duration": 3000,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "%"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -21,7 +20,7 @@
           ]
         },
         {
-          "time": 1000,
+          "percent": 33.333,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -33,13 +32,13 @@
           ]
         },
         {
-          "time": 1500,
+          "percent": 50,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
         },
         {
-          "time": 2000,
+          "percent": 66.667,
           "properties": [
             {
               "kind": "transform",
@@ -50,7 +49,7 @@
           ]
         },
         {
-          "time": 3000,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             {
@@ -65,14 +64,13 @@
     },
     {
       "id": "hero-date-intro",
-      "positionType": "time",
-      "duration": 3000,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "%"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -84,7 +82,7 @@
           ]
         },
         {
-          "time": 1500,
+          "percent": 50,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -96,13 +94,13 @@
           ]
         },
         {
-          "time": 2000,
+          "percent": 66.667,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
         },
         {
-          "time": 2500,
+          "percent": 83.333,
           "properties": [
             {
               "kind": "transform",
@@ -113,7 +111,7 @@
           ]
         },
         {
-          "time": 3000,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             {
@@ -128,32 +126,31 @@
     },
     {
       "id": "hero-badge-intro",
-      "positionType": "time",
-      "duration": 3000,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "%"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 0 }
           ]
         },
         {
-          "time": 2000,
+          "percent": 66.667,
           "properties": [
             { "kind": "opacity", "value": 0 }
           ]
         },
         {
-          "time": 2500,
+          "percent": 83.333,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
         },
         {
-          "time": 3000,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
@@ -162,14 +159,13 @@
     },
     {
       "id": "hero-balloon-loop",
-      "positionType": "time",
-      "duration": 4000,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "%"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -181,19 +177,19 @@
           ]
         },
         {
-          "time": 500,
+          "percent": 12.5,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
         },
         {
-          "time": 1500,
+          "percent": 37.5,
           "properties": [
             { "kind": "opacity", "value": 1 }
           ]
         },
         {
-          "time": 2000,
+          "percent": 50,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {
@@ -205,7 +201,7 @@
           ]
         },
         {
-          "time": 4000,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 0 },
             {

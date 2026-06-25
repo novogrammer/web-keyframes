@@ -2,14 +2,13 @@
   "timelines": [
     {
       "id": "hero-logo-intro",
-      "positionType": "time",
-      "duration": 1200,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "timingFunction": "ease-out",
           "properties": [
             { "kind": "opacity", "value": 0 },
@@ -21,7 +20,7 @@
           ]
         },
         {
-          "time": 700,
+          "percent": 58.333,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -32,7 +31,7 @@
           ]
         },
         {
-          "time": 1200,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -46,14 +45,13 @@
     },
     {
       "id": "hero-logo-idle",
-      "positionType": "time",
-      "duration": 2000,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -64,7 +62,7 @@
           ]
         },
         {
-          "time": 1000,
+          "percent": 50,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -75,7 +73,7 @@
           ]
         },
         {
-          "time": 2000,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -89,14 +87,13 @@
     },
     {
       "id": "hero-badge-intro",
-      "positionType": "time",
-      "duration": 900,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 0 },
             { "kind": "transform", "value": [
@@ -107,7 +104,7 @@
           ]
         },
         {
-          "time": 520,
+          "percent": 57.778,
           "timingFunction": "cubic-bezier(0.2, 0.8, 0.2, 1)",
           "properties": [
             { "kind": "opacity", "value": 1 },
@@ -119,7 +116,7 @@
           ]
         },
         {
-          "time": 900,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -133,14 +130,13 @@
     },
     {
       "id": "hero-badge-idle",
-      "positionType": "time",
-      "duration": 1800,
+      "positionType": "percent",
       "translateConfig": {
         "unit": "px"
       },
       "keyframes": [
         {
-          "time": 0,
+          "percent": 0,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -151,7 +147,7 @@
           ]
         },
         {
-          "time": 900,
+          "percent": 50,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
@@ -162,7 +158,7 @@
           ]
         },
         {
-          "time": 1800,
+          "percent": 100,
           "properties": [
             { "kind": "opacity", "value": 1 },
             { "kind": "transform", "value": [
