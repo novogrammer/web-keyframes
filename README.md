@@ -99,6 +99,43 @@ editor.toJson();
 editor.toCss();
 ```
 
+## Web Component
+
+```ts
+import {
+  defineWebKeyframesEditorElement,
+  WEB_KEYFRAMES_EDITOR_TAG_NAME,
+} from "web-keyframes/editor";
+import "web-keyframes/editor.css";
+
+defineWebKeyframesEditorElement();
+
+const editor = document.createElement(WEB_KEYFRAMES_EDITOR_TAG_NAME);
+editor.data = {
+  timelines: [
+    {
+      id: "hero-logo",
+      positionType: "percent",
+      keyframes: [{ percent: 0, properties: [] }],
+    },
+  ],
+};
+editor.shortcut = "Ctrl+Shift+K";
+editor.show();
+document.body.append(editor);
+
+editor.addEventListener("change", (event) => {
+  console.log(event.detail.data);
+});
+```
+
+The custom element tag name is `<web-keyframes-editor>`.
+
+- `open` attribute reflects visible state
+- `shortcut` attribute sets the toggle shortcut
+- `data` property reads or writes the current timeline document
+- Methods: `show()`, `hide()`, `toggle()`, `getData()`, `setData()`, `toJson()`, `toCss()`
+
 ### Current editor features
 
 - Manage multiple timelines in one document

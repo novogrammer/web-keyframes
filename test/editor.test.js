@@ -9,6 +9,10 @@ import {
   getTransformOperations,
 } from "../src/core/normalize.ts";
 import { WebKeyframesEditor } from "../src/editor/WebKeyframesEditor.ts";
+import {
+  defineWebKeyframesEditorElement,
+  WEB_KEYFRAMES_EDITOR_TAG_NAME,
+} from "../src/editor/WebKeyframesElement.ts";
 
 test("mount adds a hidden editor panel and unmount removes it", () => {
   const { window } = createWindow();
@@ -563,6 +567,55 @@ test("reset restores initialData after edits", async () => {
   assert.equal(data.timelines[1].id, "hero-out");
 });
 
+test("custom element mounts the editor and reflects open state", () => {
+  const { window } = createWindow();
+  defineWebKeyframesEditorElement();
+
+  const element = window.document.createElement(WEB_KEYFRAMES_EDITOR_TAG_NAME);
+  window.document.body.append(element);
+
+  assert.ok(element.querySelector(".wkf"));
+  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
+
+  element.show();
+  assert.equal(element.hasAttribute("open"), true);
+  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "false");
+
+  element.hide();
+  assert.equal(element.hasAttribute("open"), false);
+  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
+});
+
+test("custom element proxies data and emits change events", async () => {
+  const { window } = createWindow();
+  defineWebKeyframesEditorElement();
+
+  const element = window.document.createElement(WEB_KEYFRAMES_EDITOR_TAG_NAME);
+  const changes = [];
+  element.addEventListener("change", (event) => {
+    changes.push(event.detail.data);
+  });
+  element.data = {
+    timelines: [
+      {
+        id: "hero-logo",
+        positionType: "percent",
+        keyframes: [{ percent: 0, properties: [] }],
+      },
+    ],
+  };
+  window.document.body.append(element);
+
+  assert.equal(element.getData().timelines[0].id, "hero-logo");
+  assert.match(element.toCss(), /@keyframes hero-logo/);
+
+  setInputValue(element, "id", "hero-title");
+  await Promise.resolve();
+
+  assert.equal(element.data.timelines[0].id, "hero-title");
+  assert.equal(changes.at(-1).timelines[0].id, "hero-title");
+});
+
 function createTimeline(id, duration) {
   return {
     id,
@@ -617,6 +670,8 @@ function createWindow(options = {}) {
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.MouseEvent = dom.window.MouseEvent;
   globalThis.Event = dom.window.Event;
+  globalThis.CustomEvent = dom.window.CustomEvent;
+  globalThis.customElements = dom.window.customElements;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   Object.defineProperty(dom.window, "navigator", {
     value: navigatorValue,

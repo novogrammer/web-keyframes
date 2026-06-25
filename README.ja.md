@@ -98,6 +98,43 @@ editor.toJson();
 editor.toCss();
 ```
 
+## Web Component
+
+```ts
+import {
+  defineWebKeyframesEditorElement,
+  WEB_KEYFRAMES_EDITOR_TAG_NAME,
+} from "web-keyframes/editor";
+import "web-keyframes/editor.css";
+
+defineWebKeyframesEditorElement();
+
+const editor = document.createElement(WEB_KEYFRAMES_EDITOR_TAG_NAME);
+editor.data = {
+  timelines: [
+    {
+      id: "hero-logo",
+      positionType: "percent",
+      keyframes: [{ percent: 0, properties: [] }],
+    },
+  ],
+};
+editor.shortcut = "Ctrl+Shift+K";
+editor.show();
+document.body.append(editor);
+
+editor.addEventListener("change", (event) => {
+  console.log(event.detail.data);
+});
+```
+
+Custom Element のタグ名は `<web-keyframes-editor>` です。
+
+- `open` attribute は表示状態を反映します
+- `shortcut` attribute は表示切り替えショートカットを設定します
+- `data` property は現在の timeline document を読み書きします
+- メソッド: `show()`, `hide()`, `toggle()`, `getData()`, `setData()`, `toJson()`, `toCss()`
+
 ### 現在のエディタ機能
 
 - 1 つの document 内で複数 timeline を管理

@@ -44,6 +44,7 @@
 - keyframe 追加時は既存値を複製せず、`properties: []` の空状態から編集を始めるようにした。
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
 - editor UI の Lit 化を検討したが、現段階では導入しない判断にした。
+- 既存の `WebKeyframesEditor` クラスを保ったまま、同じ editor UI を `<web-keyframes-editor>` Custom Element として使えるようにした。
 
 ## Examples
 

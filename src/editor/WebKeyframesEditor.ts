@@ -47,6 +47,7 @@ type WebKeyframesEditorOptions = {
   root: HTMLElement;
   initialData?: WebKeyframesDocument;
   shortcut?: string | false;
+  onDataChange?: (data: WebKeyframesDocument) => void;
 };
 
 const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
@@ -139,8 +140,9 @@ const PANEL_MIN_VISIBLE_Y = 56;
 
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
-  private readonly shortcut: ShortcutDescriptor | null;
+  private shortcut: ShortcutDescriptor | null;
   private readonly initialData: WebKeyframesDocument;
+  private readonly onDataChange: ((data: WebKeyframesDocument) => void) | null;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
   private readonly handleContainerClick: (event: MouseEvent) => void;
   private readonly handleContainerInput: (event: Event) => void;
@@ -160,6 +162,7 @@ export class WebKeyframesEditor {
   private panelPosition: PanelPosition | null = null;
   private dragState: DragState | null = null;
   private activePreview: ActivePreview | null = null;
+  private lastNotifiedDataJson: string;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -170,6 +173,8 @@ export class WebKeyframesEditor {
     this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.data = cloneDocument(this.initialData);
     this.shortcut = parseShortcut(options.shortcut);
+    this.onDataChange = options.onDataChange ?? null;
+    this.lastNotifiedDataJson = JSON.stringify(this.data);
     this.handleKeydown = (event) => {
       if (event.key === "Escape" && this.previewTitle !== null) {
         event.preventDefault();
@@ -258,6 +263,10 @@ export class WebKeyframesEditor {
     this.show();
   }
 
+  setShortcut(shortcut: string | false | undefined): void {
+    this.shortcut = parseShortcut(shortcut);
+  }
+
   getData(): WebKeyframesDocument {
     return cloneDocument(this.data);
   }
@@ -265,6 +274,7 @@ export class WebKeyframesEditor {
   setData(data: WebKeyframesDocument): void {
     this.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
     this.normalizeEditorState();
+    this.notifyDataChangeIfNeeded();
     if (this.container !== null) {
       this.render();
     }
@@ -301,6 +311,7 @@ export class WebKeyframesEditor {
     this.container.innerHTML = this.renderEditorPanel(renderState);
     this.bindDragging();
     this.applyPanelPosition();
+    this.notifyDataChangeIfNeeded();
     queueMicrotask(() => this.restoreFocus());
   }
 
@@ -1457,6 +1468,20 @@ export class WebKeyframesEditor {
     }
 
     this.pendingFocus = null;
+  }
+
+  private notifyDataChangeIfNeeded(): void {
+    if (this.onDataChange === null) {
+      return;
+    }
+
+    const nextDataJson = JSON.stringify(this.data);
+    if (nextDataJson === this.lastNotifiedDataJson) {
+      return;
+    }
+
+    this.lastNotifiedDataJson = nextDataJson;
+    this.onDataChange(cloneDocument(this.data));
   }
 
   private startDragging(event: MouseEvent): void {
