@@ -51,7 +51,7 @@ import type { RenderTranslateConfig, RenderWebKeyframesTimeline } from "./editor
 import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
 import type { ActivePreview } from "./previewRuntime.js";
 import "./litDocumentShim.js";
-const { html, render } = await import("lit");
+import { html, render } from "lit-html";
 
 export type WebKeyframesEditorOptions = {
   root: HTMLElement;
