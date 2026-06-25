@@ -9,9 +9,7 @@ import {
   deleteKeyframeProperty,
   formatNumber,
   generateCss,
-  getOpacityValue,
   getTimelinePositionType,
-  getTransformOperations,
   hasKeyframeProperty,
   moveTransform,
   removeTransform,
@@ -47,7 +45,6 @@ import {
   roundEditorPosition,
   sanitizeEditorDocument,
 } from "./editorModel.js";
-import type { RenderTranslateConfig, RenderWebKeyframesTimeline } from "./editorModel.js";
 import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
 import type { ActivePreview } from "./previewRuntime.js";
 

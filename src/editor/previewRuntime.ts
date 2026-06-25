@@ -1,7 +1,7 @@
 import { generatePreviewCss, normalizeWebKeyframesTimeline } from "../core/index.js";
 import type { WebKeyframesTimeline } from "../core/index.js";
 
-export type PreviewTargetState = {
+type PreviewTargetState = {
   element: HTMLElement;
   inlineAnimationName: string;
 };
@@ -63,7 +63,7 @@ export function clearAppliedPreview(activePreview: ActivePreview | null): void {
   activePreview.styleElement.remove();
 }
 
-export function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
+function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
   const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
   if (existing) {
     return existing;
@@ -75,7 +75,7 @@ export function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleEle
   return styleElement;
 }
 
-export function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
+function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
   const ownerWindow = ownerDocument.defaultView;
   if (!ownerWindow) {
     return [];
@@ -87,14 +87,14 @@ export function findPreviewTargets(ownerDocument: Document, animationName: strin
   });
 }
 
-export function splitAnimationNames(value: string): string[] {
+function splitAnimationNames(value: string): string[] {
   return value
     .split(",")
     .map((part) => part.trim())
     .filter((part) => part !== "" && part !== "none");
 }
 
-export function replaceAnimationName(value: string, currentName: string, nextName: string): string {
+function replaceAnimationName(value: string, currentName: string, nextName: string): string {
   const names = splitAnimationNames(value);
   if (names.length === 0) {
     return nextName;

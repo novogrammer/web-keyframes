@@ -4,10 +4,8 @@ import {
   createOpacityProperty,
   createDefaultTransform,
   createTransformProperty,
-  getOpacityValue,
   getTransformOperations,
   normalizeWebKeyframesTimeline,
-  upsertKeyframeProperty,
 } from "./normalize.js";
 import type {
   NormalizedWebKeyframesTimeline,
