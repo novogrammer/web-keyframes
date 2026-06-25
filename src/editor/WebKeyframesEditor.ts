@@ -2,13 +2,13 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { deriveEditorRenderState, sanitizeEditorDocument, clampIndex } from "./editorModel.js";
-import { createEditorCollectionController } from "./editorCollectionController.js";
-import { createEditorKeyframePropertyController } from "./editorKeyframePropertyController.js";
-import { createEditorLifecycleController } from "./editorLifecycleController.js";
-import { createEditorPreviewController } from "./editorPreviewController.js";
-import { createEditorSectionInputController } from "./editorSectionInputController.js";
+import { EditorCollectionController } from "./editorCollectionController.js";
+import { EditorKeyframePropertyController } from "./editorKeyframePropertyController.js";
+import { EditorLifecycleController } from "./editorLifecycleController.js";
+import { EditorPreviewController } from "./editorPreviewController.js";
+import { EditorSectionInputController } from "./editorSectionInputController.js";
 import {
-  clearPreviewPanel,
+  type EditorState,
   createEditorState,
   normalizeEditorState,
   resetEditorState,
@@ -68,12 +68,12 @@ const DEFAULT_EDITOR_DATA: WebKeyframesDocument = {
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly initialData: WebKeyframesDocument;
-  private readonly state;
-  private readonly collectionController;
-  private readonly propertyController;
-  private readonly previewController;
-  private readonly sectionInputController;
-  private readonly lifecycleController;
+  private readonly state: EditorState;
+  private readonly collectionController: EditorCollectionController;
+  private readonly propertyController: EditorKeyframePropertyController;
+  private readonly previewController: EditorPreviewController;
+  private readonly sectionInputController: EditorSectionInputController;
+  private readonly lifecycleController: EditorLifecycleController;
   private container: HTMLElement | null = null;
   private mounted = false;
 
@@ -85,11 +85,11 @@ export class WebKeyframesEditor {
     this.root = options.root;
     this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
-    this.collectionController = createEditorCollectionController(this.state, DEFAULT_TIMELINE_DATA);
-    this.propertyController = createEditorKeyframePropertyController(this.state, DEFAULT_TIMELINE_DATA);
-    this.previewController = createEditorPreviewController(this.root, this.state, () => this.toJson(), () => this.toCss());
-    this.sectionInputController = createEditorSectionInputController(this.state, DEFAULT_TIMELINE_DATA);
-    this.lifecycleController = createEditorLifecycleController(this.root, {
+    this.collectionController = new EditorCollectionController(this.state, DEFAULT_TIMELINE_DATA);
+    this.propertyController = new EditorKeyframePropertyController(this.state, DEFAULT_TIMELINE_DATA);
+    this.previewController = new EditorPreviewController(this.root, this.state, () => this.toJson(), () => this.toCss());
+    this.sectionInputController = new EditorSectionInputController(this.state, DEFAULT_TIMELINE_DATA);
+    this.lifecycleController = new EditorLifecycleController(this.root, {
       shortcut: options.shortcut,
       onToggle: () => this.toggle(),
       onEscape: () => {
@@ -405,6 +405,6 @@ export class WebKeyframesEditor {
   }
 }
 
-function renderStateKeyframeLength(state: ReturnType<typeof createEditorState>): number {
+function renderStateKeyframeLength(state: EditorState): number {
   return state.data.timelines[state.selectedTimelineIndex]?.keyframes.length ?? 0;
 }

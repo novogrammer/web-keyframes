@@ -13,79 +13,77 @@ export type ActivePreview = {
   targets: PreviewTargetState[];
 };
 
-export function createEditorPreviewController(
-  root: HTMLElement,
-  state: EditorState,
-  getJson: () => string,
-  getCss: () => string,
-): {
-  copyPayload: (kind: "json" | "css") => Promise<void>;
-  openGeneratedPreview: (kind: "json" | "css") => void;
-  closePreview: (message: string) => void;
-  runPreview: () => void;
-  resetAppliedPreview: () => void;
-  disposeAppliedPreview: () => void;
-} {
-  return {
-    copyPayload: async (kind) => {
-      try {
-        const text = kind === "json" ? getJson() : getCss();
-        await writeClipboardText(root.ownerDocument.defaultView, text);
-        setStatus(state, "success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(state, "error", message);
-      }
-    },
-    openGeneratedPreview: (kind) => {
-      try {
-        setPreviewPanel(
-          state,
-          kind === "json" ? "JSON Preview" : "CSS Preview",
-          kind === "json" ? getJson() : getCss(),
-        );
-        setStatus(state, "success", `Opened ${(kind === "json" ? "JSON Preview" : "CSS Preview").toLowerCase()}.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        clearPreviewPanel(state);
-        setStatus(state, "error", message);
-      }
-    },
-    closePreview: (message) => {
-      clearPreviewPanel(state);
-      setStatus(state, "info", message);
-    },
-    runPreview: () => {
-      try {
-        const timeline = getSelectedTimeline(state);
-        const ownerDocument = root.ownerDocument;
-        clearAppliedPreview(state.activePreview);
-        state.activePreview = applyPreview(ownerDocument, timeline);
-        setStatus(
-          state,
-          "success",
-          `Applied preview to ${state.activePreview.targets.length} element${state.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(state, "error", message);
-      }
-    },
-    resetAppliedPreview: () => {
-      if (state.activePreview === null) {
-        setStatus(state, "info", "Preview is not active.");
-        return;
-      }
+export class EditorPreviewController {
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly state: EditorState,
+    private readonly getJson: () => string,
+    private readonly getCss: () => string,
+  ) {}
 
-      clearAppliedPreview(state.activePreview);
-      state.activePreview = null;
-      setStatus(state, "success", "Reset preview.");
-    },
-    disposeAppliedPreview: () => {
-      clearAppliedPreview(state.activePreview);
-      state.activePreview = null;
-    },
-  };
+  async copyPayload(kind: "json" | "css"): Promise<void> {
+    try {
+      const text = kind === "json" ? this.getJson() : this.getCss();
+      await writeClipboardText(this.root.ownerDocument.defaultView, text);
+      setStatus(this.state, "success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(this.state, "error", message);
+    }
+  }
+
+  openGeneratedPreview(kind: "json" | "css"): void {
+    try {
+      setPreviewPanel(
+        this.state,
+        kind === "json" ? "JSON Preview" : "CSS Preview",
+        kind === "json" ? this.getJson() : this.getCss(),
+      );
+      setStatus(this.state, "success", `Opened ${(kind === "json" ? "JSON Preview" : "CSS Preview").toLowerCase()}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      clearPreviewPanel(this.state);
+      setStatus(this.state, "error", message);
+    }
+  }
+
+  closePreview(message: string): void {
+    clearPreviewPanel(this.state);
+    setStatus(this.state, "info", message);
+  }
+
+  runPreview(): void {
+    try {
+      const timeline = getSelectedTimeline(this.state);
+      const ownerDocument = this.root.ownerDocument;
+      clearAppliedPreview(this.state.activePreview);
+      this.state.activePreview = applyPreview(ownerDocument, timeline);
+      setStatus(
+        this.state,
+        "success",
+        `Applied preview to ${this.state.activePreview.targets.length} element${this.state.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(this.state, "error", message);
+    }
+  }
+
+  resetAppliedPreview(): void {
+    if (this.state.activePreview === null) {
+      setStatus(this.state, "info", "Preview is not active.");
+      return;
+    }
+
+    clearAppliedPreview(this.state.activePreview);
+    this.state.activePreview = null;
+    setStatus(this.state, "success", "Reset preview.");
+  }
+
+  disposeAppliedPreview(): void {
+    clearAppliedPreview(this.state.activePreview);
+    this.state.activePreview = null;
+  }
 }
 
 function applyPreview(
