@@ -217,13 +217,6 @@ function setTransformField(transform: TransformOperation, field: TransformValueF
   }
 }
 
-function sortKeyframes(data: NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
-  return {
-    ...data,
-    keyframes: [...data.keyframes].sort((left, right) => left.percent - right.percent),
-  };
-}
-
 function normalizeEditableTimeline(data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   return normalizeWebKeyframesTimeline(cloneTimeline(data));
 }

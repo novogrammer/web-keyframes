@@ -120,6 +120,8 @@ type ActivePreview = {
   targets: PreviewTargetState[];
 };
 
+type EditorRenderState = ReturnType<typeof deriveEditorRenderState>;
+
 const TIMING_FUNCTION_PRESETS = [
   "linear",
   "ease",
@@ -140,6 +142,9 @@ export class WebKeyframesEditor {
   private readonly shortcut: ShortcutDescriptor | null;
   private readonly initialData: WebKeyframesDocument;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
+  private readonly handleContainerClick: (event: MouseEvent) => void;
+  private readonly handleContainerInput: (event: Event) => void;
+  private readonly handleContainerChange: (event: Event) => void;
   private readonly handleDragMove: (event: MouseEvent) => void;
   private readonly handleDragEnd: () => void;
   private container: HTMLElement | null = null;
@@ -177,6 +182,15 @@ export class WebKeyframesEditor {
         this.toggle();
       }
     };
+    this.handleContainerClick = (event) => {
+      this.handleDelegatedClick(event);
+    };
+    this.handleContainerInput = (event) => {
+      this.handleDelegatedInput(event);
+    };
+    this.handleContainerChange = (event) => {
+      this.handleDelegatedChange(event);
+    };
     this.handleDragMove = (event) => {
       this.updateDragPosition(event);
     };
@@ -197,6 +211,9 @@ export class WebKeyframesEditor {
 
     this.container = container;
     this.render();
+    container.addEventListener("click", this.handleContainerClick);
+    container.addEventListener("input", this.handleContainerInput);
+    container.addEventListener("change", this.handleContainerChange);
     this.root.append(container);
     ownerDocument.addEventListener("keydown", this.handleKeydown);
 
@@ -211,6 +228,9 @@ export class WebKeyframesEditor {
     this.disposeAppliedPreview();
     this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
+    this.container?.removeEventListener("click", this.handleContainerClick);
+    this.container?.removeEventListener("input", this.handleContainerInput);
+    this.container?.removeEventListener("change", this.handleContainerChange);
     this.container?.remove();
     this.container = null;
     this.mounted = false;
@@ -275,10 +295,169 @@ export class WebKeyframesEditor {
       this.selectedKeyframeIndex,
       DEFAULT_TIMELINE_DATA,
     );
+    this.selectedTimelineIndex = renderState.selectedTimelineIndex;
+    this.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
+
+    this.container.innerHTML = this.renderEditorPanel(renderState);
+    this.bindDragging();
+    this.applyPanelPosition();
+    queueMicrotask(() => this.restoreFocus());
+  }
+
+  private renderEditorPanel(renderState: EditorRenderState): string {
+    return `
+      <div class="wkf__panel">
+        ${this.renderHeader()}
+        ${this.renderMainLayout(renderState)}
+        ${this.renderPreviewPanel()}
+        ${this.renderFooter()}
+      </div>
+    `;
+  }
+
+  private renderHeader(): string {
+    return `
+      <div class="wkf__header" data-wkf-drag-handle="true">
+        <div>
+          <p class="wkf__kicker">web-keyframes editor</p>
+          <h2 class="wkf__title">Keyframe Data Editor</h2>
+        </div>
+        <div class="wkf__actions" data-wkf-no-drag="true">
+          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="reset">Reset</button>
+          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide">Hide</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderMainLayout(renderState: EditorRenderState): string {
+    return `
+      <div class="wkf__layout">
+        <div class="wkf__columns">
+          ${this.renderTimelineListSection(renderState)}
+          <div class="wkf__section">
+            ${this.renderSelectedTimelineSection(renderState)}
+            <div class="wkf__columns wkf__columns--stacked">
+              ${this.renderKeyframeListSection(renderState)}
+              ${this.renderSelectedKeyframeSection(renderState)}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTimelineListSection({ renderTimelines }: EditorRenderState): string {
+    return `
+      <div class="wkf__section wkf__section--list">
+        <div class="wkf__section-head">
+          <div class="wkf__section-title">Timelines</div>
+          <div class="wkf__inline-actions wkf__inline-actions--wrap">
+            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-timeline">Add</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-timeline">Duplicate</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-timeline" ${
+              renderTimelines.length <= 1 ? "disabled" : ""
+            }>Delete</button>
+          </div>
+        </div>
+        <div class="wkf__keyframe-list">
+          ${renderTimelines
+            .map(
+              (timeline, index) => `
+                <button
+                  type="button"
+                  class="wkf__keyframe-item${index === this.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}"
+                  data-wkf-action="select-timeline"
+                  data-wkf-index="${index}"
+                >
+                  <span class="wkf__keyframe-time">${escapeHtml(timeline.id)}</span>
+                  <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
+                  <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSelectedTimelineSection({ selectedTimeline }: EditorRenderState): string {
+    return `
+      <div class="wkf__section">
+        <div class="wkf__section-title">Selected Timeline</div>
+        <div class="wkf__grid wkf__grid--meta">
+          ${renderTextField("id", "ID", selectedTimeline.id)}
+          ${renderSelectField("positionType", "Keyframe Position", selectedTimeline.positionType, [
+            { value: "time", label: "time" },
+            { value: "percent", label: "percent" },
+          ])}
+          ${
+            selectedTimeline.positionType === "time"
+              ? renderNumberField("duration", "Duration", selectedTimeline.duration ?? 1, 1, 1)
+              : ""
+          }
+          ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translateConfig.unit, [
+            { value: "px", label: "px" },
+            { value: "vw", label: "vw" },
+            { value: "vh", label: "vh" },
+            { value: "%", label: "%" },
+            { value: "custom", label: "custom" },
+          ])}
+          ${
+            selectedTimeline.translateConfig.unit === "custom"
+              ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translateConfig.customUnit ?? "")
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderKeyframeListSection({ selectedTimeline, selectedSourceTimeline }: EditorRenderState): string {
+    return `
+      <div class="wkf__section wkf__section--list">
+        <div class="wkf__section-head">
+          <div class="wkf__section-title">Keyframes</div>
+          <div class="wkf__inline-actions wkf__inline-actions--wrap">
+            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-keyframe">Add</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe" ${
+              selectedTimeline.keyframes.length === 0 ? "disabled" : ""
+            }>Duplicate</button>
+            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-keyframe" ${
+              selectedTimeline.keyframes.length === 0 ? "disabled" : ""
+            }>Delete</button>
+          </div>
+        </div>
+        <div class="wkf__keyframe-list">
+          ${
+            selectedTimeline.keyframes.length > 0
+              ? selectedTimeline.keyframes
+                .map(
+                  (keyframe, index) => `
+                    <button
+                      type="button"
+                      class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
+                      data-wkf-action="select-keyframe"
+                      data-wkf-index="${index}"
+                    >
+                      <span class="wkf__keyframe-time">${escapeHtml(formatKeyframePositionLabel(keyframe, selectedTimeline))}</span>
+                      <span class="wkf__keyframe-percent">${escapeHtml(formatKeyframeSecondaryLabel(keyframe, selectedTimeline))}</span>
+                      <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
+                    </button>
+                  `,
+                )
+                .join("")
+              : `<div class="wkf__keyframe-item"><span class="wkf__keyframe-meta">No keyframes yet.</span></div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSelectedKeyframeSection(renderState: EditorRenderState): string {
     const {
-      renderTimelines,
       selectedTimeline,
-      selectedSourceTimeline,
       selectedKeyframe,
       hasSelectedKeyframe,
       opacitySourceState,
@@ -288,310 +467,230 @@ export class WebKeyframesEditor {
       transformSourceState,
     } = renderState;
     const resolvedSelectedKeyframe = selectedKeyframe ?? selectedTimeline.keyframes[0];
-    this.selectedTimelineIndex = renderState.selectedTimelineIndex;
-    this.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
 
-    this.container.innerHTML = `
-      <div class="wkf__panel">
-        <div class="wkf__header" data-wkf-drag-handle="true">
+    return `
+      <div class="wkf__section wkf__section--editor">
+        <div class="wkf__section-head">
           <div>
-            <p class="wkf__kicker">web-keyframes editor</p>
-            <h2 class="wkf__title">Keyframe Data Editor</h2>
-          </div>
-          <div class="wkf__actions" data-wkf-no-drag="true">
-            <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="reset">Reset</button>
-            <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide">Hide</button>
-          </div>
-        </div>
-        <div class="wkf__layout">
-          <div class="wkf__columns">
-            <div class="wkf__section wkf__section--list">
-              <div class="wkf__section-head">
-                <div class="wkf__section-title">Timelines</div>
-                <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                  <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-timeline">Add</button>
-                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-timeline">Duplicate</button>
-                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-timeline" ${
-                    renderTimelines.length <= 1 ? "disabled" : ""
-                  }>Delete</button>
-                </div>
-              </div>
-              <div class="wkf__keyframe-list">
-                ${renderTimelines
-                  .map(
-                    (timeline, index) => `
-                      <button
-                        type="button"
-                        class="wkf__keyframe-item${index === this.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}"
-                        data-wkf-action="select-timeline"
-                        data-wkf-index="${index}"
-                      >
-                        <span class="wkf__keyframe-time">${escapeHtml(timeline.id)}</span>
-                        <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
-                        <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
-                      </button>
-                    `,
-                  )
-                  .join("")}
-              </div>
-            </div>
-            <div class="wkf__section">
-              <div class="wkf__section">
-                <div class="wkf__section-title">Selected Timeline</div>
-                <div class="wkf__grid wkf__grid--meta">
-                  ${renderTextField("id", "ID", selectedTimeline.id)}
-                  ${renderSelectField("positionType", "Keyframe Position", selectedTimeline.positionType, [
-                    { value: "time", label: "time" },
-                    { value: "percent", label: "percent" },
-                  ])}
-                  ${
-                    selectedTimeline.positionType === "time"
-                      ? renderNumberField("duration", "Duration", selectedTimeline.duration ?? 1, 1, 1)
-                      : ""
-                  }
-                  ${renderSelectField("translateUnit", "Translate Unit", selectedTimeline.translateConfig.unit, [
-                    { value: "px", label: "px" },
-                    { value: "vw", label: "vw" },
-                    { value: "vh", label: "vh" },
-                    { value: "%", label: "%" },
-                    { value: "custom", label: "custom" },
-                  ])}
-                  ${
-                    selectedTimeline.translateConfig.unit === "custom"
-                      ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translateConfig.customUnit ?? "")
-                      : ""
-                  }
-                </div>
-              </div>
-              <div class="wkf__columns wkf__columns--stacked">
-                <div class="wkf__section wkf__section--list">
-                  <div class="wkf__section-head">
-                    <div class="wkf__section-title">Keyframes</div>
-                    <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                      <button type="button" class="wkf__button wkf__button--small" data-wkf-action="add-keyframe">Add</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="duplicate-keyframe" ${
-                        selectedTimeline.keyframes.length === 0 ? "disabled" : ""
-                      }>Duplicate</button>
-                      <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="delete-keyframe" ${
-                        selectedTimeline.keyframes.length === 0 ? "disabled" : ""
-                      }>Delete</button>
-                    </div>
-                  </div>
-                  <div class="wkf__keyframe-list">
-                    ${
-                      selectedTimeline.keyframes.length > 0
-                        ? selectedTimeline.keyframes
-                          .map(
-                            (keyframe, index) => `
-                              <button
-                                type="button"
-                                class="wkf__keyframe-item${index === this.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
-                                data-wkf-action="select-keyframe"
-                                data-wkf-index="${index}"
-                              >
-                                <span class="wkf__keyframe-time">${escapeHtml(formatKeyframePositionLabel(keyframe, selectedTimeline))}</span>
-                                <span class="wkf__keyframe-percent">${escapeHtml(formatKeyframeSecondaryLabel(keyframe, selectedTimeline))}</span>
-                                <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
-                              </button>
-                            `,
-                          )
-                          .join("")
-                        : `<div class="wkf__keyframe-item"><span class="wkf__keyframe-meta">No keyframes yet.</span></div>`
-                    }
-                  </div>
-                </div>
-                <div class="wkf__section wkf__section--editor">
-                  <div class="wkf__section-head">
-                    <div>
-                      <div class="wkf__section-title">Selected Keyframe</div>
-                      <p class="wkf__subtitle">${
-                        hasSelectedKeyframe
-                          ? escapeHtml(formatSelectedKeyframeSubtitle(resolvedSelectedKeyframe, selectedTimeline))
-                          : "Add a keyframe to start editing."
-                      }</p>
-                    </div>
-                  </div>
-                  ${
-                    hasSelectedKeyframe
-                      ? `
-                        <div class="wkf__grid wkf__grid--editor">
-                          ${renderRangeField(
-                            "position",
-                            selectedTimeline.positionType === "time" ? "Time" : "Percent",
-                            getEditorKeyframePosition(resolvedSelectedKeyframe, selectedTimeline.positionType),
-                            0,
-                            selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
-                            selectedTimeline.positionType === "time" ? 1 : 0.1,
-                            selectedTimeline.positionType === "time" ? "ms" : "%",
-                          )}
-                          ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
-                          ${renderTimingFunctionPresets()}
-                        </div>
-                        <div class="wkf__section-head wkf__section-head--properties">
-                          <div class="wkf__section-title">Properties</div>
-                        </div>
-                        ${
-                          opacitySourceState === "unset" || transformSourceState === "unset"
-                            ? `
-                              <div class="wkf__property-add">
-                                <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                                  ${
-                                    opacitySourceState === "unset"
-                                      ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
-                                      : ""
-                                  }
-                                  ${
-                                    transformSourceState === "unset"
-                                      ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
-                                      : ""
-                                  }
-                                </div>
-                              </div>
-                            `
-                            : ""
-                        }
-                        <div class="wkf__property-list">
-                          ${
-                            opacitySourceState === "explicit"
-                              ? `
-                                <div class="wkf__property">
-                                  <div class="wkf__section-head">
-                                    <div>
-                                      <div class="wkf__section-title">Opacity</div>
-                                      <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
-                                    </div>
-                                    <div class="wkf__inline-actions">
-                                      <button
-                                        type="button"
-                                        class="wkf__button wkf__button--small wkf__button--ghost"
-                                        data-wkf-action="delete-opacity"
-                                      >Delete</button>
-                                    </div>
-                                  </div>
-                                  ${renderBoundedNumberField("opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1)}
-                                `
-                              : ""
-                          }
-                          ${
-                            transformSourceState !== "unset"
-                              ? `
-                                <div class="wkf__property">
-                                  <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-                                    <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
-                                  </div>
-                                  ${
-                                    transformSourceState === "none"
-                                      ? `
-                                        <div class="wkf__section-head">
-                                          <div>
-                                            <div class="wkf__section-title">Transforms</div>
-                                            <p class="wkf__subtitle">None</p>
-                                          </div>
-                                          <div class="wkf__inline-actions">
-                                            <button
-                                              type="button"
-                                              class="wkf__button wkf__button--small wkf__button--ghost"
-                                              data-wkf-action="delete-transforms"
-                                            >Delete</button>
-                                          </div>
-                                        </div>
-                                      `
-                                      : ""
-                                  }
-                                  ${
-                                    transformSourceState === "explicit"
-                                      ? `
-                                        <div class="wkf__section-head">
-                                          <div>
-                                            <div class="wkf__section-title">Transforms</div>
-                                            <p class="wkf__subtitle">${selectedSourceTransforms.length} item${selectedSourceTransforms.length === 1 ? "" : "s"}</p>
-                                          </div>
-                                          <div class="wkf__inline-actions">
-                                            <button
-                                              type="button"
-                                              class="wkf__button wkf__button--small wkf__button--ghost"
-                                              data-wkf-action="delete-transforms"
-                                            >Delete</button>
-                                            <button
-                                              type="button"
-                                              class="wkf__button wkf__button--small wkf__button--ghost"
-                                              data-wkf-action="clear-transforms"
-                                            >None</button>
-                                          </div>
-                                        </div>
-                                      `
-                                      : ""
-                                  }
-                                  <div class="wkf__transform-list">
-                                    ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
-                                  </div>
-                                </div>
-                              `
-                              : ""
-                          }
-                        </div>
-                      `
-                      : `
-                        <div class="wkf__property">
-                          <p class="wkf__subtitle">This timeline has no keyframes yet.</p>
-                          <p class="wkf__subtitle">Use the Add button above to create the first keyframe.</p>
-                        </div>
-                      `
-                  }
-                </div>
-              </div>
-            </div>
+            <div class="wkf__section-title">Selected Keyframe</div>
+            <p class="wkf__subtitle">${
+              hasSelectedKeyframe
+                ? escapeHtml(formatSelectedKeyframeSubtitle(resolvedSelectedKeyframe, selectedTimeline))
+                : "Add a keyframe to start editing."
+            }</p>
           </div>
         </div>
         ${
-          this.previewTitle !== null
-            ? `
-              <div class="wkf__preview">
-                <div class="wkf__preview-head">
-                  <div>
-                    <div class="wkf__section-title">${escapeHtml(this.previewTitle)}</div>
-                    <p class="wkf__subtitle">Current generated output</p>
-                  </div>
-                  <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
-                </div>
-                <textarea class="wkf__preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
+          hasSelectedKeyframe
+            ? this.renderSelectedKeyframeEditor(
+              selectedTimeline,
+              resolvedSelectedKeyframe,
+              selectedTimingFunction,
+              opacitySourceState,
+              selectedSourceOpacity,
+              transformSourceState,
+              selectedSourceTransforms,
+            )
+            : `
+              <div class="wkf__property">
+                <p class="wkf__subtitle">This timeline has no keyframes yet.</p>
+                <p class="wkf__subtitle">Use the Add button above to create the first keyframe.</p>
               </div>
             `
-            : ""
         }
-        <div class="wkf__footer" data-wkf-drag-handle="true">
-          <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
-          <div class="wkf__inline-actions">
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-json">View JSON</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-css">View CSS</button>
-            <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="copy-json">Copy JSON</button>
-            <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-css">Copy CSS</button>
-          </div>
+      </div>
+    `;
+  }
+
+  private renderSelectedKeyframeEditor(
+    selectedTimeline: EditorRenderState["selectedTimeline"],
+    selectedKeyframe: WebKeyframe,
+    selectedTimingFunction: string,
+    opacitySourceState: EditorRenderState["opacitySourceState"],
+    selectedSourceOpacity: number | null,
+    transformSourceState: EditorRenderState["transformSourceState"],
+    selectedSourceTransforms: TransformOperation[],
+  ): string {
+    return `
+      <div class="wkf__grid wkf__grid--editor">
+        ${renderRangeField(
+          "position",
+          selectedTimeline.positionType === "time" ? "Time" : "Percent",
+          getEditorKeyframePosition(selectedKeyframe, selectedTimeline.positionType),
+          0,
+          selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
+          selectedTimeline.positionType === "time" ? 1 : 0.1,
+          selectedTimeline.positionType === "time" ? "ms" : "%",
+        )}
+        ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
+        ${renderTimingFunctionPresets()}
+      </div>
+      <div class="wkf__section-head wkf__section-head--properties">
+        <div class="wkf__section-title">Properties</div>
+      </div>
+      ${this.renderKeyframePropertyActions(opacitySourceState, transformSourceState)}
+      <div class="wkf__property-list">
+        ${this.renderOpacityProperty(opacitySourceState, selectedSourceOpacity)}
+        ${this.renderTransformProperty(transformSourceState, selectedSourceTransforms)}
+      </div>
+    `;
+  }
+
+  private renderKeyframePropertyActions(
+    opacitySourceState: EditorRenderState["opacitySourceState"],
+    transformSourceState: EditorRenderState["transformSourceState"],
+  ): string {
+    if (opacitySourceState !== "unset" && transformSourceState !== "unset") {
+      return "";
+    }
+
+    return `
+      <div class="wkf__property-add">
+        <div class="wkf__inline-actions wkf__inline-actions--wrap">
+          ${
+            opacitySourceState === "unset"
+              ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-opacity">+ Opacity</button>`
+              : ""
+          }
+          ${
+            transformSourceState === "unset"
+              ? `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform">+ Transform</button>`
+              : ""
+          }
         </div>
       </div>
     `;
+  }
 
-    this.container.querySelector<HTMLElement>("[data-wkf-action='hide']")?.addEventListener("click", () => this.hide());
-    this.container.querySelector<HTMLElement>("[data-wkf-action='reset']")?.addEventListener("click", () => this.reset());
+  private renderOpacityProperty(
+    opacitySourceState: EditorRenderState["opacitySourceState"],
+    selectedSourceOpacity: number | null,
+  ): string {
+    if (opacitySourceState !== "explicit") {
+      return "";
+    }
 
-    this.bindDragging();
-    this.bindTimelineSelection();
-    this.bindTimelineActions();
-    this.bindMetaFields();
-    this.bindKeyframeSelection();
-    this.bindKeyframeEditor();
-    this.bindTransformEditor(selectedSourceTransforms);
-    this.bindSparseKeyframeActions();
-    this.bindKeyframeActions();
-    this.bindCopyActions();
-    this.bindPreviewActions();
-    this.applyPanelPosition();
-    queueMicrotask(() => this.restoreFocus());
+    return `
+      <div class="wkf__property">
+        <div class="wkf__section-head">
+          <div>
+            <div class="wkf__section-title">Opacity</div>
+            <p class="wkf__subtitle">Set to ${escapeHtml(formatNumber(selectedSourceOpacity ?? 1))}</p>
+          </div>
+          <div class="wkf__inline-actions">
+            <button
+              type="button"
+              class="wkf__button wkf__button--small wkf__button--ghost"
+              data-wkf-action="delete-opacity"
+            >Delete</button>
+          </div>
+        </div>
+        ${renderBoundedNumberField("opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1)}
+      </div>
+    `;
+  }
+
+  private renderTransformProperty(
+    transformSourceState: EditorRenderState["transformSourceState"],
+    selectedSourceTransforms: TransformOperation[],
+  ): string {
+    if (transformSourceState === "unset") {
+      return "";
+    }
+
+    return `
+      <div class="wkf__property">
+        <div class="wkf__inline-actions wkf__inline-actions--wrap">
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+        </div>
+        ${this.renderTransformPropertySummary(transformSourceState, selectedSourceTransforms.length)}
+        <div class="wkf__transform-list">
+          ${selectedSourceTransforms.map((transform, index) => renderTransformEditor(transform, index, selectedSourceTransforms.length)).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTransformPropertySummary(
+    transformSourceState: EditorRenderState["transformSourceState"],
+    transformCount: number,
+  ): string {
+    if (transformSourceState === "none") {
+      return `
+        <div class="wkf__section-head">
+          <div>
+            <div class="wkf__section-title">Transforms</div>
+            <p class="wkf__subtitle">None</p>
+          </div>
+          <div class="wkf__inline-actions">
+            <button
+              type="button"
+              class="wkf__button wkf__button--small wkf__button--ghost"
+              data-wkf-action="delete-transforms"
+            >Delete</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="wkf__section-head">
+        <div>
+          <div class="wkf__section-title">Transforms</div>
+          <p class="wkf__subtitle">${transformCount} item${transformCount === 1 ? "" : "s"}</p>
+        </div>
+        <div class="wkf__inline-actions">
+          <button
+            type="button"
+            class="wkf__button wkf__button--small wkf__button--ghost"
+            data-wkf-action="delete-transforms"
+          >Delete</button>
+          <button
+            type="button"
+            class="wkf__button wkf__button--small wkf__button--ghost"
+            data-wkf-action="clear-transforms"
+          >None</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderPreviewPanel(): string {
+    if (this.previewTitle === null) {
+      return "";
+    }
+
+    return `
+      <div class="wkf__preview">
+        <div class="wkf__preview-head">
+          <div>
+            <div class="wkf__section-title">${escapeHtml(this.previewTitle)}</div>
+            <p class="wkf__subtitle">Current generated output</p>
+          </div>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview">Close</button>
+        </div>
+        <textarea class="wkf__preview-textarea" readonly>${escapeHtml(this.previewContent)}</textarea>
+      </div>
+    `;
+  }
+
+  private renderFooter(): string {
+    return `
+      <div class="wkf__footer" data-wkf-drag-handle="true">
+        <p class="wkf__note wkf__note--${this.statusTone}" data-wkf-status>${escapeHtml(this.statusMessage)}</p>
+        <div class="wkf__inline-actions">
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="run-preview">Preview</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="reset-preview">Reset Preview</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-json">View JSON</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="view-css">View CSS</button>
+          <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="copy-json">Copy JSON</button>
+          <button type="button" class="wkf__button wkf__button--small" data-wkf-action="copy-css">Copy CSS</button>
+        </div>
+      </div>
+    `;
   }
 
   private bindDragging(): void {
@@ -605,18 +704,199 @@ export class WebKeyframesEditor {
     });
   }
 
-  private bindTimelineSelection(): void {
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-timeline']").forEach((button) => {
-      button.addEventListener("click", () => {
-        this.selectedTimelineIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.data.timelines.length);
-        this.normalizeEditorState();
-        this.render();
-      });
-    });
+  private handleDelegatedClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element) || this.container === null) {
+      return;
+    }
+
+    const actionTarget = target.closest<HTMLElement>("[data-wkf-action]");
+    if (!actionTarget || !this.container.contains(actionTarget) || actionTarget.hasAttribute("disabled")) {
+      return;
+    }
+
+    const action = actionTarget.dataset.wkfAction;
+    if (!action) {
+      return;
+    }
+
+    if (this.handleEditorChromeAction(action)) {
+      return;
+    }
+    if (this.handleTimelineAction(action, actionTarget)) {
+      return;
+    }
+    if (this.handleKeyframeAction(action, actionTarget)) {
+      return;
+    }
+    this.handlePreviewAction(action);
   }
 
-  private bindTimelineActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-timeline']")?.addEventListener("click", () => {
+  private handleEditorChromeAction(action: string): boolean {
+    switch (action) {
+      case "hide":
+        this.hide();
+        return true;
+      case "reset":
+        this.reset();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private handleTimelineAction(action: string, actionTarget: HTMLElement): boolean {
+    switch (action) {
+      case "select-timeline":
+        this.selectedTimelineIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.data.timelines.length);
+        this.normalizeEditorState();
+        this.render();
+        return true;
+      case "add-timeline":
+        this.addTimeline();
+        return true;
+      case "duplicate-timeline":
+        this.duplicateTimeline();
+        return true;
+      case "delete-timeline":
+        this.deleteTimeline();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private handleKeyframeAction(action: string, actionTarget: HTMLElement): boolean {
+    switch (action) {
+      case "select-keyframe":
+        this.selectedKeyframeIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
+        this.render();
+        return true;
+      case "set-timing-function":
+        this.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
+        return true;
+      case "clear-timing-function":
+        this.clearTimingFunction();
+        return true;
+      case "move-transform-up":
+        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), -1);
+        return true;
+      case "move-transform-down":
+        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), 1);
+        return true;
+      case "delete-transform":
+        this.deleteSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"));
+        return true;
+      case "add-transform":
+        this.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
+        return true;
+      case "add-opacity":
+        this.addOpacityProperty();
+        return true;
+      case "delete-opacity":
+        this.deleteOpacityProperty();
+        return true;
+      case "delete-transforms":
+        this.deleteTransformProperty();
+        return true;
+      case "clear-transforms":
+        this.clearTransformProperty();
+        return true;
+      case "add-keyframe":
+        this.addKeyframe();
+        return true;
+      case "delete-keyframe":
+        this.deleteKeyframe();
+        return true;
+      case "duplicate-keyframe":
+        this.duplicateKeyframe();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private handlePreviewAction(action: string): void {
+    switch (action) {
+      case "copy-json":
+        void this.copyPayload("json");
+        return;
+      case "copy-css":
+        void this.copyPayload("css");
+        return;
+      case "run-preview":
+        this.runPreview();
+        return;
+      case "reset-preview":
+        this.resetAppliedPreview();
+        return;
+      case "view-json":
+        this.openGeneratedPreview("json");
+        return;
+      case "view-css":
+        this.openGeneratedPreview("css");
+        return;
+      case "close-preview":
+        this.closePreview("Closed preview.");
+        return;
+      default:
+        return;
+    }
+  }
+
+  private handleDelegatedInput(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.dataset.wkfField) {
+      return;
+    }
+
+    this.handleFieldUpdate(target.dataset.wkfField, target, "input");
+  }
+
+  private handleDelegatedChange(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || !target.dataset.wkfField) {
+      return;
+    }
+
+    this.handleFieldUpdate(target.dataset.wkfField, target, "change");
+  }
+
+  private handleFieldUpdate(
+    field: string,
+    input: HTMLInputElement | HTMLSelectElement,
+    eventType: "input" | "change",
+  ): void {
+    if (input instanceof HTMLSelectElement) {
+      if (eventType === "change") {
+        this.applyTextFieldChange(field, input);
+      }
+      return;
+    }
+
+    if (input.type === "range") {
+      if (eventType === "input") {
+        this.applyRangeFieldInput(field, input);
+        return;
+      }
+
+      this.applyNumericFieldChange(field, input);
+      return;
+    }
+
+    if (input.type === "number") {
+      if (eventType === "change") {
+        this.applyNumericFieldChange(field, input);
+      }
+      return;
+    }
+
+    if (eventType === "input") {
+      this.applyTextFieldChange(field, input);
+    }
+  }
+
+  private addTimeline(): void {
       const nextTimeline = createNextTimeline(this.data.timelines, this.selectedTimelineIndex, DEFAULT_TIMELINE_DATA);
       this.data = sanitizeEditorDocument({
         timelines: [...this.data.timelines, nextTimeline],
@@ -624,9 +904,9 @@ export class WebKeyframesEditor {
       this.selectedTimelineIndex = this.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
       this.selectedKeyframeIndex = 0;
       this.renderWithStatus("info", "Added timeline.");
-    });
+  }
 
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-timeline']")?.addEventListener("click", () => {
+  private duplicateTimeline(): void {
       const source = this.getSelectedTimeline();
       const duplicate = createDuplicatedTimeline(source, this.data.timelines);
       const timelines = this.data.timelines.map((timeline) => cloneTimeline(timeline));
@@ -635,102 +915,159 @@ export class WebKeyframesEditor {
       this.selectedTimelineIndex = this.selectedTimelineIndex + 1;
       this.normalizeEditorState();
       this.renderWithStatus("info", "Duplicated timeline.");
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-timeline']")?.addEventListener("click", () => {
-      if (this.data.timelines.length <= 1) {
-        return;
-      }
-
-      const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
-      this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
-      this.normalizeEditorState();
-      this.renderWithStatus("info", "Deleted timeline.");
-    });
   }
 
-  private bindMetaFields(): void {
-    this.bindInputValue("id", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.id = value;
-      });
-    });
-    this.bindInputValue("positionType", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        const nextPositionType = value === "percent" ? "percent" : "time";
-        if (nextPositionType === timeline.positionType) {
-          return;
-        }
+  private deleteTimeline(): void {
+    if (this.data.timelines.length <= 1) {
+      return;
+    }
 
-        if (nextPositionType === "percent") {
-          convertTimelineKeyframesToPercent(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1);
-          return;
-        }
-
-        convertTimelineKeyframesToTime(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1200);
-      });
-      this.normalizeEditorState();
-    });
-    this.bindInputValue("translateCustomUnit", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.translateConfig = {
-          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-          customUnit: value,
-        };
-      });
-    });
-    this.bindInputValue("translateUnit", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        timeline.translateConfig = {
-          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-          unit: value as TranslateUnit,
-        };
-      });
-    });
-    this.bindInputNumber("duration", (value) => {
-      this.updateSelectedTimeline((timeline) => {
-        if (timeline.positionType === "percent") {
-          return;
-        }
-
-        timeline.duration = Math.max(1, Math.round(value));
-        clampTimelineKeyframesToDuration(timeline);
-      });
-      this.normalizeEditorState();
-    });
+    const timelines = this.data.timelines.filter((_, index) => index !== this.selectedTimelineIndex);
+    this.data = sanitizeEditorDocument({ timelines }, DEFAULT_TIMELINE_DATA);
+    this.normalizeEditorState();
+    this.renderWithStatus("info", "Deleted timeline.");
   }
 
-  private bindKeyframeSelection(): void {
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='select-keyframe']").forEach((button) => {
-      button.addEventListener("click", () => {
-        this.selectedKeyframeIndex = clampIndex(Number(button.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
-        this.render();
-      });
-    });
-  }
-
-  private bindKeyframeEditor(): void {
-    this.bindInputNumber("position", (value, shouldRender = true) => {
-      this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
-        const selected = keyframes[this.selectedKeyframeIndex];
-        if (!selected) {
-          return;
-        }
-
+  private addKeyframe(): void {
+      this.updateSelectedTimeline((timeline) => {
         const positionType = getTimelinePositionType(timeline);
-        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-        applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
-        keyframes.sort((left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType));
-        this.selectedKeyframeIndex = keyframes.indexOf(selected);
-      }, shouldRender);
+        const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
+        timeline.keyframes = this.sortKeyframesByPosition([...timeline.keyframes, nextFrame], positionType);
+        this.selectedKeyframeIndex = timeline.keyframes.indexOf(nextFrame);
+      });
+      this.render();
+  }
+
+  private deleteKeyframe(): void {
+    const timeline = this.getSelectedTimeline();
+    if (timeline.keyframes.length === 0) {
+      return;
+    }
+
+    this.updateSelectedTimeline((candidate) => {
+      candidate.keyframes = candidate.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex);
+      this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, candidate.keyframes.length);
     });
-    this.bindInputValue("timingFunction", (value) => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
+    this.render();
+  }
+
+  private duplicateKeyframe(): void {
+    this.updateSelectedTimeline((timeline) => {
+      const positionType = getTimelinePositionType(timeline);
+      const source = timeline.keyframes[this.selectedKeyframeIndex];
+      if (!source) {
         return;
       }
+      const duplicate = cloneSparseKeyframe(source);
+      const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+      const offset = positionType === "time"
+        ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
+        : 10;
+      const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
+      applyEditorKeyframePosition(duplicate, positionType, nextPosition);
+      timeline.keyframes = this.sortKeyframesByPosition([...timeline.keyframes, duplicate], positionType);
+      this.selectedKeyframeIndex = timeline.keyframes.indexOf(duplicate);
+    });
+    this.renderWithStatus("info", "Duplicated selected keyframe.");
+  }
 
+  private applyTextFieldChange(field: string, input: HTMLInputElement | HTMLSelectElement): void {
+    this.pendingFocus = captureFocusSnapshot(this.container, field, input);
+    if (!this.applyStringField(field, input.value)) {
+      return;
+    }
+
+    this.setStatus("info", "Editing timeline data.");
+    this.render();
+  }
+
+  private applyRangeFieldInput(field: string, input: HTMLInputElement): void {
+    const value = Number(input.value);
+    if (!Number.isFinite(value) || !this.applyNumberField(field, value, false)) {
+      return;
+    }
+
+    syncNumberFieldValues(this.container, field, value, input);
+    this.setStatus("info", "Editing timeline data.");
+  }
+
+  private applyNumericFieldChange(field: string, input: HTMLInputElement): void {
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    this.pendingFocus = captureFocusSnapshot(this.container, field, input);
+    if (!this.applyNumberField(field, value, true)) {
+      return;
+    }
+
+    this.setStatus("info", "Editing timeline data.");
+    this.render();
+  }
+
+  private applyStringField(field: string, value: string): boolean {
+    return this.applyTimelineStringField(field, value)
+      || this.applyKeyframeStringField(field, value)
+      || this.applyTransformStringField(field, value);
+  }
+
+  private applyNumberField(field: string, value: number, shouldRender: boolean): boolean {
+    return this.applyTimelineNumberField(field, value)
+      || this.applyKeyframeNumberField(field, value, shouldRender)
+      || this.applyTransformNumberField(field, value);
+  }
+
+  private applyTimelineStringField(field: string, value: string): boolean {
+    switch (field) {
+      case "id":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.id = value;
+        });
+        return true;
+      case "positionType":
+        this.updateSelectedTimeline((timeline) => {
+          const nextPositionType = value === "percent" ? "percent" : "time";
+          if (nextPositionType === timeline.positionType) {
+            return;
+          }
+
+          if (nextPositionType === "percent") {
+            convertTimelineKeyframesToPercent(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1);
+            return;
+          }
+
+          convertTimelineKeyframesToTime(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1200);
+        });
+        this.normalizeEditorState();
+        return true;
+      case "translateCustomUnit":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.translateConfig = {
+            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+            customUnit: value,
+          };
+        });
+        return true;
+      case "translateUnit":
+        this.updateSelectedTimeline((timeline) => {
+          timeline.translateConfig = {
+            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+            unit: value as TranslateUnit,
+          };
+        });
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private applyKeyframeStringField(field: string, value: string): boolean {
+    if (field !== "timingFunction") {
+      return false;
+    }
+
+    this.withSelectedKeyframe((_, keyframe) => {
       const trimmed = value.trim();
       if (trimmed === "") {
         delete keyframe.timingFunction;
@@ -738,311 +1075,184 @@ export class WebKeyframesEditor {
         keyframe.timingFunction = trimmed;
       }
     });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='set-timing-function']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const value = button.dataset.wkfValue ?? "";
-        const timeline = this.getSelectedTimeline();
-        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-        if (!keyframe) {
-          return;
-        }
+    return true;
+  }
 
+  private applyTransformStringField(field: string, value: string): boolean {
+    if (!field.startsWith("transform-kind-")) {
+      return false;
+    }
+
+    const index = Number(field.slice("transform-kind-".length));
+    this.applyEditedTransforms((timeline) =>
+      replaceTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind)
+    );
+    return true;
+  }
+
+  private applyTimelineNumberField(field: string, value: number): boolean {
+    switch (field) {
+      case "duration":
+        this.updateSelectedTimeline((timeline) => {
+          if (timeline.positionType === "percent") {
+            return;
+          }
+
+          timeline.duration = Math.max(1, Math.round(value));
+          clampTimelineKeyframesToDuration(timeline);
+        });
+        this.normalizeEditorState();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private applyKeyframeNumberField(field: string, value: number, shouldRender: boolean): boolean {
+    switch (field) {
+      case "position":
+        this.updateSelectedTimelineKeyframes((keyframes, timeline) => {
+          const selected = keyframes[this.selectedKeyframeIndex];
+          if (!selected) {
+            return;
+          }
+
+          const positionType = getTimelinePositionType(timeline);
+          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+          applyEditorKeyframePosition(selected, positionType, clampNumber(roundEditorPosition(value, positionType), 0, maxPosition));
+          keyframes.splice(0, keyframes.length, ...this.sortKeyframesByPosition(keyframes, positionType));
+          this.selectedKeyframeIndex = keyframes.indexOf(selected);
+        }, shouldRender);
+        return true;
+      case "opacity":
+        this.commitEditorChange(() => {
+          this.withSelectedKeyframe((_, keyframe) => {
+            upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+          });
+        }, {
+          status: { tone: "info", message: "Editing timeline data." },
+          render: shouldRender,
+        });
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private applyTransformNumberField(field: string, value: number): boolean {
+    const match = /^transform-(x|y|value)-(\d+)$/.exec(field);
+    if (!match) {
+      return false;
+    }
+
+    const transformField = match[1] as "x" | "y" | "value";
+    const index = Number(match[2]);
+    this.applyEditedTransforms((timeline) =>
+      setTransformFieldValue(timeline, this.selectedKeyframeIndex, index, transformField, value)
+    );
+    return true;
+  }
+
+  private setTimingFunctionPreset(value: string): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
         keyframe.timingFunction = value;
-        this.pendingFocus = {
-          field: "timingFunction",
-          index: 0,
-          selectionStart: value.length,
-          selectionEnd: value.length,
-        };
-        this.setStatus("info", "Editing timeline data.");
-        this.render();
       });
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-timing-function']")?.addEventListener("click", () => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
+      this.pendingFocus = {
+        field: "timingFunction",
+        index: 0,
+        selectionStart: value.length,
+        selectionEnd: value.length,
+      };
+    }, { status: { tone: "info", message: "Editing timeline data." } });
+  }
 
-      delete keyframe.timingFunction;
+  private clearTimingFunction(): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
+        delete keyframe.timingFunction;
+      });
       this.pendingFocus = {
         field: "timingFunction",
         index: 0,
         selectionStart: 0,
         selectionEnd: 0,
       };
-      this.setStatus("info", "Editing timeline data.");
-      this.render();
-    });
-    this.bindInputNumber("opacity", (value, shouldRender = true) => {
-      const timeline = this.getSelectedTimeline();
-      const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-      this.setStatus("info", "Editing timeline data.");
-      if (shouldRender) {
-        this.render();
-      }
-    });
+    }, { status: { tone: "info", message: "Editing timeline data." } });
   }
 
-  private bindTransformEditor(selectedTransforms: TransformOperation[]): void {
-    selectedTransforms.forEach((transform, index) => {
-      this.bindInputValue(`transform-kind-${index}`, (value) => {
-        this.updateSelectedTimeline((timeline) => {
-          this.applyCoreEditedTimeline(
-            timeline,
-            replaceTransformKind(
-              timeline,
-              this.selectedKeyframeIndex,
-              index,
-              value as TransformKind,
-            ),
-          );
-        });
-      });
+  private moveSelectedTransform(index: number, direction: -1 | 1): void {
+    this.commitEditorChange(() => {
+      this.applyEditedTransforms((timeline) => moveTransform(
+        timeline,
+        this.selectedKeyframeIndex,
+        index,
+        direction,
+      ));
+    }, { status: { tone: "info", message: "Reordered transforms." } });
+  }
 
-      for (const field of this.getTransformFields(transform.kind)) {
-        this.bindInputNumber(`transform-${field}-${index}`, (value) => {
-          this.updateSelectedTimeline((timeline) => {
-            this.applyCoreEditedTimeline(
-              timeline,
-              setTransformFieldValue(
-                timeline,
-                this.selectedKeyframeIndex,
-                index,
-                field,
-                value,
-              ),
-            );
-          });
-        });
-      }
-    });
+  private deleteSelectedTransform(index: number): void {
+    this.commitEditorChange(() => {
+      this.applyEditedTransforms((timeline) => removeTransform(
+        timeline,
+        this.selectedKeyframeIndex,
+        index,
+      ));
+    }, { status: { tone: "info", message: "Removed transform." } });
+  }
 
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-up']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
-        this.updateSelectedTimeline((timeline) => {
-          this.applyCoreEditedTimeline(timeline, moveTransform(
-            timeline,
-            this.selectedKeyframeIndex,
-            index,
-            -1,
-          ));
-        });
-        this.setStatus("info", "Reordered transforms.");
-        this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='move-transform-down']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
-        this.updateSelectedTimeline((timeline) => {
-          this.applyCoreEditedTimeline(timeline, moveTransform(
-            timeline,
-            this.selectedKeyframeIndex,
-            index,
-            1,
-          ));
-        });
-        this.setStatus("info", "Reordered transforms.");
-        this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='delete-transform']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const index = Number(button.dataset.wkfIndex ?? "0");
-        this.updateSelectedTimeline((timeline) => {
-          this.applyCoreEditedTimeline(timeline, removeTransform(
-            timeline,
-            this.selectedKeyframeIndex,
-            index,
-          ));
-        });
-        this.setStatus("info", "Removed transform.");
-        this.render();
-      });
-    });
-    this.container?.querySelectorAll<HTMLElement>("[data-wkf-action='add-transform']").forEach((button) => {
-      button.addEventListener("click", () => {
-        const kind = (button.dataset.wkfKind ?? "translate") as TransformKind;
-        const timeline = this.getSelectedTimeline();
-        const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
-        if (keyframe && !hasKeyframeProperty(keyframe, "transform")) {
-          upsertKeyframeProperty(keyframe, createTransformProperty([createDefaultTransform(kind)]));
-          this.setStatus("info", `Added ${kind} transform.`);
-          this.render();
+  private addSelectedTransform(kind: TransformKind): void {
+    this.commitEditorChange(() => {
+      let addedInline = false;
+      this.withSelectedKeyframe((_, keyframe) => {
+        if (hasKeyframeProperty(keyframe, "transform")) {
           return;
         }
 
-        this.updateSelectedTimeline((candidate) => {
-          this.applyCoreEditedTimeline(candidate, addTransform(
-            candidate,
-            this.selectedKeyframeIndex,
-            kind,
-          ));
-        });
-        this.setStatus("info", `Added ${kind} transform.`);
-        this.render();
+        upsertKeyframeProperty(keyframe, createTransformProperty([createDefaultTransform(kind)]));
+        addedInline = true;
       });
-    });
+      if (!addedInline) {
+        this.applyEditedTransforms((timeline) => addTransform(
+          timeline,
+          this.selectedKeyframeIndex,
+          kind,
+        ));
+      }
+    }, { status: { tone: "info", message: `Added ${kind} transform.` } });
   }
 
-  private bindSparseKeyframeActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-opacity']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      upsertKeyframeProperty(keyframe, createOpacityProperty(1));
-      this.setStatus("info", "Added opacity to the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-opacity']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      deleteKeyframeProperty(keyframe, "opacity");
-      this.setStatus("info", "Deleted opacity from the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-transforms']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      deleteKeyframeProperty(keyframe, "transform");
-      this.setStatus("info", "Deleted transforms from the selected keyframe.");
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='clear-transforms']")?.addEventListener("click", () => {
-      const keyframe = this.getSelectedTimeline().keyframes[this.selectedKeyframeIndex];
-      if (!keyframe) {
-        return;
-      }
-
-      upsertKeyframeProperty(keyframe, createTransformProperty([]));
-      this.setStatus("info", "Cleared transforms to none for the selected keyframe.");
-      this.render();
-    });
+  private addOpacityProperty(): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+      });
+    }, { status: { tone: "info", message: "Added opacity to the selected keyframe." } });
   }
 
-  private bindKeyframeActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='add-keyframe']")?.addEventListener("click", () => {
-      this.updateSelectedTimeline((timeline) => {
-        const positionType = getTimelinePositionType(timeline);
-        const nextFrame = createNextKeyframe(timeline, timeline.keyframes, this.selectedKeyframeIndex);
-        timeline.keyframes = [...timeline.keyframes, nextFrame].sort(
-          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-        );
-        this.selectedKeyframeIndex = timeline.keyframes.indexOf(nextFrame);
+  private deleteOpacityProperty(): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
+        deleteKeyframeProperty(keyframe, "opacity");
       });
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='delete-keyframe']")?.addEventListener("click", () => {
-      const timeline = this.getSelectedTimeline();
-      if (timeline.keyframes.length === 0) {
-        return;
-      }
-
-      this.updateSelectedTimeline((candidate) => {
-        candidate.keyframes = candidate.keyframes.filter((_, index) => index !== this.selectedKeyframeIndex);
-        this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, candidate.keyframes.length);
-      });
-      this.render();
-    });
-
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='duplicate-keyframe']")?.addEventListener("click", () => {
-      this.updateSelectedTimeline((timeline) => {
-        const positionType = getTimelinePositionType(timeline);
-        const source = timeline.keyframes[this.selectedKeyframeIndex];
-        if (!source) {
-          return;
-        }
-        const duplicate = cloneSparseKeyframe(source);
-        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-        const offset = positionType === "time"
-          ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1))
-          : 10;
-        const nextPosition = Math.min(maxPosition, getEditorKeyframePosition(source, positionType) + offset);
-        applyEditorKeyframePosition(duplicate, positionType, nextPosition);
-        timeline.keyframes = [...timeline.keyframes, duplicate].sort(
-          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-        );
-        this.selectedKeyframeIndex = timeline.keyframes.indexOf(duplicate);
-      });
-      this.renderWithStatus("info", "Duplicated selected keyframe.");
-    });
+    }, { status: { tone: "info", message: "Deleted opacity from the selected keyframe." } });
   }
 
-  private bindInputValue(field: string, assign: (value: string) => void): void {
-    const input = this.container?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`);
-    if (!input) {
-      return;
-    }
-
-    const eventName = input instanceof HTMLSelectElement ? "change" : "input";
-    input.addEventListener(eventName, () => {
-      this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-      assign(input.value);
-      this.setStatus("info", "Editing timeline data.");
-      this.render();
-    });
+  private deleteTransformProperty(): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
+        deleteKeyframeProperty(keyframe, "transform");
+      });
+    }, { status: { tone: "info", message: "Deleted transforms from the selected keyframe." } });
   }
 
-  private bindInputNumber(field: string, assign: (value: number, shouldRender?: boolean) => void): void {
-    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-      if (input.type === "range") {
-        input.addEventListener("input", () => {
-          const value = Number(input.value);
-          if (!Number.isFinite(value)) {
-            return;
-          }
-
-          assign(value, false);
-          syncNumberFieldValues(this.container, field, value, input);
-          this.setStatus("info", "Editing timeline data.");
-        });
-
-        input.addEventListener("change", () => {
-          const value = Number(input.value);
-          if (!Number.isFinite(value)) {
-            return;
-          }
-
-          this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-          assign(value, true);
-          this.setStatus("info", "Editing timeline data.");
-          this.render();
-        });
-        return;
-      }
-
-      input.addEventListener("change", () => {
-        const value = Number(input.value);
-        if (!Number.isFinite(value)) {
-          return;
-        }
-
-        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-        assign(value, true);
-        this.setStatus("info", "Editing timeline data.");
-        this.render();
+  private clearTransformProperty(): void {
+    this.commitEditorChange(() => {
+      this.withSelectedKeyframe((_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createTransformProperty([]));
       });
-    });
+    }, { status: { tone: "info", message: "Cleared transforms to none for the selected keyframe." } });
   }
 
   private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
@@ -1067,38 +1277,49 @@ export class WebKeyframesEditor {
     }
   }
 
-  private applyCoreEditedTimeline(
-    timeline: WebKeyframesTimeline,
-    editedTimeline: WebKeyframesTimeline | ReturnType<typeof moveTransform>,
+  private commitEditorChange(
+    update: () => void,
+    options: {
+      status?: { tone: "info" | "success" | "error"; message: string };
+      render?: boolean;
+    } = {},
   ): void {
-    timeline.keyframes = cloneTimeline(editedTimeline).keyframes;
+    update();
+    if (options.status) {
+      this.setStatus(options.status.tone, options.status.message);
+    }
+    if (options.render ?? true) {
+      this.render();
+    }
   }
 
-  private getTransformFields(kind: TransformKind): Array<"x" | "y" | "value"> {
-    return kind === "rotate" ? ["value"] : ["x", "y"];
+  private withSelectedKeyframe(
+    run: (timeline: WebKeyframesTimeline, keyframe: WebKeyframe) => void,
+  ): void {
+    const timeline = this.getSelectedTimeline();
+    const keyframe = timeline.keyframes[this.selectedKeyframeIndex];
+    if (!keyframe) {
+      return;
+    }
+
+    run(timeline, keyframe);
   }
 
-  private bindCopyActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-json']")?.addEventListener("click", () => {
-      void this.copyPayload("json");
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='copy-css']")?.addEventListener("click", () => {
-      void this.copyPayload("css");
+  private applyEditedTransforms(
+    edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline | ReturnType<typeof moveTransform>,
+  ): void {
+    this.updateSelectedTimeline((timeline) => {
+      timeline.keyframes = cloneTimeline(edit(timeline)).keyframes;
     });
   }
 
-  private bindPreviewActions(): void {
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='run-preview']")?.addEventListener("click", () => this.runPreview());
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='reset-preview']")?.addEventListener("click", () => this.resetAppliedPreview());
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-json']")?.addEventListener("click", () => {
-      this.openPreview("JSON Preview", () => this.toJson());
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='view-css']")?.addEventListener("click", () => {
-      this.openPreview("CSS Preview", () => this.toCss());
-    });
-    this.container?.querySelector<HTMLElement>("[data-wkf-action='close-preview']")?.addEventListener("click", () => {
-      this.closePreview("Closed preview.");
-    });
+  private sortKeyframesByPosition(
+    keyframes: WebKeyframe[],
+    positionType: ReturnType<typeof getTimelinePositionType>,
+  ): WebKeyframe[] {
+    return [...keyframes].sort(
+      (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+    );
   }
 
   private async copyPayload(kind: "json" | "css"): Promise<void> {
@@ -1135,21 +1356,25 @@ export class WebKeyframesEditor {
     this.data = cloneDocument(this.initialData);
     this.selectedTimelineIndex = 0;
     this.selectedKeyframeIndex = 0;
-    this.previewTitle = null;
-    this.previewContent = "";
+    this.clearPreviewPanel();
     this.setStatus("success", "Reset editor data to the initial state.");
     this.render();
   }
 
+  private openGeneratedPreview(kind: "json" | "css"): void {
+    this.openPreview(
+      kind === "json" ? "JSON Preview" : "CSS Preview",
+      () => (kind === "json" ? this.toJson() : this.toCss()),
+    );
+  }
+
   private openPreview(title: string, getContent: () => string): void {
     try {
-      this.previewTitle = title;
-      this.previewContent = getContent();
+      this.setPreviewPanel(title, getContent());
       this.setStatus("success", `Opened ${title.toLowerCase()}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.previewTitle = null;
-      this.previewContent = "";
+      this.clearPreviewPanel();
       this.setStatus("error", message);
     }
 
@@ -1157,8 +1382,7 @@ export class WebKeyframesEditor {
   }
 
   private closePreview(message: string): void {
-    this.previewTitle = null;
-    this.previewContent = "";
+    this.clearPreviewPanel();
     this.setStatus("info", message);
     this.render();
   }
@@ -1197,6 +1421,16 @@ export class WebKeyframesEditor {
   private disposeAppliedPreview(): void {
     clearAppliedPreview(this.activePreview);
     this.activePreview = null;
+  }
+
+  private setPreviewPanel(title: string, content: string): void {
+    this.previewTitle = title;
+    this.previewContent = content;
+  }
+
+  private clearPreviewPanel(): void {
+    this.previewTitle = null;
+    this.previewContent = "";
   }
 
   private restoreFocus(): void {
@@ -1597,44 +1831,6 @@ function renderNumberField(
         type="number"
         data-wkf-field="${escapeHtml(field)}"
         value="${escapeHtml(String(value))}"
-        ${min !== undefined ? `min="${min}"` : ""}
-        ${max !== undefined ? `max="${max}"` : ""}
-        ${step !== undefined ? `step="${step}"` : ""}
-      >
-    </label>
-  `;
-}
-
-function renderNullableNumberField(
-  field: string,
-  label: string,
-  value: number | null,
-  min?: number,
-  step?: number,
-  max?: number,
-  hideUnsetAction = false,
-): string {
-  return `
-    <label class="wkf__field">
-      <span class="wkf__field-head">
-        <span class="wkf__label">${escapeHtml(label)}</span>
-        ${
-          hideUnsetAction
-            ? ""
-            : `<button
-              type="button"
-              class="wkf__button wkf__button--tiny wkf__button--ghost"
-              data-wkf-action="delete-${escapeHtml(field)}"
-              ${value == null ? "disabled" : ""}
-            >Delete</button>`
-        }
-      </span>
-      <input
-        class="wkf__input"
-        type="number"
-        data-wkf-field="${escapeHtml(field)}"
-        value="${value == null ? "" : escapeHtml(String(value))}"
-        placeholder="unset"
         ${min !== undefined ? `min="${min}"` : ""}
         ${max !== undefined ? `max="${max}"` : ""}
         ${step !== undefined ? `step="${step}"` : ""}

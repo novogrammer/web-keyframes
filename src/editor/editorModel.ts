@@ -9,6 +9,7 @@ import {
 } from "../core/normalize.js";
 import type {
   KeyframePositionMode,
+  TransformOperation,
   TranslateUnit,
   WebKeyframe,
   WebKeyframesDocument,
@@ -49,10 +50,11 @@ export function deriveEditorRenderState(
   selectedKeyframeIndex: number,
   defaultTimelineData: WebKeyframesTimeline,
 ): EditorRenderState {
-  const renderTimelines = getRenderTimelines(data, defaultTimelineData);
+  const sanitizedDocument = sanitizeEditorDocument(data, defaultTimelineData);
+  const renderTimelines = getRenderTimelines(sanitizedDocument);
   const selectedTimeline = renderTimelines[selectedTimelineIndex] ?? renderTimelines[0];
   const nextTimelineIndex = renderTimelines.indexOf(selectedTimeline);
-  const selectedSourceTimeline = data.timelines[nextTimelineIndex] ?? data.timelines[0];
+  const selectedSourceTimeline = sanitizedDocument.timelines[nextTimelineIndex] ?? sanitizedDocument.timelines[0];
   const selectedKeyframe = selectedTimeline.keyframes[selectedKeyframeIndex] ?? selectedTimeline.keyframes[0];
   const nextKeyframeIndex = selectedKeyframe ? selectedTimeline.keyframes.indexOf(selectedKeyframe) : 0;
   const selectedSourceKeyframe = selectedSourceTimeline.keyframes[nextKeyframeIndex] ?? selectedSourceTimeline.keyframes[0];
@@ -88,8 +90,8 @@ export function deriveEditorRenderState(
   };
 }
 
-function getRenderTimelines(data: WebKeyframesDocument, defaultTimelineData: WebKeyframesTimeline): RenderWebKeyframesTimeline[] {
-  return sanitizeEditorDocument(data, defaultTimelineData).timelines.map((timeline) => ({
+function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimeline[] {
+  return data.timelines.map((timeline) => ({
     ...timeline,
     positionType: getTimelinePositionType(timeline),
     duration: getTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
@@ -124,10 +126,7 @@ function sanitizeEditorTimeline(
   const keyframes = Array.isArray(data.keyframes)
     ? data.keyframes
     : fallback.keyframes;
-  const resolvedKeyframes = [...keyframes]
-    .sort((left, right) => {
-      return getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType);
-    })
+  const resolvedKeyframes = sortKeyframesByPosition(keyframes, positionType)
     .map((keyframe) => cloneSparseKeyframe(keyframe));
 
   return {
@@ -238,9 +237,7 @@ export function createNextKeyframe(
 ): WebKeyframesTimeline["keyframes"][number] {
   const positionType = getTimelinePositionType(timeline);
   const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-  const sortedKeyframes = [...keyframes].sort(
-    (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-  );
+  const sortedKeyframes = sortKeyframesByPosition(keyframes, positionType);
   if (sortedKeyframes.length === 0) {
     return createEmptyKeyframe(positionType, 0);
   }
@@ -268,6 +265,15 @@ function createEmptyKeyframe(positionType: KeyframePositionMode, position: numbe
   return positionType === "time"
     ? { time: position, properties: [] }
     : { percent: position, properties: [] };
+}
+
+function sortKeyframesByPosition(
+  keyframes: Array<Partial<WebKeyframe>>,
+  positionType: KeyframePositionMode,
+): Array<Partial<WebKeyframe>> {
+  return [...keyframes].sort(
+    (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+  );
 }
 
 function resolveEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
