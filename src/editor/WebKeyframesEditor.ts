@@ -1,4 +1,5 @@
 import {
+  addTransform,
   cloneDocument,
   cloneTimeline,
   createOpacityProperty,
@@ -12,6 +13,10 @@ import {
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
+  moveTransform,
+  removeTransform,
+  replaceTransformKind,
+  setTransformFieldValue,
   upsertKeyframeProperty,
 } from "../core/index.js";
 import type {
@@ -23,7 +28,6 @@ import type {
   WebKeyframesTimeline,
 } from "../core/index.js";
 import {
-  addTransformToSelectedKeyframe,
   applyEditorKeyframePosition,
   clampIndex,
   clampNumber,
@@ -40,12 +44,8 @@ import {
   formatTimelinePositionSummary,
   formatTimelineSummary,
   getEditorKeyframePosition,
-  moveSelectedKeyframeTransform,
-  removeSelectedKeyframeTransform,
-  replaceSelectedKeyframeTransformKind,
   roundEditorPosition,
   sanitizeEditorDocument,
-  updateSelectedKeyframeTransform,
 } from "./editorModel.js";
 import type { RenderTranslateConfig, RenderWebKeyframesTimeline } from "./editorModel.js";
 import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
@@ -824,54 +824,33 @@ export class WebKeyframesEditor {
     selectedTransforms.forEach((transform, index) => {
       this.bindInputValue(`transform-kind-${index}`, (value) => {
         this.updateSelectedTimeline((timeline) => {
-          replaceSelectedKeyframeTransformKind(timeline, this.selectedKeyframeIndex, index, value as TransformKind, createDefaultTransform);
+          this.applyCoreEditedTimeline(
+            timeline,
+            replaceTransformKind(
+              timeline,
+              this.selectedKeyframeIndex,
+              index,
+              value as TransformKind,
+            ),
+          );
         });
       });
 
-      switch (transform.kind) {
-        case "translate":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
+      for (const field of this.getTransformFields(transform.kind)) {
+        this.bindInputNumber(`transform-${field}-${index}`, (value) => {
+          this.updateSelectedTimeline((timeline) => {
+            this.applyCoreEditedTimeline(
+              timeline,
+              setTransformFieldValue(
+                timeline,
+                this.selectedKeyframeIndex,
+                index,
+                field,
+                value,
+              ),
+            );
           });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
-        case "scale":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
-          });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
-        case "rotate":
-          this.bindInputNumber(`transform-value-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "value", value);
-            });
-          });
-          break;
-        case "skew":
-          this.bindInputNumber(`transform-x-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "x", value);
-            });
-          });
-          this.bindInputNumber(`transform-y-${index}`, (value) => {
-            this.updateSelectedTimeline((timeline) => {
-              updateSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, "y", value);
-            });
-          });
-          break;
+        });
       }
     });
 
@@ -879,7 +858,12 @@ export class WebKeyframesEditor {
       button.addEventListener("click", () => {
         const index = Number(button.dataset.wkfIndex ?? "0");
         this.updateSelectedTimeline((timeline) => {
-          moveSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, -1);
+          this.applyCoreEditedTimeline(timeline, moveTransform(
+            timeline,
+            this.selectedKeyframeIndex,
+            index,
+            -1,
+          ));
         });
         this.setStatus("info", "Reordered transforms.");
         this.render();
@@ -889,7 +873,12 @@ export class WebKeyframesEditor {
       button.addEventListener("click", () => {
         const index = Number(button.dataset.wkfIndex ?? "0");
         this.updateSelectedTimeline((timeline) => {
-          moveSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index, 1);
+          this.applyCoreEditedTimeline(timeline, moveTransform(
+            timeline,
+            this.selectedKeyframeIndex,
+            index,
+            1,
+          ));
         });
         this.setStatus("info", "Reordered transforms.");
         this.render();
@@ -899,7 +888,11 @@ export class WebKeyframesEditor {
       button.addEventListener("click", () => {
         const index = Number(button.dataset.wkfIndex ?? "0");
         this.updateSelectedTimeline((timeline) => {
-          removeSelectedKeyframeTransform(timeline, this.selectedKeyframeIndex, index);
+          this.applyCoreEditedTimeline(timeline, removeTransform(
+            timeline,
+            this.selectedKeyframeIndex,
+            index,
+          ));
         });
         this.setStatus("info", "Removed transform.");
         this.render();
@@ -918,7 +911,11 @@ export class WebKeyframesEditor {
         }
 
         this.updateSelectedTimeline((candidate) => {
-          addTransformToSelectedKeyframe(candidate, this.selectedKeyframeIndex, kind, createDefaultTransform);
+          this.applyCoreEditedTimeline(candidate, addTransform(
+            candidate,
+            this.selectedKeyframeIndex,
+            kind,
+          ));
         });
         this.setStatus("info", `Added ${kind} transform.`);
         this.render();
@@ -1089,28 +1086,6 @@ export class WebKeyframesEditor {
     });
   }
 
-  private bindNullableInputNumber(field: string, assign: (value: number | null) => void): void {
-    this.container?.querySelectorAll<HTMLInputElement>(`[data-wkf-field='${field}']`).forEach((input) => {
-      input.addEventListener("change", () => {
-        this.pendingFocus = captureFocusSnapshot(this.container, field, input);
-        const trimmed = input.value.trim();
-
-        if (trimmed === "") {
-          assign(null);
-        } else {
-          const value = Number(trimmed);
-          if (!Number.isFinite(value)) {
-            return;
-          }
-          assign(value);
-        }
-
-        this.setStatus("info", "Editing timeline data.");
-        this.render();
-      });
-    });
-  }
-
   private updateSelectedTimeline(update: (timeline: WebKeyframesTimeline) => void): void {
     const timeline = this.getSelectedTimeline();
     update(timeline);
@@ -1134,6 +1109,17 @@ export class WebKeyframesEditor {
     if (shouldRender) {
       this.render();
     }
+  }
+
+  private applyCoreEditedTimeline(
+    timeline: WebKeyframesTimeline,
+    editedTimeline: WebKeyframesTimeline | ReturnType<typeof moveTransform>,
+  ): void {
+    timeline.keyframes = cloneTimeline(editedTimeline).keyframes;
+  }
+
+  private getTransformFields(kind: TransformKind): Array<"x" | "y" | "value"> {
+    return kind === "rotate" ? ["value"] : ["x", "y"];
   }
 
   private bindCopyActions(): void {

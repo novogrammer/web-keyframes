@@ -1,8 +1,6 @@
 import {
   cloneProperties,
   cloneTimeline,
-  cloneTransform,
-  createTransformProperty,
   DEFAULT_TRANSLATE_CONFIG,
   formatNumber,
   getOpacityValue,
@@ -10,11 +8,9 @@ import {
   getTransformOperations,
   hasKeyframeProperty,
   normalizeWebKeyframesTimeline,
-  upsertKeyframeProperty,
 } from "../core/index.js";
 import type {
   KeyframePositionMode,
-  TransformKind,
   TransformOperation,
   TranslateUnit,
   WebKeyframe,
@@ -224,144 +220,6 @@ export function cloneSparseKeyframe(keyframe: Partial<WebKeyframe>): WebKeyframe
       : {}),
     ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
   };
-}
-
-export function addTransformToSelectedKeyframe(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  kind: TransformKind,
-  createDefaultTransform: (kind: TransformKind) => TransformOperation,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  upsertKeyframeProperty(keyframe, createTransformProperty([...transforms, createDefaultTransform(kind)]));
-}
-
-export function replaceSelectedKeyframeTransformKind(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  kind: TransformKind,
-  createDefaultTransform: (kind: TransformKind) => TransformOperation,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  if (!transforms[transformIndex]) {
-    return;
-  }
-
-  const nextTransforms = transforms.map((transform, index) =>
-    index === transformIndex ? createDefaultTransform(kind) : cloneTransform(transform)
-  );
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-export function removeSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  upsertKeyframeProperty(
-    keyframe,
-    createTransformProperty(transforms.filter((_, index) => index !== transformIndex).map(cloneTransform)),
-  );
-}
-
-export function moveSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  direction: -1 | 1,
-): void {
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  const nextIndex = clampNumber(transformIndex + direction, 0, transforms.length - 1);
-  if (!transforms[transformIndex] || nextIndex === transformIndex) {
-    return;
-  }
-
-  const nextTransforms = transforms.map(cloneTransform);
-  const [moved] = nextTransforms.splice(transformIndex, 1);
-  nextTransforms.splice(nextIndex, 0, moved);
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-export function updateSelectedKeyframeTransform(
-  timeline: WebKeyframesTimeline,
-  keyframeIndex: number,
-  transformIndex: number,
-  field: "x" | "y" | "value",
-  value: number,
-): void {
-  if (!Number.isFinite(value)) {
-    return;
-  }
-
-  const keyframe = timeline.keyframes[keyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  const transforms = getTransformOperations(keyframe);
-  const target = transforms[transformIndex];
-  if (!target) {
-    return;
-  }
-
-  const nextTransforms = transforms.map((transform, index) =>
-    index === transformIndex ? setTransformValue(transform, field, value) : cloneTransform(transform)
-  );
-  upsertKeyframeProperty(keyframe, createTransformProperty(nextTransforms));
-}
-
-export function setTransformValue(
-  transform: TransformOperation,
-  field: "x" | "y" | "value",
-  value: number,
-): TransformOperation {
-  switch (transform.kind) {
-    case "translate":
-      if (field === "value") {
-        return { kind: "translate", x: value, y: transform.y };
-      }
-      return field === "x"
-        ? { kind: "translate", x: value, y: transform.y }
-        : { kind: "translate", x: transform.x, y: value };
-    case "scale":
-      if (field === "value") {
-        return { kind: "scale", x: value, y: value };
-      }
-      return field === "x"
-        ? { kind: "scale", x: value, y: transform.y }
-        : { kind: "scale", x: transform.x, y: value };
-    case "rotate":
-      return { kind: "rotate", value };
-    case "skew":
-      if (field === "value") {
-        return { kind: "skew", x: value, y: transform.y };
-      }
-      return field === "x"
-        ? { kind: "skew", x: value, y: transform.y }
-        : { kind: "skew", x: transform.x, y: value };
-  }
 }
 
 export function clampIndex(index: number, length: number): number {

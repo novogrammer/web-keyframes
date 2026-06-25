@@ -201,38 +201,39 @@ export function mirrorTransforms(
   field: TransformValueField,
   origin = 0,
 ): NormalizedWebKeyframesTimeline {
-  return nudgeTransforms(
-    data,
-    keyframeIndexes,
-    transformIndexes,
-    field,
-    0,
-  ).keyframes.reduce<NormalizedWebKeyframesTimeline>((accumulator, keyframe, keyframeIndex) => {
-    const selectedKeyframes = new Set(getSortedUniqueIndexes(keyframeIndexes, accumulator.keyframes.length));
-    const selectedTransforms = new Set(transformIndexes);
+  const normalized = normalizeEditableTimeline(data);
+  const selectedKeyframes = new Set(getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length));
+  const selectedTransforms = new Set(transformIndexes);
 
-    if (!selectedKeyframes.has(keyframeIndex)) {
-      return accumulator;
-    }
+  if (selectedKeyframes.size === 0 || selectedTransforms.size === 0) {
+    return normalized;
+  }
 
-    accumulator.keyframes[keyframeIndex] = {
-      ...keyframe,
-      properties: keyframe.properties.map((property) => {
-        if (property.kind !== "transform") {
-          return createOpacityProperty(property.value);
-        }
+  return {
+    ...normalized,
+    keyframes: normalized.keyframes.map((keyframe, keyframeIndex) => {
+      if (!selectedKeyframes.has(keyframeIndex)) {
+        return keyframe;
+      }
 
-        return createTransformProperty(property.value.map((transform, transformIndex) => {
-          if (!selectedTransforms.has(transformIndex)) {
-            return cloneTransform(transform);
+      return {
+        ...keyframe,
+        properties: keyframe.properties.map((property) => {
+          if (property.kind !== "transform") {
+            return createOpacityProperty(property.value);
           }
 
-          return setTransformField(transform, field, origin - (readTransformField(transform, field) - origin));
-        }));
-      }),
-    };
-    return accumulator;
-  }, normalizeEditableTimeline(data));
+          return createTransformProperty(property.value.map((transform, transformIndex) => {
+            if (!selectedTransforms.has(transformIndex)) {
+              return cloneTransform(transform);
+            }
+
+            return setTransformField(transform, field, origin - (readTransformField(transform, field) - origin));
+          }));
+        }),
+      };
+    }),
+  };
 }
 
 export function replaceTransformKind(
