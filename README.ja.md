@@ -105,7 +105,6 @@ import {
   defineWebKeyframesEditorElement,
   WEB_KEYFRAMES_EDITOR_TAG_NAME,
 } from "web-keyframes/editor";
-import "web-keyframes/editor.css";
 
 defineWebKeyframesEditorElement();
 
@@ -130,6 +129,7 @@ editor.addEventListener("change", (event) => {
 
 Custom Element のタグ名は `<web-keyframes-editor>` です。
 
+- スタイルは shadow root 内へ自動で注入されます
 - `open` attribute は表示状態を反映します
 - `shortcut` attribute は表示切り替えショートカットを設定します
 - `data` property は現在の timeline document を読み書きします

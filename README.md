@@ -106,7 +106,6 @@ import {
   defineWebKeyframesEditorElement,
   WEB_KEYFRAMES_EDITOR_TAG_NAME,
 } from "web-keyframes/editor";
-import "web-keyframes/editor.css";
 
 defineWebKeyframesEditorElement();
 
@@ -131,6 +130,7 @@ editor.addEventListener("change", (event) => {
 
 The custom element tag name is `<web-keyframes-editor>`.
 
+- Styles are injected into the element's shadow root automatically
 - `open` attribute reflects visible state
 - `shortcut` attribute sets the toggle shortcut
 - `data` property reads or writes the current timeline document

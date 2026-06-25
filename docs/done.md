@@ -45,6 +45,7 @@
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
 - editor UI の Lit 化を検討したが、現段階では導入しない判断にした。
 - 既存の `WebKeyframesEditor` クラスを保ったまま、同じ editor UI を `<web-keyframes-editor>` Custom Element として使えるようにした。
+- editor の描画を `innerHTML` 文字列から DOM 構築へ移し、Custom Element 側の UI と CSS を shadow root に閉じ込めた。
 
 ## Examples
 

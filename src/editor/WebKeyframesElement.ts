@@ -2,6 +2,7 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument } from "../core/normalize.js";
 import type { WebKeyframesDocument } from "../core/types.js";
 import { WebKeyframesEditor } from "./WebKeyframesEditor.js";
+import { EDITOR_CSS_TEXT } from "./generatedEditorCss.js";
 
 export const WEB_KEYFRAMES_EDITOR_TAG_NAME = "web-keyframes-editor";
 
@@ -37,14 +38,17 @@ function createWebKeyframesEditorElementClass(HTMLElementCtor: typeof HTMLElemen
         return;
       }
 
+      const shadowRoot = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+      ensureEditorStyles(shadowRoot);
       this.editor = new WebKeyframesEditor({
-        root: this,
+        root: shadowRoot,
         initialData: this.dataSnapshot ?? undefined,
         shortcut: this.shortcut,
         onDataChange: (data) => {
           this.dataSnapshot = cloneDocument(data);
           this.dispatchEvent(new CustomEvent("change", {
             bubbles: true,
+            composed: true,
             detail: {
               data: cloneDocument(data),
             },
@@ -119,7 +123,7 @@ function createWebKeyframesEditorElementClass(HTMLElementCtor: typeof HTMLElemen
       }
 
       return new WebKeyframesEditor({
-        root: this,
+        root: this.shadowRoot ?? this,
         shortcut: false,
       }).getData();
     }
@@ -188,4 +192,15 @@ export function defineWebKeyframesEditorElement(
   WebKeyframesEditorElement = createWebKeyframesEditorElementClass(HTMLElementCtor);
   registry.define(tagName, WebKeyframesEditorElement);
   return WebKeyframesEditorElement;
+}
+
+function ensureEditorStyles(shadowRoot: ShadowRoot): void {
+  if (shadowRoot.querySelector("style[data-wkf-shadow-style='true']")) {
+    return;
+  }
+
+  const styleElement = shadowRoot.ownerDocument.createElement("style");
+  styleElement.dataset.wkfShadowStyle = "true";
+  styleElement.textContent = EDITOR_CSS_TEXT;
+  shadowRoot.prepend(styleElement);
 }

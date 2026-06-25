@@ -573,17 +573,19 @@ test("custom element mounts the editor and reflects open state", () => {
 
   const element = window.document.createElement(WEB_KEYFRAMES_EDITOR_TAG_NAME);
   window.document.body.append(element);
+  const root = element.shadowRoot;
 
-  assert.ok(element.querySelector(".wkf"));
-  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
+  assert.ok(root?.querySelector(".wkf"));
+  assert.ok(root?.querySelector("style[data-wkf-shadow-style='true']"));
+  assert.equal(root?.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
 
   element.show();
   assert.equal(element.hasAttribute("open"), true);
-  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "false");
+  assert.equal(root?.querySelector(".wkf")?.getAttribute("aria-hidden"), "false");
 
   element.hide();
   assert.equal(element.hasAttribute("open"), false);
-  assert.equal(element.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
+  assert.equal(root?.querySelector(".wkf")?.getAttribute("aria-hidden"), "true");
 });
 
 test("custom element proxies data and emits change events", async () => {
@@ -605,11 +607,12 @@ test("custom element proxies data and emits change events", async () => {
     ],
   };
   window.document.body.append(element);
+  const root = element.shadowRoot;
 
   assert.equal(element.getData().timelines[0].id, "hero-logo");
   assert.match(element.toCss(), /@keyframes hero-logo/);
 
-  setInputValue(element, "id", "hero-title");
+  setInputValue(root, "id", "hero-title");
   await Promise.resolve();
 
   assert.equal(element.data.timelines[0].id, "hero-title");
