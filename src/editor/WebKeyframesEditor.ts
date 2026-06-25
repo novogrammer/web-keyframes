@@ -2,11 +2,12 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { deriveEditorRenderState, sanitizeEditorDocument, clampIndex } from "./editorModel.js";
-import { EditorCollectionController } from "./EditorCollectionController.js";
+import { EditorKeyframeCollectionController } from "./EditorKeyframeCollectionController.js";
 import { EditorKeyframePropertyController } from "./EditorKeyframePropertyController.js";
 import { EditorLifecycleController } from "./EditorLifecycleController.js";
 import { EditorPreviewController } from "./EditorPreviewController.js";
 import { EditorSectionInputController } from "./EditorSectionInputController.js";
+import { EditorTimelineCollectionController } from "./EditorTimelineCollectionController.js";
 import {
   type EditorState,
   createEditorState,
@@ -69,7 +70,8 @@ export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly initialData: WebKeyframesDocument;
   private readonly state: EditorState;
-  private readonly collectionController: EditorCollectionController;
+  private readonly timelineCollectionController: EditorTimelineCollectionController;
+  private readonly keyframeCollectionController: EditorKeyframeCollectionController;
   private readonly propertyController: EditorKeyframePropertyController;
   private readonly previewController: EditorPreviewController;
   private readonly sectionInputController: EditorSectionInputController;
@@ -85,7 +87,8 @@ export class WebKeyframesEditor {
     this.root = options.root;
     this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
-    this.collectionController = new EditorCollectionController(this.state, DEFAULT_TIMELINE_DATA);
+    this.timelineCollectionController = new EditorTimelineCollectionController(this.state, DEFAULT_TIMELINE_DATA);
+    this.keyframeCollectionController = new EditorKeyframeCollectionController(this.state, DEFAULT_TIMELINE_DATA);
     this.propertyController = new EditorKeyframePropertyController(this.state, DEFAULT_TIMELINE_DATA);
     this.previewController = new EditorPreviewController(this.root, this.state, () => this.toJson(), () => this.toCss());
     this.sectionInputController = new EditorSectionInputController(this.state, DEFAULT_TIMELINE_DATA);
@@ -234,7 +237,7 @@ export class WebKeyframesEditor {
       return;
     }
     if (action === "add-timeline" || action === "duplicate-timeline" || action === "delete-timeline") {
-      this.collectionController[action === "add-timeline" ? "addTimeline" : action === "duplicate-timeline" ? "duplicateTimeline" : "deleteTimeline"]();
+      this.timelineCollectionController[action === "add-timeline" ? "addTimeline" : action === "duplicate-timeline" ? "duplicateTimeline" : "deleteTimeline"]();
       this.render();
       return;
     }
@@ -289,7 +292,7 @@ export class WebKeyframesEditor {
       return;
     }
     if (action === "add-keyframe" || action === "delete-keyframe" || action === "duplicate-keyframe") {
-      this.collectionController[action === "add-keyframe" ? "addKeyframe" : action === "delete-keyframe" ? "deleteKeyframe" : "duplicateKeyframe"]();
+      this.keyframeCollectionController[action === "add-keyframe" ? "addKeyframe" : action === "delete-keyframe" ? "deleteKeyframe" : "duplicateKeyframe"]();
       this.render();
       return;
     }
