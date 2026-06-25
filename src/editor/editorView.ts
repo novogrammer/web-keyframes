@@ -22,6 +22,13 @@ export type EditorViewState = {
   statusTone: "info" | "success" | "error";
 };
 
+export type EditorViewHandlers = {
+  onAction: (action: string, payload?: { index?: number; kind?: string; value?: string }) => void;
+  onTextInput: (field: string, input: HTMLInputElement) => void;
+  onNumberInput: (field: string, input: HTMLInputElement, eventType: "input" | "change") => void;
+  onSelectChange: (field: string, select: HTMLSelectElement) => void;
+};
+
 const TIMING_FUNCTION_PRESETS = [
   "linear",
   "ease",
@@ -41,23 +48,24 @@ export function renderEditorPanel(
   ownerDocument: Document,
   renderState: EditorRenderState,
   viewState: EditorViewState,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const panel = createElement(ownerDocument, "div", { className: "wkf__panel" });
   panel.append(
-    renderHeader(ownerDocument),
-    renderMainLayout(ownerDocument, renderState, viewState),
+    renderHeader(ownerDocument, handlers),
+    renderMainLayout(ownerDocument, renderState, viewState, handlers),
   );
 
-  const preview = renderPreviewPanel(ownerDocument, viewState);
+  const preview = renderPreviewPanel(ownerDocument, viewState, handlers);
   if (preview) {
     panel.append(preview);
   }
 
-  panel.append(renderFooter(ownerDocument, viewState));
+  panel.append(renderFooter(ownerDocument, viewState, handlers));
   return panel;
 }
 
-function renderHeader(ownerDocument: Document): HTMLElement {
+function renderHeader(ownerDocument: Document, handlers: EditorViewHandlers): HTMLElement {
   const header = createElement(ownerDocument, "div", {
     className: "wkf__header",
     dataset: { wkfDragHandle: "true" },
@@ -73,8 +81,8 @@ function renderHeader(ownerDocument: Document): HTMLElement {
     dataset: { wkfNoDrag: "true" },
   });
   actions.append(
-    createButton(ownerDocument, "Reset", { action: "reset", ghost: true }),
-    createButton(ownerDocument, "Hide", { action: "hide", ghost: true }),
+    createButton(ownerDocument, "Reset", { action: "reset", ghost: true }, handlers),
+    createButton(ownerDocument, "Hide", { action: "hide", ghost: true }, handlers),
   );
 
   header.append(titleWrap, actions);
@@ -85,22 +93,23 @@ function renderMainLayout(
   ownerDocument: Document,
   renderState: EditorRenderState,
   viewState: EditorViewState,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const layout = createElement(ownerDocument, "div", { className: "wkf__layout" });
   const columns = createElement(ownerDocument, "div", { className: "wkf__columns" });
   columns.append(
-    renderTimelineListSection(ownerDocument, renderState, viewState),
+    renderTimelineListSection(ownerDocument, renderState, viewState, handlers),
   );
 
   const section = createElement(ownerDocument, "div", { className: "wkf__section" });
-  section.append(renderSelectedTimelineSection(ownerDocument, renderState.selectedTimeline));
+  section.append(renderSelectedTimelineSection(ownerDocument, renderState.selectedTimeline, handlers));
 
   const stackedColumns = createElement(ownerDocument, "div", {
     className: "wkf__columns wkf__columns--stacked",
   });
   stackedColumns.append(
-    renderKeyframeListSection(ownerDocument, renderState, viewState),
-    renderSelectedKeyframeSection(ownerDocument, renderState, viewState),
+    renderKeyframeListSection(ownerDocument, renderState, viewState, handlers),
+    renderSelectedKeyframeSection(ownerDocument, renderState, viewState, handlers),
   );
   section.append(stackedColumns);
 
@@ -113,19 +122,20 @@ function renderTimelineListSection(
   ownerDocument: Document,
   { renderTimelines }: EditorRenderState,
   viewState: EditorViewState,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const section = createElement(ownerDocument, "div", { className: "wkf__section wkf__section--list" });
   const head = createSectionHead(ownerDocument, "Timelines");
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions wkf__inline-actions--wrap" });
   actions.append(
-    createButton(ownerDocument, "Add", { action: "add-timeline", small: true }),
-    createButton(ownerDocument, "Duplicate", { action: "duplicate-timeline", small: true, ghost: true }),
+    createButton(ownerDocument, "Add", { action: "add-timeline", small: true }, handlers),
+    createButton(ownerDocument, "Duplicate", { action: "duplicate-timeline", small: true, ghost: true }, handlers),
     createButton(ownerDocument, "Delete", {
       action: "delete-timeline",
       small: true,
       ghost: true,
       disabled: renderTimelines.length <= 1,
-    }),
+    }, handlers),
   );
   head.append(actions);
 
@@ -135,7 +145,7 @@ function renderTimelineListSection(
       action: "select-timeline",
       dataset: { wkfIndex: String(index) },
       className: `wkf__keyframe-item${index === viewState.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}`,
-    });
+    }, handlers);
     button.append(
       createElement(ownerDocument, "span", { className: "wkf__keyframe-time", textContent: timeline.id }),
       createElement(ownerDocument, "span", { className: "wkf__keyframe-percent", textContent: formatTimelinePositionSummary(timeline) }),
@@ -151,21 +161,22 @@ function renderTimelineListSection(
 function renderSelectedTimelineSection(
   ownerDocument: Document,
   selectedTimeline: EditorRenderState["selectedTimeline"],
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const section = createElement(ownerDocument, "div", { className: "wkf__section" });
   section.append(createElement(ownerDocument, "div", { className: "wkf__section-title", textContent: "Selected Timeline" }));
 
   const grid = createElement(ownerDocument, "div", { className: "wkf__grid wkf__grid--meta" });
   grid.append(
-    renderTextField(ownerDocument, "id", "ID", selectedTimeline.id),
+    renderTextField(ownerDocument, "id", "ID", selectedTimeline.id, handlers),
     renderSelectField(ownerDocument, "positionType", "Keyframe Position", selectedTimeline.positionType, [
       { value: "time", label: "time" },
       { value: "percent", label: "percent" },
-    ]),
+    ], handlers),
   );
 
   if (selectedTimeline.positionType === "time") {
-    grid.append(renderNumberField(ownerDocument, "duration", "Duration", selectedTimeline.duration ?? 1, 1, 1));
+    grid.append(renderNumberField(ownerDocument, "duration", "Duration", selectedTimeline.duration ?? 1, 1, 1, undefined, handlers));
   }
 
   grid.append(
@@ -175,7 +186,7 @@ function renderSelectedTimelineSection(
       { value: "vh", label: "vh" },
       { value: "%", label: "%" },
       { value: "custom", label: "custom" },
-    ]),
+    ], handlers),
   );
 
   if (selectedTimeline.translateConfig.unit === "custom") {
@@ -185,6 +196,7 @@ function renderSelectedTimelineSection(
         "translateCustomUnit",
         "Custom Unit",
         selectedTimeline.translateConfig.customUnit ?? "",
+        handlers,
       ),
     );
   }
@@ -197,24 +209,25 @@ function renderKeyframeListSection(
   ownerDocument: Document,
   { selectedTimeline, selectedSourceTimeline }: EditorRenderState,
   viewState: EditorViewState,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const section = createElement(ownerDocument, "div", { className: "wkf__section wkf__section--list" });
   const head = createSectionHead(ownerDocument, "Keyframes");
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions wkf__inline-actions--wrap" });
   actions.append(
-    createButton(ownerDocument, "Add", { action: "add-keyframe", small: true }),
+    createButton(ownerDocument, "Add", { action: "add-keyframe", small: true }, handlers),
     createButton(ownerDocument, "Duplicate", {
       action: "duplicate-keyframe",
       small: true,
       ghost: true,
       disabled: selectedTimeline.keyframes.length === 0,
-    }),
+    }, handlers),
     createButton(ownerDocument, "Delete", {
       action: "delete-keyframe",
       small: true,
       ghost: true,
       disabled: selectedTimeline.keyframes.length === 0,
-    }),
+    }, handlers),
   );
   head.append(actions);
 
@@ -229,7 +242,7 @@ function renderKeyframeListSection(
         action: "select-keyframe",
         dataset: { wkfIndex: String(index) },
         className: `wkf__keyframe-item${index === viewState.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}`,
-      });
+      }, handlers);
       button.append(
         createElement(ownerDocument, "span", {
           className: "wkf__keyframe-time",
@@ -259,6 +272,7 @@ function renderSelectedKeyframeSection(
   ownerDocument: Document,
   renderState: EditorRenderState,
   _viewState: EditorViewState,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const {
     selectedTimeline,
@@ -307,6 +321,7 @@ function renderSelectedKeyframeSection(
       selectedSourceOpacity,
       transformSourceState,
       selectedSourceTransforms,
+      handlers,
     ),
   );
   return section;
@@ -321,6 +336,7 @@ function renderSelectedKeyframeEditor(
   selectedSourceOpacity: number | null,
   transformSourceState: EditorRenderState["transformSourceState"],
   selectedSourceTransforms: TransformOperation[],
+  handlers: EditorViewHandlers,
 ): DocumentFragment {
   const fragment = ownerDocument.createDocumentFragment();
   const grid = createElement(ownerDocument, "div", { className: "wkf__grid wkf__grid--editor" });
@@ -334,9 +350,10 @@ function renderSelectedKeyframeEditor(
       selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
       selectedTimeline.positionType === "time" ? 1 : 0.1,
       selectedTimeline.positionType === "time" ? "ms" : "%",
+      handlers,
     ),
-    renderTextField(ownerDocument, "timingFunction", "Timing Function", selectedTimingFunction),
-    renderTimingFunctionPresets(ownerDocument),
+    renderTextField(ownerDocument, "timingFunction", "Timing Function", selectedTimingFunction, handlers),
+    renderTimingFunctionPresets(ownerDocument, handlers),
   );
   fragment.append(grid);
 
@@ -346,17 +363,17 @@ function renderSelectedKeyframeEditor(
   propertyHead.append(createElement(ownerDocument, "div", { className: "wkf__section-title", textContent: "Properties" }));
   fragment.append(propertyHead);
 
-  const addActions = renderKeyframePropertyActions(ownerDocument, opacitySourceState, transformSourceState);
+  const addActions = renderKeyframePropertyActions(ownerDocument, opacitySourceState, transformSourceState, handlers);
   if (addActions) {
     fragment.append(addActions);
   }
 
   const propertyList = createElement(ownerDocument, "div", { className: "wkf__property-list" });
-  const opacityProperty = renderOpacityProperty(ownerDocument, opacitySourceState, selectedSourceOpacity);
+  const opacityProperty = renderOpacityProperty(ownerDocument, opacitySourceState, selectedSourceOpacity, handlers);
   if (opacityProperty) {
     propertyList.append(opacityProperty);
   }
-  const transformProperty = renderTransformProperty(ownerDocument, transformSourceState, selectedSourceTransforms);
+  const transformProperty = renderTransformProperty(ownerDocument, transformSourceState, selectedSourceTransforms, handlers);
   if (transformProperty) {
     propertyList.append(transformProperty);
   }
@@ -369,6 +386,7 @@ function renderKeyframePropertyActions(
   ownerDocument: Document,
   opacitySourceState: EditorRenderState["opacitySourceState"],
   transformSourceState: EditorRenderState["transformSourceState"],
+  handlers: EditorViewHandlers,
 ): HTMLElement | null {
   if (opacitySourceState !== "unset" && transformSourceState !== "unset") {
     return null;
@@ -377,10 +395,10 @@ function renderKeyframePropertyActions(
   const wrap = createElement(ownerDocument, "div", { className: "wkf__property-add" });
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions wkf__inline-actions--wrap" });
   if (opacitySourceState === "unset") {
-    actions.append(createButton(ownerDocument, "+ Opacity", { action: "add-opacity", small: true, ghost: true }));
+    actions.append(createButton(ownerDocument, "+ Opacity", { action: "add-opacity", small: true, ghost: true }, handlers));
   }
   if (transformSourceState === "unset") {
-    actions.append(createButton(ownerDocument, "+ Transform", { action: "add-transform", small: true, ghost: true }));
+    actions.append(createButton(ownerDocument, "+ Transform", { action: "add-transform", small: true, ghost: true }, handlers));
   }
   wrap.append(actions);
   return wrap;
@@ -390,6 +408,7 @@ function renderOpacityProperty(
   ownerDocument: Document,
   opacitySourceState: EditorRenderState["opacitySourceState"],
   selectedSourceOpacity: number | null,
+  handlers: EditorViewHandlers,
 ): HTMLElement | null {
   if (opacitySourceState !== "explicit") {
     return null;
@@ -403,12 +422,12 @@ function renderOpacityProperty(
     createElement(ownerDocument, "p", { className: "wkf__subtitle", textContent: `Set to ${formatNumber(selectedSourceOpacity ?? 1)}` }),
   );
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions" });
-  actions.append(createButton(ownerDocument, "Delete", { action: "delete-opacity", small: true, ghost: true }));
+  actions.append(createButton(ownerDocument, "Delete", { action: "delete-opacity", small: true, ghost: true }, handlers));
   head.append(title, actions);
 
   property.append(
     head,
-    renderBoundedNumberField(ownerDocument, "opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1),
+    renderBoundedNumberField(ownerDocument, "opacity", "Opacity", selectedSourceOpacity ?? 1, 0, 0.01, 1, handlers),
   );
   return property;
 }
@@ -417,6 +436,7 @@ function renderTransformProperty(
   ownerDocument: Document,
   transformSourceState: EditorRenderState["transformSourceState"],
   selectedSourceTransforms: TransformOperation[],
+  handlers: EditorViewHandlers,
 ): HTMLElement | null {
   if (transformSourceState === "unset") {
     return null;
@@ -425,16 +445,16 @@ function renderTransformProperty(
   const property = createElement(ownerDocument, "div", { className: "wkf__property" });
   const addActions = createElement(ownerDocument, "div", { className: "wkf__inline-actions wkf__inline-actions--wrap" });
   addActions.append(
-    createButton(ownerDocument, "+ Translate", { action: "add-transform", kind: "translate", small: true, ghost: true }),
-    createButton(ownerDocument, "+ Scale", { action: "add-transform", kind: "scale", small: true, ghost: true }),
-    createButton(ownerDocument, "+ Rotate", { action: "add-transform", kind: "rotate", small: true, ghost: true }),
-    createButton(ownerDocument, "+ Skew", { action: "add-transform", kind: "skew", small: true, ghost: true }),
+    createButton(ownerDocument, "+ Translate", { action: "add-transform", kind: "translate", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "+ Scale", { action: "add-transform", kind: "scale", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "+ Rotate", { action: "add-transform", kind: "rotate", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "+ Skew", { action: "add-transform", kind: "skew", small: true, ghost: true }, handlers),
   );
-  property.append(addActions, renderTransformPropertySummary(ownerDocument, transformSourceState, selectedSourceTransforms.length));
+  property.append(addActions, renderTransformPropertySummary(ownerDocument, transformSourceState, selectedSourceTransforms.length, handlers));
 
   const list = createElement(ownerDocument, "div", { className: "wkf__transform-list" });
   selectedSourceTransforms.forEach((transform, index) => {
-    list.append(renderTransformEditor(ownerDocument, transform, index, selectedSourceTransforms.length));
+    list.append(renderTransformEditor(ownerDocument, transform, index, selectedSourceTransforms.length, handlers));
   });
   property.append(list);
   return property;
@@ -444,6 +464,7 @@ function renderTransformPropertySummary(
   ownerDocument: Document,
   transformSourceState: EditorRenderState["transformSourceState"],
   transformCount: number,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const head = createElement(ownerDocument, "div", { className: "wkf__section-head" });
   const title = createElement(ownerDocument, "div");
@@ -456,16 +477,16 @@ function renderTransformPropertySummary(
   );
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions" });
   actions.append(
-    createButton(ownerDocument, "Delete", { action: "delete-transforms", small: true, ghost: true }),
+    createButton(ownerDocument, "Delete", { action: "delete-transforms", small: true, ghost: true }, handlers),
   );
   if (transformSourceState !== "none") {
-    actions.append(createButton(ownerDocument, "None", { action: "clear-transforms", small: true, ghost: true }));
+    actions.append(createButton(ownerDocument, "None", { action: "clear-transforms", small: true, ghost: true }, handlers));
   }
   head.append(title, actions);
   return head;
 }
 
-function renderPreviewPanel(ownerDocument: Document, viewState: EditorViewState): HTMLElement | null {
+function renderPreviewPanel(ownerDocument: Document, viewState: EditorViewState, handlers: EditorViewHandlers): HTMLElement | null {
   if (viewState.previewTitle === null) {
     return null;
   }
@@ -477,7 +498,7 @@ function renderPreviewPanel(ownerDocument: Document, viewState: EditorViewState)
     createElement(ownerDocument, "div", { className: "wkf__section-title", textContent: viewState.previewTitle }),
     createElement(ownerDocument, "p", { className: "wkf__subtitle", textContent: "Current generated output" }),
   );
-  head.append(title, createButton(ownerDocument, "Close", { action: "close-preview", small: true, ghost: true }));
+  head.append(title, createButton(ownerDocument, "Close", { action: "close-preview", small: true, ghost: true }, handlers));
 
   const textarea = createElement(ownerDocument, "textarea", { className: "wkf__preview-textarea" }) as HTMLTextAreaElement;
   textarea.readOnly = true;
@@ -487,7 +508,7 @@ function renderPreviewPanel(ownerDocument: Document, viewState: EditorViewState)
   return preview;
 }
 
-function renderFooter(ownerDocument: Document, viewState: EditorViewState): HTMLElement {
+function renderFooter(ownerDocument: Document, viewState: EditorViewState, handlers: EditorViewHandlers): HTMLElement {
   const footer = createElement(ownerDocument, "div", {
     className: "wkf__footer",
     dataset: { wkfDragHandle: "true" },
@@ -502,18 +523,18 @@ function renderFooter(ownerDocument: Document, viewState: EditorViewState): HTML
 
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions" });
   actions.append(
-    createButton(ownerDocument, "Preview", { action: "run-preview", small: true, ghost: true }),
-    createButton(ownerDocument, "Reset Preview", { action: "reset-preview", small: true, ghost: true }),
-    createButton(ownerDocument, "View JSON", { action: "view-json", small: true, ghost: true }),
-    createButton(ownerDocument, "View CSS", { action: "view-css", small: true, ghost: true }),
-    createButton(ownerDocument, "Copy JSON", { action: "copy-json", small: true, ghost: true }),
-    createButton(ownerDocument, "Copy CSS", { action: "copy-css", small: true }),
+    createButton(ownerDocument, "Preview", { action: "run-preview", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "Reset Preview", { action: "reset-preview", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "View JSON", { action: "view-json", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "View CSS", { action: "view-css", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "Copy JSON", { action: "copy-json", small: true, ghost: true }, handlers),
+    createButton(ownerDocument, "Copy CSS", { action: "copy-css", small: true }, handlers),
   );
   footer.append(actions);
   return footer;
 }
 
-function renderTextField(ownerDocument: Document, field: string, label: string, value: string): HTMLElement {
+function renderTextField(ownerDocument: Document, field: string, label: string, value: string, handlers: EditorViewHandlers): HTMLElement {
   const fieldElement = createField(ownerDocument);
   fieldElement.append(
     createElement(ownerDocument, "span", { className: "wkf__label", textContent: label }),
@@ -524,6 +545,7 @@ function renderTextField(ownerDocument: Document, field: string, label: string, 
   }) as HTMLInputElement;
   input.type = "text";
   input.value = value;
+  input.addEventListener("input", () => handlers.onTextInput(field, input));
   fieldElement.append(input);
   return fieldElement;
 }
@@ -534,6 +556,7 @@ function renderSelectField(
   label: string,
   value: string,
   options: Array<{ label: string; value: string }>,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const fieldElement = createField(ownerDocument);
   fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__label", textContent: label }));
@@ -548,6 +571,7 @@ function renderSelectField(
     optionElement.selected = option.value === value;
     select.append(optionElement);
   });
+  select.addEventListener("change", () => handlers.onSelectChange(field, select));
   fieldElement.append(select);
   return fieldElement;
 }
@@ -560,10 +584,11 @@ function renderNumberField(
   min?: number,
   step?: number,
   max?: number,
+  handlers?: EditorViewHandlers,
 ): HTMLElement {
   const fieldElement = createField(ownerDocument);
   fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__label", textContent: label }));
-  const input = createNumericInput(ownerDocument, field, value, min, step, max);
+  const input = createNumericInput(ownerDocument, field, value, min, step, max, handlers);
   fieldElement.append(input);
   return fieldElement;
 }
@@ -576,14 +601,15 @@ function renderBoundedNumberField(
   min: number,
   step: number,
   max: number,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const fieldElement = createField(ownerDocument, "wkf__field wkf__field--full");
   fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__label", textContent: label }));
   const row = createElement(ownerDocument, "div", { className: "wkf__time-row" });
-  const range = createNumericInput(ownerDocument, field, value, min, step, max);
+  const range = createNumericInput(ownerDocument, field, value, min, step, max, handlers);
   range.className = "wkf__range";
   range.type = "range";
-  row.append(range, createNumericInput(ownerDocument, field, value, min, step, max));
+  row.append(range, createNumericInput(ownerDocument, field, value, min, step, max, handlers));
   fieldElement.append(row);
   return fieldElement;
 }
@@ -597,14 +623,15 @@ function renderRangeField(
   max: number,
   step: number,
   suffix = "",
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const fieldElement = createField(ownerDocument, "wkf__field wkf__field--time");
   fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__label", textContent: label }));
   const row = createElement(ownerDocument, "div", { className: "wkf__time-row" });
-  const range = createNumericInput(ownerDocument, field, value, min, step, max);
+  const range = createNumericInput(ownerDocument, field, value, min, step, max, handlers);
   range.className = "wkf__range";
   range.type = "range";
-  row.append(range, createNumericInput(ownerDocument, field, value, min, step, max));
+  row.append(range, createNumericInput(ownerDocument, field, value, min, step, max, handlers));
   fieldElement.append(row);
   if (suffix !== "") {
     fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__subtitle", textContent: suffix }));
@@ -612,7 +639,7 @@ function renderRangeField(
   return fieldElement;
 }
 
-function renderTimingFunctionPresets(ownerDocument: Document): HTMLElement {
+function renderTimingFunctionPresets(ownerDocument: Document, handlers: EditorViewHandlers): HTMLElement {
   const fieldElement = createField(ownerDocument, "wkf__field wkf__field--full");
   fieldElement.append(createElement(ownerDocument, "span", { className: "wkf__label", textContent: "Insert Preset" }));
   const actions = createElement(ownerDocument, "div", { className: "wkf__inline-actions wkf__inline-actions--wrap" });
@@ -622,9 +649,9 @@ function renderTimingFunctionPresets(ownerDocument: Document): HTMLElement {
       small: true,
       ghost: true,
       dataset: { wkfValue: value },
-    }));
+    }, handlers));
   });
-  actions.append(createButton(ownerDocument, "Clear", { action: "clear-timing-function", small: true, ghost: true }));
+  actions.append(createButton(ownerDocument, "Clear", { action: "clear-timing-function", small: true, ghost: true }, handlers));
   fieldElement.append(actions);
   return fieldElement;
 }
@@ -634,6 +661,7 @@ function renderTransformEditor(
   transform: TransformOperation,
   index: number,
   total: number,
+  handlers: EditorViewHandlers,
 ): HTMLElement {
   const field = createField(ownerDocument);
   const head = createElement(ownerDocument, "div", { className: "wkf__section-head" });
@@ -644,7 +672,7 @@ function renderTransformEditor(
       { value: "scale", label: "scale" },
       { value: "rotate", label: "rotate" },
       { value: "skew", label: "skew" },
-    ]),
+    ], handlers),
   );
   const right = createElement(ownerDocument, "div", { className: "wkf__inline-actions" });
   right.append(
@@ -654,25 +682,25 @@ function renderTransformEditor(
       ghost: true,
       disabled: index === 0,
       dataset: { wkfIndex: String(index) },
-    }),
+    }, handlers),
     createButton(ownerDocument, "Down", {
       action: "move-transform-down",
       small: true,
       ghost: true,
       disabled: index === total - 1,
       dataset: { wkfIndex: String(index) },
-    }),
+    }, handlers),
     createButton(ownerDocument, "Delete", {
       action: "delete-transform",
       small: true,
       ghost: true,
       dataset: { wkfIndex: String(index) },
-    }),
+    }, handlers),
   );
   head.append(left, right);
 
   const grid = createElement(ownerDocument, "div", { className: "wkf__grid wkf__grid--editor" });
-  renderTransformFields(ownerDocument, transform, index).forEach((fieldElement) => {
+  renderTransformFields(ownerDocument, transform, index, handlers).forEach((fieldElement) => {
     grid.append(fieldElement);
   });
 
@@ -684,24 +712,25 @@ function renderTransformFields(
   ownerDocument: Document,
   transform: TransformOperation,
   index: number,
+  handlers: EditorViewHandlers,
 ): HTMLElement[] {
   switch (transform.kind) {
     case "translate":
       return [
-        renderNumberField(ownerDocument, `transform-x-${index}`, "X", transform.x),
-        renderNumberField(ownerDocument, `transform-y-${index}`, "Y", transform.y),
+        renderNumberField(ownerDocument, `transform-x-${index}`, "X", transform.x, undefined, undefined, undefined, handlers),
+        renderNumberField(ownerDocument, `transform-y-${index}`, "Y", transform.y, undefined, undefined, undefined, handlers),
       ];
     case "scale":
       return [
-        renderNumberField(ownerDocument, `transform-x-${index}`, "Scale X", transform.x, 0.001, 0.001),
-        renderNumberField(ownerDocument, `transform-y-${index}`, "Scale Y", transform.y, 0.001, 0.001),
+        renderNumberField(ownerDocument, `transform-x-${index}`, "Scale X", transform.x, 0.001, 0.001, undefined, handlers),
+        renderNumberField(ownerDocument, `transform-y-${index}`, "Scale Y", transform.y, 0.001, 0.001, undefined, handlers),
       ];
     case "rotate":
-      return [renderNumberField(ownerDocument, `transform-value-${index}`, "Rotate", transform.value, undefined, 0.1)];
+      return [renderNumberField(ownerDocument, `transform-value-${index}`, "Rotate", transform.value, undefined, 0.1, undefined, handlers)];
     case "skew":
       return [
-        renderNumberField(ownerDocument, `transform-x-${index}`, "Skew X", transform.x, undefined, 0.1),
-        renderNumberField(ownerDocument, `transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1),
+        renderNumberField(ownerDocument, `transform-x-${index}`, "Skew X", transform.x, undefined, 0.1, undefined, handlers),
+        renderNumberField(ownerDocument, `transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1, undefined, handlers),
       ];
   }
 }
@@ -723,6 +752,7 @@ function createNumericInput(
   min?: number,
   step?: number,
   max?: number,
+  handlers?: EditorViewHandlers,
 ): HTMLInputElement {
   const input = createElement(ownerDocument, "input", {
     className: "wkf__input",
@@ -739,6 +769,10 @@ function createNumericInput(
   if (step !== undefined) {
     input.step = String(step);
   }
+  if (handlers) {
+    input.addEventListener("change", () => handlers.onNumberInput(field, input, "change"));
+    input.addEventListener("input", () => handlers.onNumberInput(field, input, "input"));
+  }
   return input;
 }
 
@@ -754,6 +788,7 @@ function createButton(
     kind?: string;
     small?: boolean;
   },
+  handlers: EditorViewHandlers,
 ): HTMLButtonElement {
   const button = createElement(ownerDocument, "button", {
     className: options.className ?? [
@@ -770,6 +805,16 @@ function createButton(
   }) as HTMLButtonElement;
   button.type = "button";
   button.disabled = options.disabled ?? false;
+  button.addEventListener("click", () => {
+    if (button.disabled) {
+      return;
+    }
+    handlers.onAction(options.action, {
+      index: options.dataset?.wkfIndex !== undefined ? Number(options.dataset.wkfIndex) : undefined,
+      kind: options.kind,
+      value: options.dataset?.wkfValue,
+    });
+  });
   return button;
 }
 

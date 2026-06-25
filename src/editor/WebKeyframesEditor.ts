@@ -128,9 +128,6 @@ export class WebKeyframesEditor {
   private readonly initialData: WebKeyframesDocument;
   private readonly onDataChange: ((data: WebKeyframesDocument) => void) | null;
   private readonly handleKeydown: (event: KeyboardEvent) => void;
-  private readonly handleContainerClick: (event: MouseEvent) => void;
-  private readonly handleContainerInput: (event: Event) => void;
-  private readonly handleContainerChange: (event: Event) => void;
   private readonly handleDragMove: (event: MouseEvent) => void;
   private readonly handleDragEnd: () => void;
   private container: HTMLElement | null = null;
@@ -171,15 +168,6 @@ export class WebKeyframesEditor {
         this.toggle();
       }
     };
-    this.handleContainerClick = (event) => {
-      this.handleDelegatedClick(event);
-    };
-    this.handleContainerInput = (event) => {
-      this.handleDelegatedInput(event);
-    };
-    this.handleContainerChange = (event) => {
-      this.handleDelegatedChange(event);
-    };
     this.handleDragMove = (event) => {
       this.updateDragPosition(event);
     };
@@ -200,9 +188,6 @@ export class WebKeyframesEditor {
 
     this.container = container;
     this.render();
-    container.addEventListener("click", this.handleContainerClick);
-    container.addEventListener("input", this.handleContainerInput);
-    container.addEventListener("change", this.handleContainerChange);
     this.root.append(container);
     ownerDocument.addEventListener("keydown", this.handleKeydown);
 
@@ -217,9 +202,6 @@ export class WebKeyframesEditor {
     this.disposeAppliedPreview();
     this.stopDragging();
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
-    this.container?.removeEventListener("click", this.handleContainerClick);
-    this.container?.removeEventListener("input", this.handleContainerInput);
-    this.container?.removeEventListener("change", this.handleContainerChange);
     this.container?.remove();
     this.container = null;
     this.mounted = false;
@@ -303,6 +285,12 @@ export class WebKeyframesEditor {
         statusMessage: this.statusMessage,
         statusTone: this.statusTone,
       },
+      {
+        onAction: (action, payload) => this.handleAction(action, payload),
+        onNumberInput: (field, input, eventType) => this.handleNumberField(field, input, eventType),
+        onSelectChange: (field, select) => this.applyTextFieldChange(field, select),
+        onTextInput: (field, input) => this.applyTextFieldChange(field, input),
+      },
     ));
     this.bindDragging();
     this.applyPanelPosition();
@@ -321,29 +309,14 @@ export class WebKeyframesEditor {
     });
   }
 
-  private handleDelegatedClick(event: MouseEvent): void {
-    const target = event.target;
-    if (!(target instanceof Element) || this.container === null) {
-      return;
-    }
-
-    const actionTarget = target.closest<HTMLElement>("[data-wkf-action]");
-    if (!actionTarget || !this.container.contains(actionTarget) || actionTarget.hasAttribute("disabled")) {
-      return;
-    }
-
-    const action = actionTarget.dataset.wkfAction;
-    if (!action) {
-      return;
-    }
-
+  private handleAction(action: string, payload?: { index?: number; kind?: string; value?: string }): void {
     if (this.handleEditorChromeAction(action)) {
       return;
     }
-    if (this.handleTimelineAction(action, actionTarget)) {
+    if (this.handleTimelineAction(action, payload)) {
       return;
     }
-    if (this.handleKeyframeAction(action, actionTarget)) {
+    if (this.handleKeyframeAction(action, payload)) {
       return;
     }
     this.handlePreviewAction(action);
@@ -362,10 +335,10 @@ export class WebKeyframesEditor {
     }
   }
 
-  private handleTimelineAction(action: string, actionTarget: HTMLElement): boolean {
+  private handleTimelineAction(action: string, payload?: { index?: number }): boolean {
     switch (action) {
       case "select-timeline":
-        this.selectedTimelineIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.data.timelines.length);
+        this.selectedTimelineIndex = clampIndex(payload?.index ?? 0, this.data.timelines.length);
         this.normalizeEditorState();
         this.render();
         return true;
@@ -383,29 +356,29 @@ export class WebKeyframesEditor {
     }
   }
 
-  private handleKeyframeAction(action: string, actionTarget: HTMLElement): boolean {
+  private handleKeyframeAction(action: string, payload?: { index?: number; kind?: string; value?: string }): boolean {
     switch (action) {
       case "select-keyframe":
-        this.selectedKeyframeIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.getSelectedTimeline().keyframes.length);
+        this.selectedKeyframeIndex = clampIndex(payload?.index ?? 0, this.getSelectedTimeline().keyframes.length);
         this.render();
         return true;
       case "set-timing-function":
-        this.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
+        this.setTimingFunctionPreset(payload?.value ?? "");
         return true;
       case "clear-timing-function":
         this.clearTimingFunction();
         return true;
       case "move-transform-up":
-        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), -1);
+        this.moveSelectedTransform(payload?.index ?? 0, -1);
         return true;
       case "move-transform-down":
-        this.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), 1);
+        this.moveSelectedTransform(payload?.index ?? 0, 1);
         return true;
       case "delete-transform":
-        this.deleteSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"));
+        this.deleteSelectedTransform(payload?.index ?? 0);
         return true;
       case "add-transform":
-        this.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
+        this.addSelectedTransform((payload?.kind ?? "translate") as TransformKind);
         return true;
       case "add-opacity":
         this.addOpacityProperty();
@@ -461,36 +434,11 @@ export class WebKeyframesEditor {
     }
   }
 
-  private handleDelegatedInput(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.dataset.wkfField) {
-      return;
-    }
-
-    this.handleFieldUpdate(target.dataset.wkfField, target, "input");
-  }
-
-  private handleDelegatedChange(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || !target.dataset.wkfField) {
-      return;
-    }
-
-    this.handleFieldUpdate(target.dataset.wkfField, target, "change");
-  }
-
-  private handleFieldUpdate(
+  private handleNumberField(
     field: string,
-    input: HTMLInputElement | HTMLSelectElement,
+    input: HTMLInputElement,
     eventType: "input" | "change",
   ): void {
-    if (input instanceof HTMLSelectElement) {
-      if (eventType === "change") {
-        this.applyTextFieldChange(field, input);
-      }
-      return;
-    }
-
     if (input.type === "range") {
       if (eventType === "input") {
         this.applyRangeFieldInput(field, input);
@@ -505,11 +453,6 @@ export class WebKeyframesEditor {
       if (eventType === "change") {
         this.applyNumericFieldChange(field, input);
       }
-      return;
-    }
-
-    if (eventType === "input") {
-      this.applyTextFieldChange(field, input);
     }
   }
 
