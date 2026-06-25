@@ -7,7 +7,7 @@ import {
   normalizeWebKeyframesDocument,
   normalizeWebKeyframesTimeline,
 } from "./normalize.js";
-import { validateWebKeyframesDocument, validateWebKeyframesTimeline } from "./validate.js";
+import { validateWebKeyframesDocument } from "./validate.js";
 import type {
   NormalizedTranslateConfig,
   TransformOperation,
