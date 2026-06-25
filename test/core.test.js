@@ -3,20 +3,24 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_TRANSLATE_CONFIG,
-  WebKeyframesValidationError,
   createOpacityProperty,
   createTransformProperty,
-  duplicateKeyframes,
-  generateCss,
   getOpacityValue,
   getTransformOperations,
-  nudgeTransforms,
   normalizeWebKeyframesDocument,
   normalizeWebKeyframesTimeline,
+} from "../src/core/normalize.ts";
+import {
+  duplicateKeyframes,
+  nudgeTransforms,
   spreadKeyframeTimes,
   staggerKeyframes,
+} from "../src/core/edit.ts";
+import { generateCss } from "../src/core/generateCss.ts";
+import {
+  WebKeyframesValidationError,
   validateWebKeyframesDocument,
-} from "../dist/index.js";
+} from "../src/core/validate.ts";
 
 const baseTimeline = {
   id: "hero-logo",

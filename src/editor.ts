@@ -1,1 +1,1 @@
-export * from "./editor/index.js";
+export { WebKeyframesEditor } from "./editor/WebKeyframesEditor.js";

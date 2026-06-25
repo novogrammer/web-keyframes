@@ -42,6 +42,45 @@ const editor = new WebKeyframesEditor({
 editor.mount();
 ```
 
+## CSS 生成
+
+```ts
+import { generateCss } from "web-keyframes";
+
+const css = generateCss({
+  timelines: [
+    {
+      id: "hero-logo",
+      duration: 1200,
+      keyframes: [
+        {
+          time: 0,
+          properties: [
+            { kind: "opacity", value: 0 },
+            {
+              kind: "transform",
+              value: [
+                { kind: "translate", x: 0, y: 40 },
+                { kind: "scale", x: 1, y: 1 },
+                { kind: "rotate", value: 0 }
+              ]
+            }
+          ]
+        },
+        {
+          time: 1200,
+          properties: [
+            { kind: "opacity", value: 1 }
+          ]
+        }
+      ]
+    }
+  ]
+});
+```
+
+root export は `generateCss()` のみで、`web-keyframes/editor` からは `WebKeyframesEditor` を公開します。
+
 ### 利用できるメソッド
 
 ```ts

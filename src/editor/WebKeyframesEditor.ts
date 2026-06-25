@@ -1,5 +1,12 @@
 import {
   addTransform,
+  moveTransform,
+  removeTransform,
+  replaceTransformKind,
+  setTransformFieldValue,
+} from "../core/edit.js";
+import { formatNumber, generateCss } from "../core/generateCss.js";
+import {
   cloneDocument,
   cloneTimeline,
   createOpacityProperty,
@@ -7,16 +14,10 @@ import {
   createTransformProperty,
   DEFAULT_TRANSLATE_CONFIG,
   deleteKeyframeProperty,
-  formatNumber,
-  generateCss,
   getTimelinePositionType,
   hasKeyframeProperty,
-  moveTransform,
-  removeTransform,
-  replaceTransformKind,
-  setTransformFieldValue,
   upsertKeyframeProperty,
-} from "../core/index.js";
+} from "../core/normalize.js";
 import type {
   TransformKind,
   TransformOperation,
@@ -24,7 +25,7 @@ import type {
   WebKeyframe,
   WebKeyframesDocument,
   WebKeyframesTimeline,
-} from "../core/index.js";
+} from "../core/types.js";
 import {
   applyEditorKeyframePosition,
   clampIndex,
@@ -48,7 +49,7 @@ import {
 import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
 import type { ActivePreview } from "./previewRuntime.js";
 
-export type WebKeyframesEditorOptions = {
+type WebKeyframesEditorOptions = {
   root: HTMLElement;
   initialData?: WebKeyframesDocument;
   shortcut?: string | false;
@@ -86,7 +87,7 @@ const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   ],
 };
 
-export const DEFAULT_EDITOR_DATA: WebKeyframesDocument = {
+const DEFAULT_EDITOR_DATA: WebKeyframesDocument = {
   timelines: [cloneTimeline(DEFAULT_TIMELINE_DATA)],
 };
 

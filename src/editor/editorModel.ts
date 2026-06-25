@@ -1,14 +1,14 @@
+import { formatNumber } from "../core/generateCss.js";
 import {
   cloneProperties,
   cloneTimeline,
   DEFAULT_TRANSLATE_CONFIG,
-  formatNumber,
   getOpacityValue,
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
   normalizeWebKeyframesTimeline,
-} from "../core/index.js";
+} from "../core/normalize.js";
 import type {
   KeyframePositionMode,
   TransformOperation,
@@ -16,7 +16,7 @@ import type {
   WebKeyframe,
   WebKeyframesDocument,
   WebKeyframesTimeline,
-} from "../core/index.js";
+} from "../core/types.js";
 
 type RenderTranslateConfig = {
   unit: TranslateUnit;

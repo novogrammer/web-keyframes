@@ -67,10 +67,6 @@ export function normalizeKeyframe(
   };
 }
 
-export function normalizeTransforms(keyframe: WebKeyframe, fallback: TransformOperation[] = []): TransformOperation[] {
-  return getTransformOperations(keyframe, fallback);
-}
-
 export function cloneTransform(transform: TransformOperation): TransformOperation {
   switch (transform.kind) {
     case "translate":
@@ -133,7 +129,7 @@ export function createTransformProperty(value: TransformOperation[]): TransformP
   return { kind: "transform", value: value.map(cloneTransform) };
 }
 
-export function cloneProperty(property: KeyframeProperty): KeyframeProperty {
+function cloneProperty(property: KeyframeProperty): KeyframeProperty {
   switch (property.kind) {
     case "opacity":
       return createOpacityProperty(property.value);

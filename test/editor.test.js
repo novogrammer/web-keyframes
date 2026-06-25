@@ -7,8 +7,8 @@ import {
   createTransformProperty,
   getOpacityValue,
   getTransformOperations,
-} from "../dist/index.js";
-import { WebKeyframesEditor } from "../dist/editor.js";
+} from "../src/core/normalize.ts";
+import { WebKeyframesEditor } from "../src/editor/WebKeyframesEditor.ts";
 
 test("mount adds a hidden editor panel and unmount removes it", () => {
   const { window } = createWindow();

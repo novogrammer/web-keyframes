@@ -37,7 +37,7 @@
     "prepare": "npm run build",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --import tsx --test"
   },
   "engines": {
     "node": ">=20"

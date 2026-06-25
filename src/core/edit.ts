@@ -14,7 +14,7 @@ import type {
   WebKeyframesTimeline,
 } from "./types.js";
 
-export type TransformValueField = "x" | "y" | "value";
+type TransformValueField = "x" | "y" | "value";
 
 export function duplicateKeyframes(
   data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
@@ -49,28 +49,6 @@ export function duplicateKeyframes(
   return sortKeyframes({
     ...normalized,
     keyframes: [...normalized.keyframes, ...duplicates],
-  });
-}
-
-export function offsetKeyframeTimes(
-  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
-  keyframeIndexes: number[],
-  amount: number,
-): NormalizedWebKeyframesTimeline {
-  const normalized = normalizeEditableTimeline(data);
-  const selected = new Set(getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length));
-
-  if (selected.size === 0 || !Number.isFinite(amount)) {
-    return normalized;
-  }
-
-  return sortKeyframes({
-    ...normalized,
-    keyframes: normalized.keyframes.map((keyframe, index) =>
-      selected.has(index)
-        ? { ...keyframe, ...setNormalizedPercent(keyframe, clampNumber(keyframe.percent + toPercentDelta(normalized, amount), 0, 100), normalized.duration) }
-        : keyframe,
-    ),
   });
 }
 
@@ -185,48 +163,6 @@ export function nudgeTransforms(
             }
 
             return updateTransformField(transform, field, amount);
-          }));
-        }),
-      };
-    }),
-  };
-}
-
-export function mirrorTransforms(
-  data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
-  keyframeIndexes: number[],
-  transformIndexes: number[],
-  field: TransformValueField,
-  origin = 0,
-): NormalizedWebKeyframesTimeline {
-  const normalized = normalizeEditableTimeline(data);
-  const selectedKeyframes = new Set(getSortedUniqueIndexes(keyframeIndexes, normalized.keyframes.length));
-  const selectedTransforms = new Set(transformIndexes);
-
-  if (selectedKeyframes.size === 0 || selectedTransforms.size === 0) {
-    return normalized;
-  }
-
-  return {
-    ...normalized,
-    keyframes: normalized.keyframes.map((keyframe, keyframeIndex) => {
-      if (!selectedKeyframes.has(keyframeIndex)) {
-        return keyframe;
-      }
-
-      return {
-        ...keyframe,
-        properties: keyframe.properties.map((property) => {
-          if (property.kind !== "transform") {
-            return createOpacityProperty(property.value);
-          }
-
-          return createTransformProperty(property.value.map((transform, transformIndex) => {
-            if (!selectedTransforms.has(transformIndex)) {
-              return cloneTransform(transform);
-            }
-
-            return setTransformField(transform, field, origin - (readTransformField(transform, field) - origin));
           }));
         }),
       };
