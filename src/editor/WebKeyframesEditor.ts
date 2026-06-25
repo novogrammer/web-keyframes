@@ -14,8 +14,11 @@ import {
   createTransformProperty,
   DEFAULT_TRANSLATE_CONFIG,
   deleteKeyframeProperty,
+  getOpacityValue,
   getTimelinePositionType,
+  getTransformOperations,
   hasKeyframeProperty,
+  normalizeWebKeyframesTimeline,
   upsertKeyframeProperty,
 } from "../core/normalize.js";
 import type {
@@ -35,18 +38,10 @@ import {
   createNextKeyframe,
   createNextTimeline,
   deriveEditorRenderState,
-  formatKeyframePositionLabel,
-  formatKeyframeSecondaryLabel,
-  formatKeyframeSummary,
-  formatSelectedKeyframeSubtitle,
-  formatTimelinePositionSummary,
-  formatTimelineSummary,
   getEditorKeyframePosition,
   roundEditorPosition,
   sanitizeEditorDocument,
 } from "./editorModel.js";
-import { applyPreview, clearAppliedPreview } from "./previewRuntime.js";
-import type { ActivePreview } from "./previewRuntime.js";
 
 type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -113,6 +108,16 @@ type PanelPosition = {
 type DragState = {
   pointerOffsetX: number;
   pointerOffsetY: number;
+};
+
+type PreviewTargetState = {
+  element: HTMLElement;
+  inlineAnimationName: string;
+};
+
+type ActivePreview = {
+  styleElement: HTMLStyleElement;
+  targets: PreviewTargetState[];
 };
 
 const TIMING_FUNCTION_PRESETS = [
@@ -663,30 +668,11 @@ export class WebKeyframesEditor {
         }
 
         if (nextPositionType === "percent") {
-          const previousDuration = Math.max(timeline.duration ?? DEFAULT_TIMELINE_DATA.duration ?? 1, 1);
-          timeline.positionType = "percent";
-          delete timeline.duration;
-          timeline.keyframes = timeline.keyframes.map((keyframe) => {
-            const nextKeyframe = cloneSparseKeyframe(keyframe);
-            const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / previousDuration) * 100 : 0;
-            applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
-            return nextKeyframe;
-          });
+          convertTimelineKeyframesToPercent(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1);
           return;
         }
 
-        timeline.positionType = "time";
-        timeline.duration = DEFAULT_TIMELINE_DATA.duration ?? 1200;
-        timeline.keyframes = timeline.keyframes.map((keyframe) => {
-          const nextKeyframe = cloneSparseKeyframe(keyframe);
-          const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
-          applyEditorKeyframePosition(
-            nextKeyframe,
-            "time",
-            clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
-          );
-          return nextKeyframe;
-        });
+        convertTimelineKeyframesToTime(timeline, DEFAULT_TIMELINE_DATA.duration ?? 1200);
       });
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
     });
@@ -713,15 +699,7 @@ export class WebKeyframesEditor {
         }
 
         timeline.duration = Math.max(1, Math.round(value));
-        timeline.keyframes = timeline.keyframes.map((keyframe) => {
-          const nextKeyframe = cloneSparseKeyframe(keyframe);
-          applyEditorKeyframePosition(
-            nextKeyframe,
-            "time",
-            clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
-          );
-          return nextKeyframe;
-        });
+        clampTimelineKeyframesToDuration(timeline);
       });
       this.selectedKeyframeIndex = clampIndex(this.selectedKeyframeIndex, this.getSelectedTimeline().keyframes.length);
     });
@@ -1395,6 +1373,136 @@ function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDescriptor): bo
   );
 }
 
+type EditorTimelineView = ReturnType<typeof deriveEditorRenderState>["selectedTimeline"];
+type EditorTranslateView = EditorTimelineView["translateConfig"];
+
+function convertTimelineKeyframesToPercent(timeline: WebKeyframesTimeline, fallbackDuration: number): void {
+  const duration = Math.max(timeline.duration ?? fallbackDuration, 1);
+  timeline.positionType = "percent";
+  delete timeline.duration;
+  timeline.keyframes = timeline.keyframes.map((keyframe) => {
+    const nextKeyframe = cloneSparseKeyframe(keyframe);
+    const percent = typeof nextKeyframe.time === "number" ? (nextKeyframe.time / duration) * 100 : 0;
+    applyEditorKeyframePosition(nextKeyframe, "percent", clampNumber(percent, 0, 100));
+    return nextKeyframe;
+  });
+}
+
+function convertTimelineKeyframesToTime(timeline: WebKeyframesTimeline, nextDuration: number): void {
+  timeline.positionType = "time";
+  timeline.duration = Math.max(1, Math.round(nextDuration));
+  timeline.keyframes = timeline.keyframes.map((keyframe) => {
+    const nextKeyframe = cloneSparseKeyframe(keyframe);
+    const percent = typeof nextKeyframe.percent === "number" ? nextKeyframe.percent : 0;
+    applyEditorKeyframePosition(
+      nextKeyframe,
+      "time",
+      clampNumber(Math.round((percent / 100) * (timeline.duration ?? 1)), 0, timeline.duration ?? 1),
+    );
+    return nextKeyframe;
+  });
+}
+
+function clampTimelineKeyframesToDuration(timeline: WebKeyframesTimeline): void {
+  timeline.keyframes = timeline.keyframes.map((keyframe) => {
+    const nextKeyframe = cloneSparseKeyframe(keyframe);
+    applyEditorKeyframePosition(
+      nextKeyframe,
+      "time",
+      clampNumber(typeof nextKeyframe.time === "number" ? nextKeyframe.time : 0, 0, timeline.duration ?? 1),
+    );
+    return nextKeyframe;
+  });
+}
+
+function formatTimelineSummary(timeline: EditorTimelineView): string {
+  return `${timeline.keyframes.length} keyframes`;
+}
+
+function formatTimelinePositionSummary(timeline: EditorTimelineView): string {
+  return timeline.positionType === "time"
+    ? `${String(timeline.duration ?? 1)}ms`
+    : "percent mode";
+}
+
+function formatKeyframeSummary(
+  keyframe: WebKeyframesTimeline["keyframes"][number],
+  translateConfig: EditorTranslateView,
+): string {
+  const parts: string[] = [];
+  const transformState = hasKeyframeProperty(keyframe, "transform");
+  const transforms = transformState ? getTransformOperations(keyframe) : [];
+  const opacity = getOpacityValue(keyframe);
+
+  if (transformState) {
+    parts.push(
+      transforms.length > 0
+        ? transforms.map((transform) => formatTransformSummary(transform, translateConfig)).join(" ")
+        : "transform: none",
+    );
+  }
+
+  if (typeof opacity === "number" && Number.isFinite(opacity)) {
+    parts.push(`opacity ${formatNumber(opacity)}`);
+  }
+
+  if (typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== "") {
+    parts.push(`timingFunction ${keyframe.timingFunction.trim()}`);
+  }
+
+  return parts.join(", ");
+}
+
+function formatTransformSummary(transform: TransformOperation, translateConfig: EditorTranslateView): string {
+  switch (transform.kind) {
+    case "translate":
+      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
+    case "scale":
+      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
+    case "rotate":
+      return `rotate(${formatNumber(transform.value)}deg)`;
+    case "skew":
+      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
+  }
+}
+
+function formatSummaryTranslateValue(value: number, translateConfig: EditorTranslateView): string {
+  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit || "px" : translateConfig.unit;
+  return `${formatNumber(value)}${unit}`;
+}
+
+function formatKeyframePositionLabel(
+  keyframe: WebKeyframe,
+  timeline: EditorTimelineView,
+): string {
+  return timeline.positionType === "time"
+    ? `${formatNumber(keyframe.time ?? 0)}ms`
+    : `${formatNumber(keyframe.percent ?? 0)}%`;
+}
+
+function formatKeyframeSecondaryLabel(
+  keyframe: WebKeyframe,
+  timeline: EditorTimelineView,
+): string {
+  if (timeline.positionType === "time") {
+    const safeDuration = (timeline.duration ?? 1) <= 0 ? 1 : (timeline.duration ?? 1);
+    return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
+  }
+
+  return "";
+}
+
+function formatSelectedKeyframeSubtitle(
+  keyframe: WebKeyframe,
+  timeline: EditorTimelineView,
+): string {
+  if (timeline.positionType === "time") {
+    return `${formatKeyframeSecondaryLabel(keyframe, timeline)} of timeline`;
+  }
+
+  return `${formatNumber(keyframe.percent ?? 0)}% of timeline`;
+}
+
 function renderTextField(field: string, label: string, value: string): string {
   return `
     <label class="wkf__field">
@@ -1609,6 +1717,105 @@ function renderTransformFields(transform: TransformOperation, index: number): st
     case "skew":
       return `${renderNumberField(`transform-x-${index}`, "Skew X", transform.x, undefined, 0.1)}${renderNumberField(`transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1)}`;
   }
+}
+
+function applyPreview(
+  ownerDocument: Document,
+  timeline: WebKeyframesTimeline,
+): ActivePreview {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    throw new Error("Preview is not available in this environment.");
+  }
+
+  const normalizedTimeline = normalizeWebKeyframesTimeline(timeline);
+  const targets = findPreviewTargets(ownerDocument, normalizedTimeline.id);
+  if (targets.length === 0) {
+    throw new Error(`No elements using animation-name "${normalizedTimeline.id}" were found.`);
+  }
+
+  const previewName = `${normalizedTimeline.id}__wkf_preview`;
+  const styleElement = ensurePreviewStyleElement(ownerDocument);
+  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.id);
+
+  const appliedTargets = targets.map((element) => ({
+    element,
+    inlineAnimationName: element.style.animationName,
+  }));
+
+  for (const target of appliedTargets) {
+    const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
+    const nextAnimationName = replaceAnimationName(computedAnimationName, normalizedTimeline.id, previewName);
+    target.element.style.animationName = "none";
+    void target.element.offsetWidth;
+    target.element.style.animationName = nextAnimationName;
+  }
+
+  return {
+    styleElement,
+    targets: appliedTargets,
+  };
+}
+
+function clearAppliedPreview(activePreview: ActivePreview | null): void {
+  if (activePreview === null) {
+    return;
+  }
+
+  for (const target of activePreview.targets) {
+    target.element.style.animationName = target.inlineAnimationName;
+  }
+
+  activePreview.styleElement.remove();
+}
+
+function ensurePreviewStyleElement(ownerDocument: Document): HTMLStyleElement {
+  const existing = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']");
+  if (existing) {
+    return existing;
+  }
+
+  const styleElement = ownerDocument.createElement("style");
+  styleElement.dataset.wkfPreview = "true";
+  ownerDocument.head.append(styleElement);
+  return styleElement;
+}
+
+function findPreviewTargets(ownerDocument: Document, animationName: string): HTMLElement[] {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    return [];
+  }
+
+  return Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) => {
+    const names = ownerWindow.getComputedStyle(element).animationName;
+    return splitAnimationNames(names).includes(animationName);
+  });
+}
+
+function splitAnimationNames(value: string): string[] {
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && part !== "none");
+}
+
+function replaceAnimationName(value: string, currentName: string, nextName: string): string {
+  const names = splitAnimationNames(value);
+  if (names.length === 0) {
+    return nextName;
+  }
+
+  return names.map((name) => (name === currentName ? nextName : name)).join(", ");
+}
+
+function generatePreviewCssText(timeline: WebKeyframesTimeline, previewName: string, currentName: string): string {
+  const css = generateCss({ timelines: [timeline] });
+  if (previewName === currentName) {
+    return css;
+  }
+
+  return css.replace(/^@keyframes\s+[^\s{]+\s+\{/, `@keyframes ${previewName} {`);
 }
 
 async function writeClipboardText(windowObject: Window | null, text: string): Promise<void> {

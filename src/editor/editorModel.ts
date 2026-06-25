@@ -1,4 +1,3 @@
-import { formatNumber } from "../core/generateCss.js";
 import {
   cloneProperties,
   cloneTimeline,
@@ -10,7 +9,6 @@ import {
 } from "../core/normalize.js";
 import type {
   KeyframePositionMode,
-  TransformOperation,
   TranslateUnit,
   WebKeyframe,
   WebKeyframesDocument,
@@ -307,94 +305,6 @@ export function roundEditorPosition(value: number, positionType: KeyframePositio
   }
 
   return Math.round(value * 10) / 10;
-}
-
-export function formatTimelineSummary(timeline: RenderWebKeyframesTimeline): string {
-  return `${timeline.keyframes.length} keyframes`;
-}
-
-export function formatTimelinePositionSummary(timeline: RenderWebKeyframesTimeline): string {
-  return timeline.positionType === "time"
-    ? `${String(timeline.duration ?? 1)}ms`
-    : "percent mode";
-}
-
-export function formatKeyframeSummary(
-  keyframe: WebKeyframesTimeline["keyframes"][number],
-  translateConfig: RenderTranslateConfig,
-): string {
-  const parts: string[] = [];
-  const transformState = hasKeyframeProperty(keyframe, "transform");
-  const transforms = transformState ? getTransformOperations(keyframe) : [];
-  const opacity = getOpacityValue(keyframe);
-
-  if (transformState) {
-    parts.push(
-      transforms.length > 0
-        ? transforms.map((transform) => formatTransformSummary(transform, translateConfig)).join(" ")
-        : "transform: none",
-    );
-  }
-
-  if (typeof opacity === "number" && Number.isFinite(opacity)) {
-    parts.push(`opacity ${formatNumber(opacity)}`);
-  }
-
-  if (typeof keyframe.timingFunction === "string" && keyframe.timingFunction.trim() !== "") {
-    parts.push(`timingFunction ${keyframe.timingFunction.trim()}`);
-  }
-
-  return parts.join(", ");
-}
-
-function formatTransformSummary(transform: TransformOperation, translateConfig: RenderTranslateConfig): string {
-  switch (transform.kind) {
-    case "translate":
-      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
-    case "scale":
-      return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
-    case "rotate":
-      return `rotate(${formatNumber(transform.value)}deg)`;
-    case "skew":
-      return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
-  }
-}
-
-function formatSummaryTranslateValue(value: number, translateConfig: RenderTranslateConfig): string {
-  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit || "px" : translateConfig.unit;
-  return `${formatNumber(value)}${unit}`;
-}
-
-export function formatKeyframePositionLabel(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  return timeline.positionType === "time"
-    ? `${formatNumber(keyframe.time ?? 0)}ms`
-    : `${formatNumber(keyframe.percent ?? 0)}%`;
-}
-
-export function formatKeyframeSecondaryLabel(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  if (timeline.positionType === "time") {
-    const safeDuration = (timeline.duration ?? 1) <= 0 ? 1 : (timeline.duration ?? 1);
-    return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
-  }
-
-  return "";
-}
-
-export function formatSelectedKeyframeSubtitle(
-  keyframe: WebKeyframe,
-  timeline: RenderWebKeyframesTimeline,
-): string {
-  if (timeline.positionType === "time") {
-    return `${formatKeyframeSecondaryLabel(keyframe, timeline)} of timeline`;
-  }
-
-  return `${formatNumber(keyframe.percent ?? 0)}% of timeline`;
 }
 
 function isTranslateUnit(value: unknown): value is TranslateUnit {
