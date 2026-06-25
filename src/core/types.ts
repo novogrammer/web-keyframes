@@ -47,12 +47,12 @@ export type PropertyKind = KeyframeProperty["kind"];
 
 export type KeyframePositionMode = "time" | "percent";
 
-export type TimeWebKeyframe = {
+type TimeWebKeyframe = {
   time: number;
   percent?: never;
 };
 
-export type PercentWebKeyframe = {
+type PercentWebKeyframe = {
   percent: number;
   time?: never;
 };

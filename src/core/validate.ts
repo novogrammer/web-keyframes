@@ -18,7 +18,7 @@ const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
 const TRANSFORM_KINDS = new Set(["translate", "scale", "rotate", "skew"]);
 const PROPERTY_KINDS = new Set(["opacity", "transform"]);
 
-export class WebKeyframesValidationError extends Error {
+class WebKeyframesValidationError extends Error {
   readonly issues: string[];
 
   constructor(issues: string[]) {

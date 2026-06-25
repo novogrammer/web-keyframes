@@ -10,11 +10,8 @@ import {
   normalizeWebKeyframesDocument,
   normalizeWebKeyframesTimeline,
 } from "../src/core/normalize.ts";
-import {
-} from "../src/core/edit.ts";
 import { generateCss } from "../src/core/generateCss.ts";
 import {
-  WebKeyframesValidationError,
   validateWebKeyframesDocument,
 } from "../src/core/validate.ts";
 
@@ -249,7 +246,8 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
         ],
       }),
     (error) =>
-      error instanceof WebKeyframesValidationError &&
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].id is required.") &&
       error.issues.includes("timelines[0].duration must be a number greater than 0 when positionType is time."),
   );
@@ -282,7 +280,8 @@ test("validateWebKeyframesDocument rejects duration on percent timelines", () =>
         ],
       }),
     (error) =>
-      error instanceof WebKeyframesValidationError &&
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].duration must not be provided when positionType is percent."),
   );
 });
@@ -302,7 +301,8 @@ test("validateWebKeyframesDocument rejects out-of-range keyframe times and inval
         ],
       }),
     (error) =>
-      error instanceof WebKeyframesValidationError &&
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].keyframes[0].time must be greater than or equal to 0.") &&
       error.issues.includes("timelines[0].keyframes[1].time must be less than or equal to duration.") &&
       error.issues.includes("timelines[0].keyframes[1].properties[1].value[0].y must be a finite number."),
@@ -341,7 +341,8 @@ test("validateWebKeyframesDocument rejects empty timingFunction", () => {
         ],
       }),
     (error) =>
-      error instanceof WebKeyframesValidationError &&
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].keyframes[0].timingFunction must be a non-empty string when provided."),
   );
 });
@@ -360,7 +361,8 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
         ],
       }),
     (error) =>
-      error instanceof WebKeyframesValidationError &&
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].translateConfig.customUnit is required when translateConfig.unit is custom."),
   );
 });

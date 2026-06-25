@@ -63,7 +63,7 @@ function renderTimelineCss(
   return ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");
 }
 
-export function renderTransform(
+function renderTransform(
   transform: TransformOperation,
   translate: NormalizedTranslateConfig,
 ): string {

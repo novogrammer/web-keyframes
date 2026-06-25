@@ -146,7 +146,7 @@ export function cloneProperties(properties: KeyframeProperty[]): KeyframePropert
   return properties.map(cloneProperty);
 }
 
-export function getKeyframeProperty(
+function getKeyframeProperty(
   keyframe: Pick<WebKeyframe, "properties"> | Pick<NormalizedWebKeyframe, "properties"> | null | undefined,
   kind: PropertyKind,
 ): KeyframeProperty | null {
