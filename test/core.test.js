@@ -83,7 +83,7 @@ test("normalizeWebKeyframesTimeline applies default translate config and sorts k
   );
 });
 
-test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => {
+test("normalizeWebKeyframesDocument preserves sparse properties while normalizing positions", () => {
   const normalized = normalizeWebKeyframesDocument({
     timelines: [
       {
@@ -97,9 +97,10 @@ test("normalizeWebKeyframesDocument resolves sparse values per timeline", () => 
     ],
   });
 
-  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[1]), 0);
-  assert.deepEqual(getTransformOperations(normalized.timelines[0].keyframes[1]), [{ kind: "translate", x: 0, y: 40 }]);
-  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[2]), 0);
+  assert.equal(normalized.timelines[0].keyframes[1].percent, 50);
+  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[1]), null);
+  assert.deepEqual(getTransformOperations(normalized.timelines[0].keyframes[1]), []);
+  assert.equal(getOpacityValue(normalized.timelines[0].keyframes[2]), null);
   assert.deepEqual(getTransformOperations(normalized.timelines[0].keyframes[2]), []);
 });
 

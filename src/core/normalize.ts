@@ -35,11 +35,7 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
   const sortedKeyframes = [...validated.keyframes].sort(
     (left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType),
   );
-  const keyframes = sortedKeyframes.reduce<NormalizedWebKeyframe[]>((accumulator, keyframe) => {
-    const previous = accumulator[accumulator.length - 1];
-    accumulator.push(normalizeKeyframe(keyframe, positionType, validated.duration ?? null, previous));
-    return accumulator;
-  }, []);
+  const keyframes = sortedKeyframes.map((keyframe) => normalizeKeyframe(keyframe, positionType, validated.duration ?? null));
 
   return {
     id: validated.id,
@@ -57,12 +53,7 @@ export function normalizeKeyframe(
   keyframe: WebKeyframe,
   positionType: KeyframePositionMode,
   duration: number | null,
-  previous?: NormalizedWebKeyframe,
 ): NormalizedWebKeyframe {
-  const opacityProperty = getOpacityProperty(keyframe);
-  const previousOpacity = previous ? (getOpacityValue(previous, 1) ?? 1) : 1;
-  const transformProperty = getTransformProperty(keyframe);
-  const previousTransforms = previous ? getTransformOperations(previous) : [];
   const time = positionType === "time" ? (keyframe.time ?? null) : null;
   const percent = positionType === "time"
     ? (((keyframe.time ?? 0) / Math.max(duration ?? 1, 1)) * 100)
@@ -72,18 +63,7 @@ export function normalizeKeyframe(
     time,
     percent,
     timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction.trim() || null : null,
-    properties: [
-      createOpacityProperty(
-        opacityProperty && Number.isFinite(opacityProperty.value)
-          ? opacityProperty.value
-          : previousOpacity,
-      ),
-      createTransformProperty(
-        transformProperty
-          ? transformProperty.value.map(cloneTransform)
-          : previousTransforms.map(cloneTransform),
-      ),
-    ],
+    properties: Array.isArray(keyframe.properties) ? cloneProperties(keyframe.properties) : [],
   };
 }
 
