@@ -35,8 +35,7 @@ export {
   staggerKeyframes,
 } from "./edit.js";
 export { formatCss } from "./formatCss.js";
-export { generatePreviewCss } from "./generatePreviewCss.js";
-export { formatNumber, generateCss, generateTimelineCss, renderTransform } from "./generateCss.js";
+export { formatNumber, generateCss, renderTransform } from "./generateCss.js";
 export {
   cloneDocument,
   cloneProperties,

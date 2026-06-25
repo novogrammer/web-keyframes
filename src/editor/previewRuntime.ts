@@ -1,5 +1,6 @@
-import { generatePreviewCss, normalizeWebKeyframesTimeline } from "../core/index.js";
-import type { WebKeyframesTimeline } from "../core/index.js";
+import { generateCss } from "../core/generateCss.js";
+import { normalizeWebKeyframesTimeline } from "../core/normalize.js";
+import type { WebKeyframesTimeline } from "../core/types.js";
 
 type PreviewTargetState = {
   element: HTMLElement;
@@ -29,7 +30,7 @@ export function applyPreview(
 
   const previewName = `${normalizedTimeline.id}__wkf_preview`;
   const styleElement = ensurePreviewStyleElement(ownerDocument);
-  styleElement.textContent = generatePreviewCss(timeline, previewName);
+  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.id);
 
   const appliedTargets = targets.map((element) => ({
     element,
@@ -101,4 +102,13 @@ function replaceAnimationName(value: string, currentName: string, nextName: stri
   }
 
   return names.map((name) => (name === currentName ? nextName : name)).join(", ");
+}
+
+function generatePreviewCssText(timeline: WebKeyframesTimeline, previewName: string, currentName: string): string {
+  const css = generateCss({ timelines: [timeline] });
+  if (previewName === currentName) {
+    return css;
+  }
+
+  return css.replace(/^@keyframes\s+[^\s{]+\s+\{/, `@keyframes ${previewName} {`);
 }

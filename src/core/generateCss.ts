@@ -24,12 +24,6 @@ export function generateCss(data: WebKeyframesDocument): string {
   );
 }
 
-export function generateTimelineCss(data: WebKeyframesTimeline): string {
-  const validated = validateWebKeyframesTimeline(data);
-  const normalized = normalizeWebKeyframesTimeline(data);
-  return formatCss([renderTimelineCss(validated, normalized)]);
-}
-
 function renderTimelineCss(
   validated: WebKeyframesTimeline,
   normalized: ReturnType<typeof normalizeWebKeyframesTimeline>,

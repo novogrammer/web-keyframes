@@ -203,11 +203,10 @@ Each input file may contain one or more timelines. When the input is a directory
 ```
 
 `translateConfig.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
-Transform array order is preserved exactly in both `generateCss()` and `generatePreviewCss()`.
+Transform array order is preserved in generated CSS and in editor preview playback.
 `scale` always stores `x` and `y`, and CSS output always uses `scale(x, y)`.
 `timingFunction` is passed through as-is, so values like `ease`, `linear`, `cubic-bezier(...)`, and `steps(...)` are all valid.
 `generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
-`generatePreviewCss()` emits the same declarations as `generateTimelineCss()`, using a temporary keyframes name for preview replay.
 
 ## Development
 

@@ -202,11 +202,10 @@ web-keyframes to-css \
 ```
 
 `translateConfig.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
-transform 配列の順番は `generateCss()` と `generatePreviewCss()` の両方でそのまま維持されます。
+transform 配列の順番は、生成される CSS と editor preview の再生の両方でそのまま維持されます。
 `scale` は常に `x` と `y` を持ち、CSS 出力も常に `scale(x, y)` を使います。
 `timingFunction` は文字列をそのまま通すので、`ease`、`linear`、`cubic-bezier(...)`、`steps(...)` などをそのまま使えます。
 `generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
-`generatePreviewCss()` は `generateTimelineCss()` と同じ宣言を出力し、preview の再生用に keyframes 名だけを一時的なものへ差し替えます。
 
 ## 開発
 
