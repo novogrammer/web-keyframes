@@ -66,7 +66,10 @@ export class EditorDomController {
   }
 
   syncPanel(container: HTMLElement | null, position: PanelPosition | null): void {
-    const panel = container?.querySelector<HTMLElement>(".wkf__panel");
+    if (!container) {
+      return;
+    }
+    const panel = container.querySelector<HTMLElement>(".wkf__panel");
     if (!panel) {
       return;
     }
@@ -246,7 +249,7 @@ function bindContainerEvents(
   options: Pick<DomOptions, "onClick" | "onInput" | "onChange">,
   method: "addEventListener" | "removeEventListener",
 ): void {
-  container[method]("click", options.onClick);
+  container[method]("click", options.onClick as EventListener);
   container[method]("input", options.onInput);
   container[method]("change", options.onChange);
 }
