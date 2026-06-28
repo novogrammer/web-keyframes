@@ -139,6 +139,20 @@ test("timeline meta inputs update selected timeline data", () => {
   assert.equal(data.timelines[0].duration, 1600);
 });
 
+test("animationName input trims surrounding whitespace and ignores empty whitespace-only values", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  setInputValue(window.document, "animationName", "  hero-title-enter  ");
+  assert.equal(editor.getData().timelines[0].animationName, "hero-title-enter");
+
+  setInputValue(window.document, "animationName", "   ");
+  assert.equal(editor.getData().timelines[0].animationName, "hero-title-enter");
+  assert.equal(window.document.querySelector("[data-wkf-field='animationName']")?.value, "hero-title-enter");
+});
+
 test("timeline can switch to percent mode and removes duration", () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });

@@ -1,5 +1,5 @@
 import { generateCss } from "../../core/generateCss.js";
-import { getTimelineAnimationName, normalizeWebKeyframesTimeline } from "../../core/normalize.js";
+import { normalizeWebKeyframesTimeline } from "../../core/normalize.js";
 import type { WebKeyframesTimeline } from "../../core/types.js";
 import { type EditorState, clearPreviewPanel, getSelectedTimeline, setPreviewPanel, setStatus } from "../editorStateController.js";
 
@@ -55,7 +55,7 @@ export class EditorPreviewController {
   runPreview(): void {
     try {
       const timeline = getSelectedTimeline(this.state);
-      const animationName = getTimelineAnimationName(timeline);
+      const animationName = timeline.animationName;
       const ownerDocument = this.root.ownerDocument;
       clearAppliedPreview(this.state.activePreview);
       this.state.activePreview = applyPreview(ownerDocument, timeline);

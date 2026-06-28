@@ -3,7 +3,6 @@ import {
   cloneTimeline,
   DEFAULT_TRANSLATE_CONFIG,
   getOpacityValue,
-  getTimelineAnimationName,
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
@@ -130,7 +129,7 @@ function sanitizeEditorTimeline(
 
   return {
     animationName: typeof data.animationName === "string" && data.animationName.trim() !== ""
-      ? data.animationName
+      ? data.animationName.trim()
       : fallback.animationName,
     ...(positionType === "percent" || data.positionType === "time" ? { positionType } : {}),
     ...(positionType === "time"
@@ -176,7 +175,7 @@ export function createNextTimeline(
 ): WebKeyframesTimeline {
   const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length, defaultTimelineData);
   return {
-    animationName: createUniqueTimelineAnimationName(getTimelineAnimationName(source), timelines),
+    animationName: createUniqueTimelineAnimationName(source.animationName, timelines),
     positionType: source.positionType,
     ...(source.positionType !== "percent" && typeof source.duration === "number" ? { duration: source.duration } : {}),
     translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
@@ -189,12 +188,12 @@ export function createDuplicatedTimeline(
   timelines: WebKeyframesTimeline[],
 ): WebKeyframesTimeline {
   const duplicate = cloneTimeline(timeline);
-  duplicate.animationName = createUniqueTimelineAnimationName(`${getTimelineAnimationName(timeline)}-copy`, timelines);
+  duplicate.animationName = createUniqueTimelineAnimationName(`${timeline.animationName}-copy`, timelines);
   return duplicate;
 }
 
 function createUniqueTimelineAnimationName(seed: string, timelines: WebKeyframesTimeline[]): string {
-  const existing = new Set(timelines.map((timeline) => getTimelineAnimationName(timeline)));
+  const existing = new Set(timelines.map((timeline) => timeline.animationName));
   if (!existing.has(seed)) {
     return seed;
   }
