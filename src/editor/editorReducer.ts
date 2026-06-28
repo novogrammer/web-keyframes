@@ -40,6 +40,7 @@ type TimelineOperation = "select" | "add" | "duplicate" | "delete";
 type KeyframeOperation = "select" | "add" | "duplicate" | "delete";
 type PropertyTarget = "timingFunction" | "opacity" | "transform";
 type PropertyOperation = "set" | "clear" | "add" | "delete" | "move" | "changeKind" | "changeValue";
+type TransformValueField = "x" | "y" | "value";
 
 export type EditorAction =
   | { type: "reset"; initialData: WebKeyframesDocument }
@@ -189,26 +190,42 @@ function handlePropertyAction(
         upsertKeyframeProperty(keyframe, createTransformProperty([]));
       });
     case "move":
-      applyTransformEdit(state, defaultTimelineData, (timeline) => moveTransform(
-        timeline,
-        state.selectedKeyframeIndex,
-        action.index ?? 0,
-        action.direction ?? 1,
-      ));
-      setStatus(state, "info", "Reordered transforms.");
-      return true;
+      return applyTransformPropertyAction(
+        state,
+        defaultTimelineData,
+        "Reordered transforms.",
+        (timeline) => moveTransform(
+          timeline,
+          state.selectedKeyframeIndex,
+          action.index ?? 0,
+          action.direction ?? 1,
+        ),
+      );
     case "changeKind":
-      applyTransformEdit(state, defaultTimelineData, (timeline) =>
-        replaceTransformKind(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.kind ?? "translate")
+      return applyTransformPropertyAction(
+        state,
+        defaultTimelineData,
+        "Editing timeline data.",
+        (timeline) => replaceTransformKind(
+          timeline,
+          state.selectedKeyframeIndex,
+          action.index ?? 0,
+          action.kind ?? "translate",
+        ),
       );
-      setStatus(state, "info", "Editing timeline data.");
-      return true;
     case "changeValue":
-      applyTransformEdit(state, defaultTimelineData, (timeline) =>
-        setTransformFieldValue(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.field ?? "x", Number(action.value ?? 0))
+      return applyTransformPropertyAction(
+        state,
+        defaultTimelineData,
+        "Editing timeline data.",
+        (timeline) => setTransformFieldValue(
+          timeline,
+          state.selectedKeyframeIndex,
+          action.index ?? 0,
+          action.field ?? "x",
+          Number(action.value ?? 0),
+        ),
       );
-      setStatus(state, "info", "Editing timeline data.");
-      return true;
     default:
       return false;
   }
@@ -243,7 +260,6 @@ function handleFieldAction(
           }
           convertTimelineKeyframesToTime(timeline, defaultTimelineData.duration ?? 1200);
         });
-        normalizeEditorState(state, defaultTimelineData);
         return commitFieldEditResult(state, focusSnapshot);
       case "translateUnit":
         editSelectedTimeline(state, defaultTimelineData, (timeline) => {
@@ -264,8 +280,8 @@ function handleFieldAction(
         return commitFieldEditResult(state, focusSnapshot);
     }
 
-    const kindMatch = /^transform-kind-(\d+)$/.exec(field);
-    if (!kindMatch) {
+    const transformField = parseTransformField(field);
+    if (!transformField || transformField.type !== "kind") {
       return false;
     }
 
@@ -273,7 +289,7 @@ function handleFieldAction(
       type: "propertyAction",
       target: "transform",
       operation: "changeKind",
-      index: Number(kindMatch[1]),
+      index: transformField.index,
       kind: value as TransformKind,
     });
     if (changed && focusSnapshot) {
@@ -291,7 +307,6 @@ function handleFieldAction(
         timeline.duration = Math.max(1, Math.round(value));
         clampTimelineKeyframesToDuration(timeline);
       });
-      normalizeEditorState(state, defaultTimelineData);
       return commitFieldEditResult(state, focusSnapshot);
     case "position":
       editSelectedTimelineKeyframes(state, defaultTimelineData, (keyframes, timeline) => {
@@ -320,8 +335,8 @@ function handleFieldAction(
       return commitFieldEditResult(state, focusSnapshot);
   }
 
-  const valueMatch = /^transform-(x|y|value)-(\d+)$/.exec(field);
-  if (!valueMatch) {
+  const transformField = parseTransformField(field);
+  if (!transformField || transformField.type !== "value") {
     return false;
   }
 
@@ -329,8 +344,8 @@ function handleFieldAction(
     type: "propertyAction",
     target: "transform",
     operation: "changeValue",
-    field: valueMatch[1] as "x" | "y" | "value",
-    index: Number(valueMatch[2]),
+    field: transformField.field,
+    index: transformField.index,
     value,
   });
   if (changed && focusSnapshot) {
@@ -438,6 +453,17 @@ function addSelectedTransform(state: EditorState, defaultTimelineData: WebKeyfra
   setStatus(state, "info", `Added ${kind} transform.`);
 }
 
+function applyTransformPropertyAction(
+  state: EditorState,
+  defaultTimelineData: WebKeyframesTimeline,
+  statusMessage: string,
+  edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline,
+): boolean {
+  applyTransformEdit(state, defaultTimelineData, edit);
+  setStatus(state, "info", statusMessage);
+  return true;
+}
+
 function editSelectedKeyframe(
   state: EditorState,
   statusMessage: string,
@@ -491,6 +517,20 @@ function applyTransformEdit(
   editSelectedTimeline(state, defaultTimelineData, (timeline) => {
     timeline.keyframes = cloneTimeline(edit(timeline)).keyframes;
   });
+}
+
+function parseTransformField(field: string):
+  | { type: "kind"; index: number }
+  | { type: "value"; field: TransformValueField; index: number }
+  | null {
+  const match = /^transform-(kind|x|y|value)-(\d+)$/.exec(field);
+  if (!match) {
+    return null;
+  }
+
+  return match[1] === "kind"
+    ? { type: "kind", index: Number(match[2]) }
+    : { type: "value", field: match[1] as TransformValueField, index: Number(match[2]) };
 }
 
 function sortKeyframesByPosition(
