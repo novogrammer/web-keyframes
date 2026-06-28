@@ -1,5 +1,5 @@
 import { generateCss } from "../core/generateCss.js";
-import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
+import { cloneDocument, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { validateWebKeyframesDocument } from "../core/validate.js";
 import {
@@ -18,30 +18,6 @@ type WebKeyframesEditorOptions = {
   shortcut?: string | false;
 };
 
-const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
-  animationName: "new-animation",
-  positionType: "percent",
-  translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
-  keyframes: [
-    {
-      percent: 0,
-      properties: [
-        { kind: "opacity", value: 0 },
-        { kind: "transform", value: [{ kind: "translate", x: 0, y: 40 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
-      ],
-    },
-    {
-      percent: 100,
-      properties: [
-        { kind: "opacity", value: 1 },
-        { kind: "transform", value: [{ kind: "translate", x: 0, y: 0 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
-      ],
-    },
-  ],
-};
-
-const DEFAULT_EDITOR_DATA: WebKeyframesDocument = { timelines: [cloneTimeline(DEFAULT_TIMELINE_DATA)] };
-
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly initialData: WebKeyframesDocument;
@@ -56,7 +32,7 @@ export class WebKeyframesEditor {
     }
     this.root = options.root;
     this.initialData = options.initialData ? validateAndCloneEditorData(options.initialData) : createDefaultEditorDocument();
-    this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
+    this.state = createEditorState(this.initialData);
     this.dom = new EditorDomController(this.root, this.state, {
       shortcut: options.shortcut,
       getJson: () => this.toJson(),
@@ -117,7 +93,7 @@ export class WebKeyframesEditor {
 
   setData(data: WebKeyframesDocument): void {
     this.state.data = validateAndCloneEditorData(data);
-    normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
+    normalizeEditorState(this.state);
     if (this.container) {
       this.render();
     }
@@ -141,7 +117,7 @@ export class WebKeyframesEditor {
     if (!this.container) {
       return;
     }
-    this.container.innerHTML = renderEditorPanel(this.state, DEFAULT_TIMELINE_DATA);
+    this.container.innerHTML = renderEditorPanel(this.state);
     this.dom.syncPanel(this.container, this.state.panelPosition);
     queueMicrotask(() => this.dom.restoreFocus(this.container, this.state.pendingFocus, () => {
       this.state.pendingFocus = null;
@@ -231,7 +207,7 @@ export class WebKeyframesEditor {
     if (input.type === "range") {
       if (eventType === "input") {
         const value = Number(input.value);
-        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { type: "fieldAction", field, value })) {
+        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, createDefaultTimeline(), { type: "fieldAction", field, value })) {
           return;
         }
         this.dom.syncNumberFieldValues(this.container, field, value, input);
@@ -259,14 +235,14 @@ export class WebKeyframesEditor {
 
   private commitFieldEdit(action: { type: "fieldAction"; field: string; value: string | number }, field: string, input: HTMLInputElement | HTMLSelectElement): void {
     const focusSnapshot = this.dom.captureFocusSnapshot(this.container, field, input);
-    if (dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { ...action, focusSnapshot })) {
+    if (dispatchEditorAction(this.state, createDefaultTimeline(), { ...action, focusSnapshot })) {
       this.render();
     }
   }
 
   private runAction(actionOrFactory: EditorAction | (() => EditorAction)): void {
     const action = typeof actionOrFactory === "function" ? actionOrFactory() : actionOrFactory;
-    if (dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, action)) {
+    if (dispatchEditorAction(this.state, createDefaultTimeline(), action)) {
       this.render();
     }
   }
@@ -276,8 +252,32 @@ function actionIndex(target: HTMLElement): number {
   return Number(target.dataset.wkfIndex ?? "0");
 }
 
+function createDefaultTimeline(): WebKeyframesTimeline {
+  return {
+    animationName: "new-animation",
+    positionType: "percent",
+    translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
+    keyframes: [
+      {
+        percent: 0,
+        properties: [
+          { kind: "opacity", value: 0 },
+          { kind: "transform", value: [{ kind: "translate", x: 0, y: 40 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
+        ],
+      },
+      {
+        percent: 100,
+        properties: [
+          { kind: "opacity", value: 1 },
+          { kind: "transform", value: [{ kind: "translate", x: 0, y: 0 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
+        ],
+      },
+    ],
+  };
+}
+
 function createDefaultEditorDocument(): WebKeyframesDocument {
-  return cloneDocument(DEFAULT_EDITOR_DATA);
+  return { timelines: [createDefaultTimeline()] };
 }
 
 function validateAndCloneEditorData(data: WebKeyframesDocument): WebKeyframesDocument {

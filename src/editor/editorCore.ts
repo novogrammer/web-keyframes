@@ -127,7 +127,7 @@ const TRANSFORM_BUTTONS = [
 
 const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] as const satisfies ReadonlyArray<TranslateUnit>;
 
-export function createEditorState(initialData: WebKeyframesDocument, defaults: WebKeyframesTimeline): EditorState {
+export function createEditorState(initialData: WebKeyframesDocument): EditorState {
   return {
     data: cloneDocument(initialData),
     selectedTimelineIndex: 0,
@@ -142,7 +142,7 @@ export function createEditorState(initialData: WebKeyframesDocument, defaults: W
   };
 }
 
-export function normalizeEditorState(state: EditorState, defaults: WebKeyframesTimeline): void {
+export function normalizeEditorState(state: EditorState): void {
   state.selectedTimelineIndex = clampIndex(state.selectedTimelineIndex, state.data.timelines.length);
   state.selectedKeyframeIndex = clampIndex(state.selectedKeyframeIndex, getSelectedTimeline(state).keyframes.length);
 }
@@ -151,8 +151,8 @@ export function getSelectedTimeline(state: EditorState): WebKeyframesTimeline {
   return state.data.timelines[state.selectedTimelineIndex] ?? state.data.timelines[0];
 }
 
-export function renderEditorPanel(state: EditorState, defaults: WebKeyframesTimeline): string {
-  normalizeEditorState(state, defaults);
+export function renderEditorPanel(state: EditorState): string {
+  normalizeEditorState(state);
   const view = deriveView(state.data, state.selectedTimelineIndex, state.selectedKeyframeIndex);
   state.selectedTimelineIndex = view.timelines.indexOf(view.selectedTimeline);
   state.selectedKeyframeIndex = view.selectedKeyframe ? view.selectedTimeline.keyframes.indexOf(view.selectedKeyframe) : 0;
@@ -225,7 +225,7 @@ function dispatchTimelineAction(
   switch (action.operation) {
     case "select":
       state.selectedTimelineIndex = clampIndex(action.index ?? 0, state.data.timelines.length);
-      normalizeEditorState(state, defaults);
+      normalizeEditorState(state);
       return true;
     case "add": {
       const next = createNextTimeline(state.data.timelines, state.selectedTimelineIndex, defaults);
@@ -243,7 +243,7 @@ function dispatchTimelineAction(
       timelines.splice(state.selectedTimelineIndex + 1, 0, duplicate);
       state.data = { timelines };
       state.selectedTimelineIndex += 1;
-      normalizeEditorState(state, defaults);
+      normalizeEditorState(state);
       setStatus(state, "info", "Duplicated timeline.");
       return true;
     }
@@ -256,7 +256,7 @@ function dispatchTimelineAction(
           .filter((_, index) => index !== state.selectedTimelineIndex)
           .map((timeline) => cloneTimeline(timeline)),
       };
-      normalizeEditorState(state, defaults);
+      normalizeEditorState(state);
       setStatus(state, "info", "Deleted timeline.");
       return true;
   }
@@ -856,7 +856,7 @@ function transformSummary(transform: TransformOperation, unit: TranslateUnit): s
 function editTimeline(state: EditorState, defaults: WebKeyframesTimeline, run: (timeline: WebKeyframesTimeline) => void): void {
   const timeline = getSelectedTimeline(state);
   run(timeline);
-  normalizeEditorState(state, defaults);
+  normalizeEditorState(state);
 }
 
 function editSelectedKeyframe(
