@@ -29,7 +29,18 @@ npm install github:novogrammer/web-keyframes#v0.3.0
 - Basic example: https://novogrammer.github.io/web-keyframes/examples/basic/
 - Hero animation example: https://novogrammer.github.io/web-keyframes/examples/hero-animation/
 
-## Editor
+## Basic workflow
+
+1. Author or edit a timeline document in the browser editor
+2. Review and copy JSON or CSS directly in the editor UI, or convert the same document with the API or the CLI
+3. Ship only the generated `@keyframes` in production if you want
+
+`generateCss()` only emits `@keyframes`. You still control `animation`, easing, fill mode,
+and timing from your own stylesheet.
+
+## Basic usage
+
+### Editor
 
 ```ts
 import { WebKeyframesEditor } from "web-keyframes/editor";
@@ -43,7 +54,18 @@ const editor = new WebKeyframesEditor({
 editor.mount();
 ```
 
-## CSS generator
+The editor UI can show generated JSON and CSS and lets you copy them without wiring the API or CLI first.
+
+## Convert To CSS
+
+You can get CSS in three ways: directly from the editor, from application code, or from the command line.
+
+### Editor UI
+
+Open the overlay editor, edit the timeline, then use the built-in JSON and CSS panels to review
+or copy the current output.
+
+### API
 
 ```ts
 import { generateCss } from "web-keyframes";
@@ -80,9 +102,43 @@ const css = generateCss({
 });
 ```
 
-`generateCss()` is the only root export. `web-keyframes/editor` exposes `WebKeyframesEditor`.
+### CLI
 
-### Available methods
+Convert one file:
+
+```bash
+web-keyframes to-css \
+  --input src/animations/hero-logo.timeline.json \
+  --output src/assets/css/generated/hero-logo.css
+```
+
+Convert a directory of `*.timeline.json` files into one CSS file:
+
+```bash
+web-keyframes to-css \
+  --input src/animations \
+  --output src/assets/css/generated/animations.css
+```
+
+Each input file may contain one or more timelines. When the input is a directory, files are
+read in filename order and joined with blank lines.
+
+### Apply the generated keyframes
+
+```css
+.hero-logo {
+  animation: hero-logo 1200ms ease-out both;
+}
+```
+
+## Public API
+
+The package keeps its surface area intentionally small.
+
+- Root export: `generateCss()`
+- Editor export: `WebKeyframesEditor` from `web-keyframes/editor`
+
+### Editor methods
 
 ```ts
 editor.mount();
@@ -99,44 +155,7 @@ editor.toJson();
 editor.toCss();
 ```
 
-### Current editor features
-
-- Manage multiple timelines in one document
-- Edit the selected timeline `id`, `positionType`, optional `duration`, and `translateConfig` output settings
-- Edit selected keyframe `time` or `percent`, `timingFunction`, `opacity`, and ordered transform entries
-- Add, reorder, retarget, and delete `translate`, `scale`, `rotate`, and `skew` transforms
-- Add, duplicate, select, and delete timelines
-- Add, duplicate, and delete keyframes
-- View generated JSON and CSS inside the editor
-- Run a lightweight preview against real DOM elements already using the same `animation-name`
-- Reset that preview back to the page's original animation name
-- Copy JSON
-- Copy CSS
-- Reset the editor back to default data
-- Toggle visibility with an optional shortcut
-- Close preview panels with `Escape`
-
-### Current editor limitations
-
-- Preview only works when matching elements already exist in `document` and already use the same `animation-name` as the selected timeline `id`
-- No file import or auto-save
-- `timingFunction` is free-form text with preset-assisted input, not a structured easing builder
-
-### Preview behavior
-
-The `Preview` button searches the current document for elements whose computed `animation-name`
-matches the selected timeline `id`.
-
-When matches are found, the editor:
-
-- generates the same keyframe CSS as export, but under a temporary keyframes name
-- injects one preview `<style>` tag at the end of `<head>`
-- temporarily swaps matching elements to that preview animation name so the animation reruns
-
-`Reset Preview` removes the temporary style tag and restores the previous inline `animation-name`
-value for matched elements.
-
-## Data shape
+## Timeline JSON
 
 ```json
 {
@@ -183,69 +202,16 @@ value for matched elements.
 }
 ```
 
-Each document contains `timelines[]`. Each timeline owns its own `id`, `positionType`, `translateConfig`, and `keyframes`. `duration` exists only for `time` mode timelines.
+Each document contains `timelines[]`. Each timeline owns its own `id`, `positionType`,
+`translateConfig`, and `keyframes`.
 
 Timelines support two position modes:
 
 - `time` mode: each keyframe uses `time`, and the timeline must include `duration`
 - `percent` mode: each keyframe uses `percent`, and the timeline must not include `duration`
 
-`keyframes` may be an empty array while authoring. This is useful when you add a new timeline and want to build it from scratch in the editor.
-
-Each keyframe expresses animated values through an ordered `properties[]` list. `transform` stores its ordered operations in `value[]`. Top-level legacy fields such as `x`, `y`, `scale`, `rotate`, `skewX`, and `skewY` are no longer accepted.
-
-Each keyframe may also include `timingFunction`. When present, it is emitted directly as a keyframe-local `animation-timing-function`.
-
-`opacity` and `transform` may be omitted from `properties[]` on individual keyframes to match CSS-style sparse keyframe authoring.
-
-- omitted `opacity` property: no `opacity` declaration is emitted for that keyframe
-- omitted `transform` property: no `transform` declaration is emitted for that keyframe
-- `transform` property with `"value": []`: emits `transform: none;`
-
-The editor preserves sparse keyframes as authored. `getData()` and `toJson()` keep the same sparse shape instead of densifying omitted properties.
-
-## CLI
-
-Convert one file:
-
-```bash
-web-keyframes to-css \
-  --input src/animations/hero-logo.timeline.json \
-  --output src/assets/css/generated/hero-logo.css
-```
-
-Convert a directory of `*.timeline.json` files into one CSS file:
-
-```bash
-web-keyframes to-css \
-  --input src/animations \
-  --output src/assets/css/generated/animations.css
-```
-
-Each input file may contain one or more timelines. When the input is a directory, files are read in filename order and joined with blank lines.
-
-## Output example
-
-```css
-@keyframes hero-logo {
-  0% {
-    transform: translate(0px, 40px) scale(1, 1) rotate(0deg);
-    opacity: 0;
-    animation-timing-function: ease-out;
-  }
-
-  100% {
-    transform: translate(0px, 0px) scale(1, 1) rotate(0deg);
-    opacity: 1;
-  }
-}
-```
-
-`translateConfig.unit` controls the emitted unit such as `px`, `vw`, `vh`, `%`, or a custom unit token.  
-Transform array order is preserved in generated CSS and in editor preview playback.
-`scale` always stores `x` and `y`, and CSS output always uses `scale(x, y)`.
-`timingFunction` is passed through as-is, so values like `ease`, `linear`, `cubic-bezier(...)`, and `steps(...)` are all valid.
-`generateCss()` emits only `@keyframes`. Apply `animation`, `animation-name`, easing, and fill-mode in your own stylesheet.
+Each keyframe expresses animated values through an ordered `properties[]` list. `transform`
+stores its ordered operations in `value[]`, and that order is preserved in generated CSS.
 
 ## Development
 

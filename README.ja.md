@@ -28,7 +28,18 @@ npm install github:novogrammer/web-keyframes#v0.3.0
 - Basic example: https://novogrammer.github.io/web-keyframes/examples/basic/
 - Hero animation example: https://novogrammer.github.io/web-keyframes/examples/hero-animation/
 
-## エディタ
+## 基本フロー
+
+1. ブラウザ上のエディタで timeline document を作る
+2. エディタ UI 上で JSON / CSS を確認してコピーするか、同じ document を API / CLI で CSS に変換する
+3. 必要なら本番には生成済み `@keyframes` だけを持ち込む
+
+`generateCss()` が出力するのは `@keyframes` だけです。`animation`、easing、
+fill-mode、再生時間などは利用側のスタイルシートで指定します。
+
+## 基本的な使い方
+
+### エディタ
 
 ```ts
 import { WebKeyframesEditor } from "web-keyframes/editor";
@@ -42,7 +53,19 @@ const editor = new WebKeyframesEditor({
 editor.mount();
 ```
 
-## CSS 生成
+エディタ UI だけでも、生成された JSON / CSS をその場で確認してコピーできます。
+
+## CSS へ変換する
+
+CSS を得る経路は 3 つあります。エディタから直接書き出す方法、アプリケーションコードから変換する方法、
+CLI で変換する方法です。
+
+### エディタ UI
+
+オーバーレイエディタを開き、timeline を編集し、組み込みの JSON / CSS パネルで現在の出力を確認または
+コピーできます。
+
+### API
 
 ```ts
 import { generateCss } from "web-keyframes";
@@ -79,9 +102,43 @@ const css = generateCss({
 });
 ```
 
-root export は `generateCss()` のみで、`web-keyframes/editor` からは `WebKeyframesEditor` を公開します。
+### CLI
 
-### 利用できるメソッド
+単一ファイルを変換する例:
+
+```bash
+web-keyframes to-css \
+  --input src/animations/hero-logo.timeline.json \
+  --output src/assets/css/generated/hero-logo.css
+```
+
+`*.timeline.json` をまとめて 1 ファイルへ出力する例:
+
+```bash
+web-keyframes to-css \
+  --input src/animations \
+  --output src/assets/css/generated/animations.css
+```
+
+各入力ファイルは 1 個以上の timeline を持てます。ディレクトリ入力時は、ファイル名順で読み込み、
+空行を挟んで結合します。
+
+### 生成した keyframes を適用
+
+```css
+.hero-logo {
+  animation: hero-logo 1200ms ease-out both;
+}
+```
+
+## 公開 API
+
+公開面は意図的に小さくしています。
+
+- root export: `generateCss()`
+- editor export: `web-keyframes/editor` の `WebKeyframesEditor`
+
+### エディタのメソッド
 
 ```ts
 editor.mount();
@@ -98,44 +155,7 @@ editor.toJson();
 editor.toCss();
 ```
 
-### 現在のエディタ機能
-
-- 1 つの document 内で複数 timeline を管理
-- 選択中 timeline の `id`、`positionType`、必要に応じた `duration`、`translateConfig` 出力設定の編集
-- 選択中キーフレーム `time` または `percent`、`timingFunction`、`opacity`、順序付き transform の編集
-- `translate`、`scale`、`rotate`、`skew` の追加・並べ替え・種類変更・削除
-- timeline の追加、複製、選択、削除
-- キーフレームの追加、複製、削除
-- 生成された JSON / CSS のエディタ内プレビュー
-- 同じ `animation-name` を使っている実 DOM 要素に対する軽量 preview
-- その preview の解除
-- JSON のコピー
-- CSS のコピー
-- デフォルト状態へのリセット
-- 任意ショートカットによる表示切り替え
-- `Escape` によるプレビューのクローズ
-
-### 現在の制約
-
-- preview は `document` 内に対象要素が存在し、かつ選択中 timeline の `id` と同じ `animation-name` を使っている場合にだけ動作する
-- ファイル import や自動保存はしない
-- `timingFunction` はプリセット補助付きの自由入力であり、構造化された easing ビルダーではない
-
-### Preview の挙動
-
-`Preview` ボタンは、現在のドキュメント全体から computed style の `animation-name`
-が選択中 timeline の `id` と一致する要素を探します。
-
-一致する要素が見つかった場合、エディタは以下を行います。
-
-- 書き出しと同じ keyframe CSS を、一時的な keyframes 名で生成する
-- `<head>` の末尾に preview 用 `<style>` を 1 枚だけ挿入または更新する
-- 一致した要素の `animation-name` を一時的に差し替えて再生し直す
-
-`Reset Preview` を押すと、一時的な `<style>` を削除し、対象要素の inline `animation-name`
-を元に戻します。
-
-## データ形式
+## Timeline JSON
 
 ```json
 {
@@ -182,69 +202,16 @@ editor.toCss();
 }
 ```
 
-document は `timelines[]` を持ち、各 timeline が自分の `id`、`positionType`、`translateConfig`、`keyframes` を持ちます。`duration` は `time` モードの timeline にだけ存在します。
+document は `timelines[]` を持ち、各 timeline が自分の `id`、`positionType`、
+`translateConfig`、`keyframes` を持ちます。
 
 timeline の位置指定モードは 2 種類あります。
 
 - `time` モード: 各キーフレームが `time` を持ち、timeline に `duration` が必要
 - `percent` モード: 各キーフレームが `percent` を持ち、timeline に `duration` は持てない
 
-`keyframes` は編集中であれば空配列でも構いません。新しい timeline を追加して editor 上で 0 から作り始めたい場合に使えます。
-
-各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。`transform` はその中で `value[]` に順序付き operation を持ちます。`x`、`y`、`scale`、`rotate`、`skewX`、`skewY` などの legacy なトップレベル field は受け付けません。
-
-各キーフレームは `timingFunction` も持てます。指定した場合は、そのままキーフレーム単位の `animation-timing-function` として出力されます。
-
-`opacity` と `transform` は、CSS の sparse keyframe に合わせて、キーフレームごとに `properties[]` から省略できます。
-
-- `opacity` property が省略: そのキーフレームでは `opacity` を出力しません
-- `transform` property が省略: そのキーフレームでは `transform` を出力しません
-- `transform` property の `"value": []`: `transform: none;` を出力します
-
-editor は sparse な keyframe をそのまま保持します。`getData()` と `toJson()` でも、省略した property を勝手に密化しません。
-
-## CLI
-
-単一ファイルを変換する例:
-
-```bash
-web-keyframes to-css \
-  --input src/animations/hero-logo.timeline.json \
-  --output src/assets/css/generated/hero-logo.css
-```
-
-`*.timeline.json` をまとめて 1 ファイルへ出力する例:
-
-```bash
-web-keyframes to-css \
-  --input src/animations \
-  --output src/assets/css/generated/animations.css
-```
-
-各入力ファイルは 1 個以上の timeline を持てます。ディレクトリ入力時は、ファイル名順で読み込み、空行を挟んで結合します。
-
-## 出力例
-
-```css
-@keyframes hero-logo {
-  0% {
-    transform: translate(0px, 40px) scale(1, 1) rotate(0deg);
-    opacity: 0;
-    animation-timing-function: ease-out;
-  }
-
-  100% {
-    transform: translate(0px, 0px) scale(1, 1) rotate(0deg);
-    opacity: 1;
-  }
-}
-```
-
-`translateConfig.unit` で `px`、`vw`、`vh`、`%`、または独自単位トークンを選べます。  
-transform 配列の順番は、生成される CSS と editor preview の再生の両方でそのまま維持されます。
-`scale` は常に `x` と `y` を持ち、CSS 出力も常に `scale(x, y)` を使います。
-`timingFunction` は文字列をそのまま通すので、`ease`、`linear`、`cubic-bezier(...)`、`steps(...)` などをそのまま使えます。
-`generateCss()` は `@keyframes` だけを出力します。`animation`、`animation-name`、easing、fill-mode などは利用側のスタイルシートで指定してください。
+各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。
+`transform` はその中で `value[]` に順序付き operation を持ち、その順番は生成 CSS にも反映されます。
 
 ## 開発
 
