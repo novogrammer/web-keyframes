@@ -77,6 +77,7 @@ const css = generateCss({
   timelines: [
     {
       animationName: "hero-logo",
+      positionType: "time",
       duration: 1200,
       keyframes: [
         {
@@ -165,6 +166,7 @@ editor.toCss();
   "timelines": [
     {
       "animationName": "hero-logo",
+      "positionType": "time",
       "duration": 1200,
       "translateConfig": {
         "unit": "px"
@@ -209,6 +211,7 @@ Each document contains `timelines[]`. Each timeline owns its own `animationName`
 `positionType`, `translateConfig`, and `keyframes`.
 
 - `animationName`: CSS animation name used for generated `@keyframes` and editor preview
+- `positionType`: required timeline position mode; use `time` or `percent`
 - `translateConfig.unit`: one of `px`, `vw`, `vh`, `vmin`, `vmax`, `%`, `em`, or `rem`
 
 Timelines support two position modes:

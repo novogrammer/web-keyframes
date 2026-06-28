@@ -73,16 +73,17 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
   const candidate = timeline as Partial<WebKeyframesTimeline>;
   const issues: string[] = [];
   const prefix = timelineIndex === null ? "" : `timelines[${timelineIndex}].`;
-  const positionType = resolveTimelinePositionType(candidate);
 
   if (typeof candidate.animationName !== "string" || candidate.animationName.trim() === "") {
     issues.push(`${prefix}animationName is required.`);
   }
 
-  if (candidate.positionType !== undefined && candidate.positionType !== "time" && candidate.positionType !== "percent") {
-    issues.push(`${prefix}positionType must be either time or percent when provided.`);
+  if (candidate.positionType !== "time" && candidate.positionType !== "percent") {
+    issues.push(`${prefix}positionType must be either time or percent.`);
+    return issues;
   }
 
+  const positionType = candidate.positionType;
   if (positionType === "time") {
     if (typeof candidate.duration !== "number" || !Number.isFinite(candidate.duration) || candidate.duration <= 0) {
       issues.push(`${prefix}duration must be a number greater than 0 when positionType is time.`);
@@ -196,19 +197,6 @@ function validateKeyframe(
 
   return issues;
 }
-
-function resolveTimelinePositionType(candidate: Partial<WebKeyframesTimeline>): KeyframePositionMode {
-  if (candidate.positionType === "time" || candidate.positionType === "percent") {
-    return candidate.positionType;
-  }
-
-  if (Array.isArray(candidate.keyframes) && candidate.keyframes.some((keyframe) => isPlainObject(keyframe) && "percent" in keyframe)) {
-    return "percent";
-  }
-
-  return "time";
-}
-
 function validateProperty(property: unknown, keyframePrefix: string, propertyIndex: number): string[] {
   if (!isPlainObject(property)) {
     return [`${keyframePrefix}.properties[${propertyIndex}] must be an object.`];

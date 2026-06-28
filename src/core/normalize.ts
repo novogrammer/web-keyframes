@@ -33,7 +33,7 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
 }
 
 function normalizeValidatedTimeline(validated: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
-  const positionType = inferTimelinePositionType(validated);
+  const positionType = validated.positionType;
   const duration = positionType === "time" ? validated.duration ?? null : null;
   const keyframes = [...validated.keyframes]
     .sort((left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType))
@@ -79,10 +79,10 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
 }
 
 export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): WebKeyframesTimeline {
-  const positionType = inferTimelinePositionType(timeline);
+  const positionType = timeline.positionType;
   return {
     animationName: timeline.animationName.trim(),
-    ...(positionType === "percent" ? { positionType } : timeline.positionType ? { positionType } : {}),
+    positionType,
     ...(positionType === "time" && typeof timeline.duration === "number" ? { duration: timeline.duration } : {}),
     ...(timeline.translateConfig ? { translateConfig: { unit: timeline.translateConfig.unit } } : {}),
     keyframes: timeline.keyframes.map((keyframe) => cloneTimelineKeyframe(keyframe, positionType)),
@@ -186,23 +186,6 @@ export function getTransformOperations(
 ): TransformOperation[] {
   const property = getTransformProperty(keyframe);
   return property ? property.value.map(cloneTransform) : fallback.map(cloneTransform);
-}
-
-export function inferTimelinePositionType(
-  timeline: Pick<WebKeyframesTimeline, "positionType" | "duration" | "keyframes"> | Pick<NormalizedWebKeyframesTimeline, "positionType">,
-): KeyframePositionMode {
-  if (timeline.positionType === "percent" || timeline.positionType === "time") {
-    return timeline.positionType;
-  }
-
-  if ("keyframes" in timeline && Array.isArray(timeline.keyframes)) {
-    const firstPercentKeyframe = timeline.keyframes.find((keyframe) => typeof keyframe?.percent === "number");
-    if (firstPercentKeyframe) {
-      return "percent";
-    }
-  }
-
-  return "time";
 }
 
 export function getKeyframePositionValue(

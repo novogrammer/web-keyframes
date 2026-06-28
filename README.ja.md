@@ -77,6 +77,7 @@ const css = generateCss({
   timelines: [
     {
       animationName: "hero-logo",
+      positionType: "time",
       duration: 1200,
       keyframes: [
         {
@@ -165,6 +166,7 @@ editor.toCss();
   "timelines": [
     {
       "animationName": "hero-logo",
+      "positionType": "time",
       "duration": 1200,
       "translateConfig": {
         "unit": "px"
@@ -209,6 +211,7 @@ document は `timelines[]` を持ち、各 timeline が自分の `animationName`
 `translateConfig`、`keyframes` を持ちます。
 
 - `animationName`: 生成される `@keyframes` と editor preview に使う CSS animation 名
+- `positionType`: 必須の位置指定モード。`time` または `percent`
 - `translateConfig.unit`: `px`, `vw`, `vh`, `vmin`, `vmax`, `%`, `em`, `rem` のいずれか
 
 timeline の位置指定モードは 2 種類あります。

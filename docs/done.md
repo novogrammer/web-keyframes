@@ -14,6 +14,7 @@
 - keyframe 単位の `timingFunction` を文字列フィールドとして追加し、CSS の `animation-timing-function` へそのまま出力できるようにした。
 - sparse な keyframe JSON を editor が勝手に密化せず、読み込みと書き出しで同じ形を維持するようにした。
 - keyframe の位置指定を `time` と `percent` の別 field に分離し、`duration` は `time` モードの timeline にだけ持たせる形へ整理した。
+- timeline JSON は `positionType` 必須の正規形に寄せ、keyframe field から位置モードを推測しない方針にした。
 
 ## プレビュー
 

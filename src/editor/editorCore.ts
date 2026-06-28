@@ -9,7 +9,6 @@ import {
   DEFAULT_TRANSLATE_CONFIG,
   deleteKeyframeProperty,
   getOpacityValue,
-  inferTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
   upsertKeyframeProperty,
@@ -281,7 +280,7 @@ function dispatchKeyframeAction(
     case "add":
       editTimeline(state, defaults, (timeline) => {
         const next = createNextKeyframe(timeline, state.selectedKeyframeIndex);
-        const positionType = inferTimelinePositionType(timeline);
+        const positionType = timeline.positionType;
         timeline.keyframes = sortKeyframes([...timeline.keyframes, next], positionType);
         state.selectedKeyframeIndex = timeline.keyframes.indexOf(next);
       });
@@ -292,7 +291,7 @@ function dispatchKeyframeAction(
         if (!source) {
           return;
         }
-        const positionType = inferTimelinePositionType(timeline);
+        const positionType = timeline.positionType;
         const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
         const offset = positionType === "time" ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1)) : 10;
         const duplicate = cloneSparseKeyframe(source);
@@ -424,7 +423,7 @@ function dispatchFieldAction(
         if (!selected) {
           return;
         }
-        const type = inferTimelinePositionType(timeline);
+        const type = timeline.positionType;
         const max = type === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
         applyPosition(selected, type, clampNumber(roundPosition(numericValue, type), 0, max));
         timeline.keyframes = sortKeyframes(timeline.keyframes, type);
@@ -508,8 +507,8 @@ function dispatchTransformAction(
 function deriveView(data: WebKeyframesDocument, timelineIndex: number, keyframeIndex: number): EditorView {
   const timelines = data.timelines.map((timeline) => ({
     animationName: timeline.animationName,
-    positionType: inferTimelinePositionType(timeline),
-    duration: inferTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
+    positionType: timeline.positionType,
+    duration: timeline.positionType === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
       ? Math.round(timeline.duration ?? 1)
       : null,
     translateUnit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
@@ -921,7 +920,7 @@ function coerceEditorTimeline(data: Partial<WebKeyframesTimeline>, index: number
   const keyframes = (Array.isArray(data.keyframes) ? data.keyframes : fallback.keyframes).map((keyframe) => cloneSparseKeyframe(keyframe));
   return {
     animationName: typeof data.animationName === "string" && data.animationName.trim() ? data.animationName.trim() : fallback.animationName,
-    ...(positionType === "percent" || data.positionType === "time" ? { positionType } : {}),
+    positionType,
     ...(positionType === "time"
       ? { duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0 ? Math.round(data.duration) : fallback.duration }
       : {}),
@@ -962,7 +961,7 @@ function createNextTimeline(timelines: WebKeyframesTimeline[], selectedIndex: nu
 }
 
 function createNextKeyframe(timeline: WebKeyframesTimeline, selectedIndex: number): WebKeyframe {
-  const positionType = inferTimelinePositionType(timeline);
+  const positionType = timeline.positionType;
   const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
   const keyframes = sortKeyframes(timeline.keyframes, positionType);
   if (!keyframes.length) {
@@ -1015,11 +1014,7 @@ function convertKeyframesToTime(timeline: WebKeyframesTimeline, duration: number
 }
 
 function inferEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
-  return data.positionType === "time" || data.positionType === "percent"
-    ? data.positionType
-    : Array.isArray(data.keyframes) && data.keyframes.some((keyframe) => typeof keyframe?.percent === "number")
-      ? "percent"
-      : fallback;
+  return data.positionType === "time" || data.positionType === "percent" ? data.positionType : fallback;
 }
 
 function uniqueAnimationName(seed: string, timelines: WebKeyframesTimeline[]): string {

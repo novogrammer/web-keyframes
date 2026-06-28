@@ -17,6 +17,7 @@ import {
 
 const baseTimeline = {
   animationName: "hero-logo",
+  positionType: "time",
   duration: 1200,
   translateConfig: { unit: "px" },
   keyframes: [
@@ -263,6 +264,25 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
       error.name === "WebKeyframesValidationError" &&
       error.issues.includes("timelines[0].animationName is required.") &&
       error.issues.includes("timelines[0].duration must be a number greater than 0 when positionType is time."),
+  );
+});
+
+test("validateWebKeyframesDocument rejects missing positionType", () => {
+  assert.throws(
+    () =>
+      validateWebKeyframesDocument({
+        timelines: [
+          {
+            animationName: "hero-logo",
+            duration: 1200,
+            keyframes: [{ time: 0 }],
+          },
+        ],
+      }),
+    (error) =>
+      error instanceof Error &&
+      error.name === "WebKeyframesValidationError" &&
+      error.issues.includes("timelines[0].positionType must be either time or percent."),
   );
 });
 

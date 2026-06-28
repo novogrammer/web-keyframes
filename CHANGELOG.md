@@ -4,6 +4,10 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Breaking: `timeline.positionType` is now required in timeline JSON and validation no longer infers the mode from keyframe fields
+
 ## [0.4.0] - 2026-06-29
 
 ### Changed
