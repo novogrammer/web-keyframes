@@ -100,6 +100,7 @@ test("data helpers stay available before and after mount", () => {
     timelines: [
       {
         animationName: "hero-logo",
+        positionType: "time",
         duration: 900,
         keyframes: [
           createKeyframe(0, 0, [
@@ -218,6 +219,42 @@ test("translate unit select supports additional fixed units", async () => {
 
   assert.equal(editor.getData().timelines[0].translateConfig?.unit, "vmin");
   assert.equal(window.document.querySelectorAll(".wkf input[type='text']").length, textInputCountBefore);
+});
+
+test("invalid initialData is rejected instead of being coerced", () => {
+  const { window } = createWindow();
+
+  assert.throws(
+    () => new WebKeyframesEditor({
+      root: window.document.body,
+      initialData: {
+        timelines: [
+          {
+            animationName: "hero-title-intro",
+            keyframes: [{ percent: 0 }],
+          },
+        ],
+      },
+    }),
+    /positionType must be either time or percent/,
+  );
+});
+
+test("setData rejects invalid timeline JSON instead of coercing it", () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  assert.throws(
+    () => editor.setData({
+      timelines: [
+        {
+          animationName: "hero-title-intro",
+          keyframes: [{ percent: 0 }],
+        },
+      ],
+    }),
+    /positionType must be either time or percent/,
+  );
 });
 
 test("sparse initialData round-trips through getData and toJson without densifying keyframes", () => {
@@ -442,6 +479,7 @@ test("keyframes can be deleted down to an empty timeline", async () => {
       timelines: [
         {
           animationName: "hero-logo-enter",
+          positionType: "time",
           duration: 1200,
           keyframes: [createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }])],
         },
@@ -578,6 +616,7 @@ test("reset restores initialData after edits", async () => {
 function createTimeline(animationName, duration) {
   return {
     animationName,
+    positionType: "time",
     duration,
     keyframes: [
       createKeyframe(0, 0, [

@@ -1,6 +1,7 @@
 import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
+import { validateWebKeyframesDocument } from "../core/validate.js";
 import {
   createEditorState,
   dispatchEditorAction,
@@ -8,7 +9,6 @@ import {
   type EditorState,
   normalizeEditorState,
   renderEditorPanel,
-  coerceEditorDocument,
 } from "./editorCore.js";
 import { EditorDomController } from "./editorDom.js";
 
@@ -55,7 +55,7 @@ export class WebKeyframesEditor {
       throw new Error("root must be an HTMLElement.");
     }
     this.root = options.root;
-    this.initialData = coerceEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
+    this.initialData = options.initialData ? validateAndCloneEditorData(options.initialData) : createDefaultEditorDocument();
     this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
     this.dom = new EditorDomController(this.root, this.state, {
       shortcut: options.shortcut,
@@ -116,7 +116,7 @@ export class WebKeyframesEditor {
   }
 
   setData(data: WebKeyframesDocument): void {
-    this.state.data = coerceEditorDocument(data, DEFAULT_TIMELINE_DATA);
+    this.state.data = validateAndCloneEditorData(data);
     normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
     if (this.container) {
       this.render();
@@ -274,4 +274,12 @@ export class WebKeyframesEditor {
 
 function actionIndex(target: HTMLElement): number {
   return Number(target.dataset.wkfIndex ?? "0");
+}
+
+function createDefaultEditorDocument(): WebKeyframesDocument {
+  return cloneDocument(DEFAULT_EDITOR_DATA);
+}
+
+function validateAndCloneEditorData(data: WebKeyframesDocument): WebKeyframesDocument {
+  return cloneDocument(validateWebKeyframesDocument(data));
 }
