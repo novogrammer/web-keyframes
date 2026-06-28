@@ -47,27 +47,7 @@ export function moveTransform(
   const nextTransforms = transforms.map(cloneTransform);
   const [moved] = nextTransforms.splice(transformIndex, 1);
   nextTransforms.splice(nextIndex, 0, moved);
-
-  const keyframes = normalized.keyframes.map((item, index) => {
-    if (index !== keyframeIndex) {
-      return item;
-    }
-
-    const nextKeyframe = {
-      ...item,
-      properties: item.properties.map((property) =>
-        property.kind === "transform"
-          ? createTransformProperty(nextTransforms)
-          : createOpacityProperty(property.value)
-      ),
-    };
-    return nextKeyframe;
-  });
-
-  return {
-    ...normalized,
-    keyframes,
-  };
+  return updateKeyframeTransforms(normalized, keyframeIndex, () => nextTransforms);
 }
 
 export function addTransform(
@@ -81,26 +61,11 @@ export function addTransform(
   if (!keyframe) {
     return normalized;
   }
-
-  const keyframes = normalized.keyframes.map((item, index) => {
-    if (index !== keyframeIndex) {
-      return item;
-    }
-
-    return {
-      ...item,
-      properties: item.properties.map((property) =>
-        property.kind === "transform"
-          ? createTransformProperty([...property.value.map(cloneTransform), createDefaultTransform(kind)])
-          : createOpacityProperty(property.value)
-      ),
-    };
-  });
-
-  return {
-    ...normalized,
-    keyframes,
-  };
+  return updateKeyframeTransforms(
+    normalized,
+    keyframeIndex,
+    (transforms) => [...transforms, createDefaultTransform(kind)],
+  );
 }
 
 export function removeTransform(
@@ -114,26 +79,11 @@ export function removeTransform(
   if (!keyframe) {
     return normalized;
   }
-
-  const keyframes = normalized.keyframes.map((item, index) => {
-    if (index !== keyframeIndex) {
-      return item;
-    }
-
-    return {
-      ...item,
-      properties: item.properties.map((property) =>
-        property.kind === "transform"
-          ? createTransformProperty(property.value.filter((_, index2) => index2 !== transformIndex).map(cloneTransform))
-          : createOpacityProperty(property.value)
-      ),
-    };
-  });
-
-  return {
-    ...normalized,
-    keyframes,
-  };
+  return updateKeyframeTransforms(
+    normalized,
+    keyframeIndex,
+    (transforms) => transforms.filter((_, index) => index !== transformIndex),
+  );
 }
 
 export function setTransformFieldValue(
@@ -163,30 +113,9 @@ function updateSingleTransform(
   if (!keyframe || !transforms[transformIndex]) {
     return normalized;
   }
-
-  const keyframes = normalized.keyframes.map((item, index) => {
-    if (index !== keyframeIndex) {
-      return item;
-    }
-
-    return {
-      ...item,
-      properties: item.properties.map((property) => {
-        if (property.kind !== "transform") {
-          return createOpacityProperty(property.value);
-        }
-
-        return createTransformProperty(property.value.map((transform, index2) =>
-          index2 === transformIndex ? update(transform) : cloneTransform(transform),
-        ));
-      }),
-    };
-  });
-
-  return {
-    ...normalized,
-    keyframes,
-  };
+  return updateKeyframeTransforms(normalized, keyframeIndex, (currentTransforms) =>
+    currentTransforms.map((transform, index) => (index === transformIndex ? update(transform) : cloneTransform(transform)))
+  );
 }
 
 function setTransformField(transform: TransformOperation, field: TransformValueField, value: number): TransformOperation {
@@ -219,6 +148,30 @@ function setTransformField(transform: TransformOperation, field: TransformValueF
 
 function normalizeEditableTimeline(data: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): NormalizedWebKeyframesTimeline {
   return normalizeWebKeyframesTimeline(cloneTimeline(data));
+}
+
+function updateKeyframeTransforms(
+  normalized: NormalizedWebKeyframesTimeline,
+  keyframeIndex: number,
+  update: (transforms: TransformOperation[]) => TransformOperation[],
+): NormalizedWebKeyframesTimeline {
+  return {
+    ...normalized,
+    keyframes: normalized.keyframes.map((item, index) => {
+      if (index !== keyframeIndex) {
+        return item;
+      }
+
+      return {
+        ...item,
+        properties: item.properties.map((property) =>
+          property.kind === "transform"
+            ? createTransformProperty(update(property.value.map(cloneTransform)))
+            : createOpacityProperty(property.value)
+        ),
+      };
+    }),
+  };
 }
 
 function clampNumber(value: number, min: number, max: number): number {
