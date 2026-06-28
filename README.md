@@ -216,8 +216,16 @@ Timelines support two position modes:
 - `time` mode: each keyframe uses `time`, and the timeline must include `duration`
 - `percent` mode: each keyframe uses `percent`, and the timeline must not include `duration`
 
-Each keyframe expresses animated values through an ordered `properties[]` list. `transform`
-stores its ordered operations in `value[]`, and that order is preserved in generated CSS.
+This JSON is a lightweight intermediate format for generating CSS `@keyframes`, not a dense
+snapshot format. Each keyframe only needs to describe the properties that should be emitted at
+that position.
+
+`properties` and `timingFunction` are optional on each keyframe. If a property is omitted, that
+keyframe simply does not emit that CSS property.
+
+Each keyframe expresses animated values through an ordered `properties[]` list when properties are
+present. `transform` stores its ordered operations in `value[]`, and that order is preserved in
+generated CSS.
 
 ## Development
 

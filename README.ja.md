@@ -216,7 +216,13 @@ timeline の位置指定モードは 2 種類あります。
 - `time` モード: 各キーフレームが `time` を持ち、timeline に `duration` が必要
 - `percent` モード: 各キーフレームが `percent` を持ち、timeline に `duration` は持てない
 
-各キーフレームは、アニメーションする値を順序付きの `properties[]` で表現します。
+この JSON は、CSS の `@keyframes` を生成するための軽量な中間表現であり、密なスナップショット形式ではありません。
+各キーフレームは、その位置で出力したい property だけを書けば十分です。
+
+各キーフレームの `properties` と `timingFunction` は省略できます。property を省略した場合、その
+キーフレームではその CSS property を出力しません。
+
+各キーフレームは、property を持つ場合にアニメーションする値を順序付きの `properties[]` で表現します。
 `transform` はその中で `value[]` に順序付き operation を持ち、その順番は生成 CSS にも反映されます。
 
 ## 開発
