@@ -20,8 +20,7 @@ function renderTimelineCss(
   normalized: NormalizedWebKeyframesTimeline,
 ): string {
   const keyframeBlocks = normalized.keyframes.map((keyframe) => {
-    const percent = formatPercent(keyframe.percent);
-    const lines = [`  ${percent} {`];
+    const lines = [`  ${formatNumber(keyframe.percent)}% {`];
     const transformProperty = getTransformProperty(keyframe);
     const opacityProperty = getOpacityProperty(keyframe);
     const timingFunction = keyframe.timingFunction?.trim() ?? "";
@@ -55,7 +54,7 @@ function renderTransform(
 ): string {
   switch (transform.kind) {
     case "translate":
-      return `translate(${renderTranslateValue(transform.x, translate)}, ${renderTranslateValue(transform.y, translate)})`;
+      return `translate(${formatNumber(transform.x)}${translate.unit}, ${formatNumber(transform.y)}${translate.unit})`;
     case "scale":
       return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
     case "rotate":
@@ -63,17 +62,6 @@ function renderTransform(
     case "skew":
       return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
   }
-}
-
-function renderTranslateValue(
-  value: number,
-  translateConfig: NormalizedTranslateConfig,
-): string {
-  return `${formatNumber(value)}${translateConfig.unit}`;
-}
-
-function formatPercent(value: number): string {
-  return `${formatNumber(value)}%`;
 }
 
 export function formatNumber(value: number): string {

@@ -6,7 +6,6 @@ import {
   formatKeyframeSecondaryLabel,
   formatKeyframeSummary,
   formatTimelinePositionSummary,
-  formatTimelineSummary,
 } from "./editorViewPrimitives.js";
 
 export function renderTimelineListSection(
@@ -38,7 +37,7 @@ export function renderTimelineListSection(
               >
                 <span class="wkf__keyframe-time">${escapeHtml(timeline.animationName)}</span>
                 <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
-                <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
+                <span class="wkf__keyframe-meta">${escapeHtml(`${timeline.keyframes.length} keyframes`)}</span>
               </button>
             `,
           )

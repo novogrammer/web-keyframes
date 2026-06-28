@@ -137,10 +137,6 @@ export function renderTimingFunctionPresets(): string {
   `;
 }
 
-export function formatTimelineSummary(timeline: EditorTimelineView): string {
-  return `${timeline.keyframes.length} keyframes`;
-}
-
 export function formatTimelinePositionSummary(timeline: EditorTimelineView): string {
   return timeline.positionType === "time"
     ? `${String(timeline.duration ?? 1)}ms`
@@ -178,7 +174,7 @@ export function formatKeyframeSummary(
 export function formatTransformSummary(transform: TransformOperation, translateConfig: EditorTranslateView): string {
   switch (transform.kind) {
     case "translate":
-      return `translate(${formatSummaryTranslateValue(transform.x, translateConfig)}, ${formatSummaryTranslateValue(transform.y, translateConfig)})`;
+      return `translate(${formatNumber(transform.x)}${translateConfig.unit}, ${formatNumber(transform.y)}${translateConfig.unit})`;
     case "scale":
       return `scale(${formatNumber(transform.x)}, ${formatNumber(transform.y)})`;
     case "rotate":
@@ -186,10 +182,6 @@ export function formatTransformSummary(transform: TransformOperation, translateC
     case "skew":
       return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
   }
-}
-
-function formatSummaryTranslateValue(value: number, translateConfig: EditorTranslateView): string {
-  return `${formatNumber(value)}${translateConfig.unit}`;
 }
 
 export function formatKeyframePositionLabel(
