@@ -219,57 +219,68 @@ export class WebKeyframesEditor {
       return;
     }
 
-    const syncHandler = this.createClickActionHandlers(actionTarget)[action];
+    const syncHandler = this.clickActions[action];
     if (syncHandler) {
       syncHandler();
       return;
     }
 
+    if (action === "select-timeline") {
+      this.handleSelectTimeline(actionTarget);
+      return;
+    }
+    if (action === "select-keyframe") {
+      this.handleSelectKeyframe(actionTarget);
+      return;
+    }
+    if (action === "set-timing-function") {
+      this.runAndRender(() => this.propertyController.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? ""));
+      return;
+    }
+    if (action === "move-transform-up" || action === "move-transform-down") {
+      this.handleMoveTransform(actionTarget, action === "move-transform-up" ? -1 : 1);
+      return;
+    }
+    if (action === "delete-transform") {
+      this.runAndRender(() => this.propertyController.deleteSelectedTransform(getActionIndex(actionTarget)));
+      return;
+    }
+    if (action === "add-transform") {
+      this.runAndRender(() => {
+        this.propertyController.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
+      });
+      return;
+    }
     if (action === "copy-json" || action === "copy-css") {
       void this.handleCopyAction(action === "copy-json" ? "json" : "css");
     }
   }
 
-  private createClickActionHandlers(actionTarget: HTMLElement): Record<string, () => void> {
-    return {
-      hide: () => this.hide(),
-      reset: () => {
-        this.previewController.disposeAppliedPreview();
-        resetEditorState(this.state, this.initialData);
-        setStatus(this.state, "success", "Reset editor data to the initial state.");
-        this.render();
-      },
-      "select-timeline": () => this.handleSelectTimeline(actionTarget),
-      "add-timeline": () => this.runAndRender(() => this.timelineCollectionController.addTimeline()),
-      "duplicate-timeline": () => this.runAndRender(() => this.timelineCollectionController.duplicateTimeline()),
-      "delete-timeline": () => this.runAndRender(() => this.timelineCollectionController.deleteTimeline()),
-      "select-keyframe": () => this.handleSelectKeyframe(actionTarget),
-      "set-timing-function": () => this.runAndRender(() => {
-        this.propertyController.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
-      }),
-      "clear-timing-function": () => this.runAndRender(() => this.propertyController.clearTimingFunction()),
-      "move-transform-up": () => this.handleMoveTransform(actionTarget, -1),
-      "move-transform-down": () => this.handleMoveTransform(actionTarget, 1),
-      "delete-transform": () => this.runAndRender(() => {
-        this.propertyController.deleteSelectedTransform(getActionIndex(actionTarget));
-      }),
-      "add-transform": () => this.runAndRender(() => {
-        this.propertyController.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
-      }),
-      "add-opacity": () => this.runAndRender(() => this.propertyController.addOpacityProperty()),
-      "delete-opacity": () => this.runAndRender(() => this.propertyController.deleteOpacityProperty()),
-      "delete-transforms": () => this.runAndRender(() => this.propertyController.deleteTransformProperty()),
-      "clear-transforms": () => this.runAndRender(() => this.propertyController.clearTransformProperty()),
-      "add-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.addKeyframe()),
-      "delete-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.deleteKeyframe()),
-      "duplicate-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.duplicateKeyframe()),
-      "run-preview": () => this.runAndRender(() => this.previewController.runPreview()),
-      "reset-preview": () => this.runAndRender(() => this.previewController.resetAppliedPreview()),
-      "view-json": () => this.runAndRender(() => this.previewController.openGeneratedPreview("json")),
-      "view-css": () => this.runAndRender(() => this.previewController.openGeneratedPreview("css")),
-      "close-preview": () => this.runAndRender(() => this.previewController.closePreview("Closed preview.")),
-    };
-  }
+  private readonly clickActions: Record<string, () => void> = {
+    hide: () => this.hide(),
+    reset: () => {
+      this.previewController.disposeAppliedPreview();
+      resetEditorState(this.state, this.initialData);
+      setStatus(this.state, "success", "Reset editor data to the initial state.");
+      this.render();
+    },
+    "add-timeline": () => this.runAndRender(() => this.timelineCollectionController.addTimeline()),
+    "duplicate-timeline": () => this.runAndRender(() => this.timelineCollectionController.duplicateTimeline()),
+    "delete-timeline": () => this.runAndRender(() => this.timelineCollectionController.deleteTimeline()),
+    "clear-timing-function": () => this.runAndRender(() => this.propertyController.clearTimingFunction()),
+    "add-opacity": () => this.runAndRender(() => this.propertyController.addOpacityProperty()),
+    "delete-opacity": () => this.runAndRender(() => this.propertyController.deleteOpacityProperty()),
+    "delete-transforms": () => this.runAndRender(() => this.propertyController.deleteTransformProperty()),
+    "clear-transforms": () => this.runAndRender(() => this.propertyController.clearTransformProperty()),
+    "add-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.addKeyframe()),
+    "delete-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.deleteKeyframe()),
+    "duplicate-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.duplicateKeyframe()),
+    "run-preview": () => this.runAndRender(() => this.previewController.runPreview()),
+    "reset-preview": () => this.runAndRender(() => this.previewController.resetAppliedPreview()),
+    "view-json": () => this.runAndRender(() => this.previewController.openGeneratedPreview("json")),
+    "view-css": () => this.runAndRender(() => this.previewController.openGeneratedPreview("css")),
+    "close-preview": () => this.runAndRender(() => this.previewController.closePreview("Closed preview.")),
+  };
 
   private handleSelectTimeline(actionTarget: HTMLElement): void {
     this.state.selectedTimelineIndex = clampIndex(getActionIndex(actionTarget), this.state.data.timelines.length);
@@ -321,11 +332,7 @@ export class WebKeyframesEditor {
   ): void {
     if (input instanceof HTMLSelectElement) {
       if (eventType === "change") {
-        this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
-        if (this.sectionInputController.applyStringField(field, input.value)) {
-          setStatus(this.state, "info", "Editing timeline data.");
-          this.render();
-        }
+        this.commitFieldEdit(field, input, () => this.sectionInputController.applyStringField(field, input.value));
       }
       return;
     }
@@ -338,43 +345,51 @@ export class WebKeyframesEditor {
         }
 
         this.lifecycleController.syncNumberFieldValues(this.container, field, value, input);
-        setStatus(this.state, "info", "Editing timeline data.");
+        this.setEditingStatus();
         return;
       }
 
-      this.applyNumericFieldChange(field, input);
+      this.commitNumericFieldEdit(field, input);
       return;
     }
 
     if (input.type === "number") {
       if (eventType === "change") {
-        this.applyNumericFieldChange(field, input);
+        this.commitNumericFieldEdit(field, input);
       }
       return;
     }
 
     if (eventType === "input") {
-      this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
-      if (this.sectionInputController.applyStringField(field, input.value)) {
-        setStatus(this.state, "info", "Editing timeline data.");
-        this.render();
-      }
+      this.commitFieldEdit(field, input, () => this.sectionInputController.applyStringField(field, input.value));
     }
   }
 
-  private applyNumericFieldChange(field: string, input: HTMLInputElement): void {
+  private commitNumericFieldEdit(field: string, input: HTMLInputElement): void {
     const value = Number(input.value);
     if (!Number.isFinite(value)) {
       return;
     }
 
+    this.commitFieldEdit(field, input, () => this.sectionInputController.applyNumberField(field, value));
+  }
+
+  private commitFieldEdit(
+    field: string,
+    input: HTMLInputElement | HTMLSelectElement,
+    apply: () => boolean,
+  ): void {
     this.state.pendingFocus = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
-    if (!this.sectionInputController.applyNumberField(field, value)) {
+    if (!apply()) {
       return;
     }
 
-    setStatus(this.state, "info", "Editing timeline data.");
+    this.setEditingStatus();
     this.render();
+  }
+
+  private setEditingStatus(): void {
+    setStatus(this.state, "info", "Editing timeline data.");
   }
 }
 
