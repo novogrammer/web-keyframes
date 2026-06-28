@@ -22,10 +22,10 @@ export class EditorPreviewController {
   ) {}
 
   async copyPayload(kind: "json" | "css"): Promise<void> {
+    const payload = getPayloadMeta(kind, this.getJson, this.getCss);
     try {
-      const text = kind === "json" ? this.getJson() : this.getCss();
-      await writeClipboardText(this.root.ownerDocument.defaultView, text);
-      setStatus(this.state, "success", kind === "json" ? "Copied JSON to clipboard." : "Copied CSS to clipboard.");
+      await writeClipboardText(this.root.ownerDocument.defaultView, payload.text);
+      setStatus(this.state, "success", payload.copyMessage);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(this.state, "error", message);
@@ -33,13 +33,10 @@ export class EditorPreviewController {
   }
 
   openGeneratedPreview(kind: "json" | "css"): void {
+    const payload = getPayloadMeta(kind, this.getJson, this.getCss);
     try {
-      setPreviewPanel(
-        this.state,
-        kind === "json" ? "JSON Preview" : "CSS Preview",
-        kind === "json" ? this.getJson() : this.getCss(),
-      );
-      setStatus(this.state, "success", `Opened ${(kind === "json" ? "JSON Preview" : "CSS Preview").toLowerCase()}.`);
+      setPreviewPanel(this.state, payload.previewTitle, payload.text);
+      setStatus(this.state, "success", payload.openMessage);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       clearPreviewPanel(this.state);
@@ -194,4 +191,31 @@ async function writeClipboardText(windowObject: Window | null, text: string): Pr
   }
 
   await clipboard.writeText(text);
+}
+
+function getPayloadMeta(
+  kind: "json" | "css",
+  getJson: () => string,
+  getCss: () => string,
+): {
+  text: string;
+  previewTitle: string;
+  copyMessage: string;
+  openMessage: string;
+} {
+  if (kind === "json") {
+    return {
+      text: getJson(),
+      previewTitle: "JSON Preview",
+      copyMessage: "Copied JSON to clipboard.",
+      openMessage: "Opened json preview.",
+    };
+  }
+
+  return {
+    text: getCss(),
+    previewTitle: "CSS Preview",
+    copyMessage: "Copied CSS to clipboard.",
+    openMessage: "Opened css preview.",
+  };
 }

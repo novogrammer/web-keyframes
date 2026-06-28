@@ -41,17 +41,15 @@ export class EditorLifecycleController {
 
   mount(container: HTMLElement): void {
     this.mountedContainer = container;
-    container.addEventListener("click", this.options.onClick);
-    container.addEventListener("input", this.options.onInput);
-    container.addEventListener("change", this.options.onChange);
+    bindContainerEvents(container, this.options, "addEventListener");
     this.root.ownerDocument.addEventListener("keydown", this.handleKeydown);
   }
 
   unmount(container: HTMLElement | null): void {
     this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
-    container?.removeEventListener("click", this.options.onClick);
-    container?.removeEventListener("input", this.options.onInput);
-    container?.removeEventListener("change", this.options.onChange);
+    if (container) {
+      bindContainerEvents(container, this.options, "removeEventListener");
+    }
     this.handleDragEnd();
     this.mountedContainer = null;
   }
@@ -107,8 +105,7 @@ export class EditorLifecycleController {
         this.mountedContainer = container;
 
         panel.classList.add("wkf__panel--dragging");
-        ownerWindow.addEventListener("mousemove", this.handleDragMove);
-        ownerWindow.addEventListener("mouseup", this.handleDragEnd);
+        bindDragWindowEvents(ownerWindow, this.handleDragMove, this.handleDragEnd, "addEventListener");
         event.preventDefault();
       });
     });
@@ -213,12 +210,31 @@ export class EditorLifecycleController {
   private readonly handleDragEnd = (): void => {
     const ownerWindow = this.root.ownerDocument.defaultView;
     if (ownerWindow) {
-      ownerWindow.removeEventListener("mousemove", this.handleDragMove);
-      ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
+      bindDragWindowEvents(ownerWindow, this.handleDragMove, this.handleDragEnd, "removeEventListener");
     }
     this.mountedContainer?.querySelector<HTMLElement>(".wkf__panel")?.classList.remove("wkf__panel--dragging");
     this.dragState = null;
   };
+}
+
+function bindContainerEvents(
+  container: HTMLElement,
+  options: LifecycleOptions,
+  method: "addEventListener" | "removeEventListener",
+): void {
+  container[method]("click", options.onClick);
+  container[method]("input", options.onInput);
+  container[method]("change", options.onChange);
+}
+
+function bindDragWindowEvents(
+  ownerWindow: Window,
+  onMove: (event: MouseEvent) => void,
+  onEnd: () => void,
+  method: "addEventListener" | "removeEventListener",
+): void {
+  ownerWindow[method]("mousemove", onMove);
+  ownerWindow[method]("mouseup", onEnd);
 }
 
 function applyPanelPosition(container: HTMLElement | null, position: PanelPosition | null): void {

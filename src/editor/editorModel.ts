@@ -90,17 +90,31 @@ export function deriveEditorRenderState(
 }
 
 function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimeline[] {
-  return data.timelines.map((timeline) => ({
-    ...timeline,
-    positionType: getTimelinePositionType(timeline),
-    duration: getTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
+  return data.timelines.map((timeline) => {
+    const renderState = getTimelineRenderState(timeline);
+    return {
+      ...timeline,
+      positionType: renderState.positionType,
+      duration: renderState.duration,
+      translateConfig: {
+        unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      },
+      keyframes: timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe)),
+    };
+  });
+}
+
+function getTimelineRenderState(timeline: WebKeyframesTimeline): {
+  positionType: KeyframePositionMode;
+  duration: number | null;
+} {
+  const positionType = getTimelinePositionType(timeline);
+  return {
+    positionType,
+    duration: positionType === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
       ? Math.round(timeline.duration ?? 1)
       : null,
-    translateConfig: {
-      unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-    },
-    keyframes: timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe)),
-  }));
+  };
 }
 
 export function sanitizeEditorDocument(data: WebKeyframesDocument, defaultTimelineData: WebKeyframesTimeline): WebKeyframesDocument {
@@ -142,19 +156,7 @@ function sanitizeEditorTimeline(
     translateConfig: {
       unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
     },
-    keyframes: resolvedKeyframes.map((keyframe) => (
-      positionType === "time"
-        ? {
-            time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0,
-            timingFunction: keyframe.timingFunction ?? undefined,
-            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-          }
-        : {
-            percent: typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0,
-            timingFunction: keyframe.timingFunction ?? undefined,
-            ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-          }
-    )),
+    keyframes: resolvedKeyframes.map((keyframe) => sanitizeEditorKeyframe(positionType, keyframe)),
   };
 }
 
@@ -245,19 +247,10 @@ export function createNextKeyframe(
   const next = sortedKeyframes[selectedIndex + 1];
   const previous = sortedKeyframes[selectedIndex - 1];
   const selectedPosition = getEditorKeyframePosition(selected, positionType);
-  let position = maxPosition;
-
-  if (sortedKeyframes.length === 1 && selected) {
-    position = selectedPosition <= 0 ? maxPosition : 0;
-  } else if (selected && next) {
-    position = roundEditorPosition((selectedPosition + getEditorKeyframePosition(next, positionType)) / 2, positionType);
-  } else if (selected && previous) {
-    position = roundEditorPosition(Math.min(maxPosition, (selectedPosition + maxPosition) / 2), positionType);
-  } else if (selected) {
-    position = Math.min(maxPosition, selectedPosition);
-  }
-
-  return createEmptyKeyframe(positionType, position);
+  return createEmptyKeyframe(
+    positionType,
+    getNextKeyframePosition(positionType, maxPosition, sortedKeyframes.length, selectedPosition, next, previous),
+  );
 }
 
 function createEmptyKeyframe(positionType: KeyframePositionMode, position: number): WebKeyframe {
@@ -285,6 +278,39 @@ function resolveEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback
   }
 
   return fallback;
+}
+
+function sanitizeEditorKeyframe(positionType: KeyframePositionMode, keyframe: WebKeyframe): WebKeyframe {
+  return {
+    ...(positionType === "time"
+      ? { time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0 }
+      : { percent: typeof keyframe.percent === "number" && Number.isFinite(keyframe.percent) ? keyframe.percent : 0 }),
+    timingFunction: keyframe.timingFunction ?? undefined,
+    ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
+  };
+}
+
+function getNextKeyframePosition(
+  positionType: KeyframePositionMode,
+  maxPosition: number,
+  keyframeCount: number,
+  selectedPosition: number,
+  next: Partial<WebKeyframe> | undefined,
+  previous: Partial<WebKeyframe> | undefined,
+): number {
+  if (keyframeCount === 1) {
+    return selectedPosition <= 0 ? maxPosition : 0;
+  }
+
+  if (next) {
+    return roundEditorPosition((selectedPosition + getEditorKeyframePosition(next, positionType)) / 2, positionType);
+  }
+
+  if (previous) {
+    return roundEditorPosition(Math.min(maxPosition, (selectedPosition + maxPosition) / 2), positionType);
+  }
+
+  return Math.min(maxPosition, selectedPosition);
 }
 
 export function getEditorKeyframePosition(keyframe: Partial<WebKeyframe>, positionType: KeyframePositionMode): number {
