@@ -9,7 +9,7 @@ import {
   DEFAULT_TRANSLATE_CONFIG,
   deleteKeyframeProperty,
   getOpacityValue,
-  getTimelinePositionType,
+  inferTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
   upsertKeyframeProperty,
@@ -130,7 +130,7 @@ const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] a
 
 export function createEditorState(initialData: WebKeyframesDocument, defaults: WebKeyframesTimeline): EditorState {
   return {
-    data: sanitizeEditorDocument(initialData, defaults),
+    data: coerceEditorDocument(initialData, defaults),
     selectedTimelineIndex: 0,
     selectedKeyframeIndex: 0,
     statusMessage: "Timeline order is explicit. Preview and CSS use the selected timeline or the full document consistently.",
@@ -143,14 +143,14 @@ export function createEditorState(initialData: WebKeyframesDocument, defaults: W
   };
 }
 
-export function sanitizeEditorDocument(data: WebKeyframesDocument, defaults: WebKeyframesTimeline): WebKeyframesDocument {
+export function coerceEditorDocument(data: WebKeyframesDocument, defaults: WebKeyframesTimeline): WebKeyframesDocument {
   const candidate = data as Partial<WebKeyframesDocument>;
   const timelines = Array.isArray(candidate.timelines) && candidate.timelines.length > 0 ? candidate.timelines : [defaults];
-  return { timelines: timelines.map((timeline, index) => sanitizeTimeline(timeline, index, defaults)) };
+  return { timelines: timelines.map((timeline, index) => coerceEditorTimeline(timeline, index, defaults)) };
 }
 
 export function normalizeEditorState(state: EditorState, defaults: WebKeyframesTimeline): void {
-  state.data = sanitizeEditorDocument(state.data, defaults);
+  state.data = coerceEditorDocument(state.data, defaults);
   state.selectedTimelineIndex = clampIndex(state.selectedTimelineIndex, state.data.timelines.length);
   state.selectedKeyframeIndex = clampIndex(state.selectedKeyframeIndex, getSelectedTimeline(state).keyframes.length);
 }
@@ -237,7 +237,7 @@ function dispatchTimelineAction(
       return true;
     case "add": {
       const next = createNextTimeline(state.data.timelines, state.selectedTimelineIndex, defaults);
-      state.data = sanitizeEditorDocument({ timelines: [...state.data.timelines, next] }, defaults);
+      state.data = coerceEditorDocument({ timelines: [...state.data.timelines, next] }, defaults);
       state.selectedTimelineIndex = state.data.timelines.findIndex((timeline) => timeline.animationName === next.animationName);
       state.selectedKeyframeIndex = 0;
       setStatus(state, "info", "Added timeline.");
@@ -249,7 +249,7 @@ function dispatchTimelineAction(
       duplicate.animationName = uniqueAnimationName(`${source.animationName}-copy`, state.data.timelines);
       const timelines = state.data.timelines.map((timeline) => cloneTimeline(timeline));
       timelines.splice(state.selectedTimelineIndex + 1, 0, duplicate);
-      state.data = sanitizeEditorDocument({ timelines }, defaults);
+      state.data = coerceEditorDocument({ timelines }, defaults);
       state.selectedTimelineIndex += 1;
       normalizeEditorState(state, defaults);
       setStatus(state, "info", "Duplicated timeline.");
@@ -259,7 +259,7 @@ function dispatchTimelineAction(
       if (state.data.timelines.length <= 1) {
         return false;
       }
-      state.data = sanitizeEditorDocument({
+      state.data = coerceEditorDocument({
         timelines: state.data.timelines.filter((_, index) => index !== state.selectedTimelineIndex),
       }, defaults);
       normalizeEditorState(state, defaults);
@@ -281,7 +281,7 @@ function dispatchKeyframeAction(
     case "add":
       editTimeline(state, defaults, (timeline) => {
         const next = createNextKeyframe(timeline, state.selectedKeyframeIndex);
-        const positionType = getTimelinePositionType(timeline);
+        const positionType = inferTimelinePositionType(timeline);
         timeline.keyframes = sortKeyframes([...timeline.keyframes, next], positionType);
         state.selectedKeyframeIndex = timeline.keyframes.indexOf(next);
       });
@@ -292,7 +292,7 @@ function dispatchKeyframeAction(
         if (!source) {
           return;
         }
-        const positionType = getTimelinePositionType(timeline);
+        const positionType = inferTimelinePositionType(timeline);
         const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
         const offset = positionType === "time" ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1)) : 10;
         const duplicate = cloneSparseKeyframe(source);
@@ -424,7 +424,7 @@ function dispatchFieldAction(
         if (!selected) {
           return;
         }
-        const type = getTimelinePositionType(timeline);
+        const type = inferTimelinePositionType(timeline);
         const max = type === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
         applyPosition(selected, type, clampNumber(roundPosition(numericValue, type), 0, max));
         timeline.keyframes = sortKeyframes(timeline.keyframes, type);
@@ -508,8 +508,8 @@ function dispatchTransformAction(
 function deriveView(data: WebKeyframesDocument, timelineIndex: number, keyframeIndex: number): EditorView {
   const timelines = data.timelines.map((timeline) => ({
     animationName: timeline.animationName,
-    positionType: getTimelinePositionType(timeline),
-    duration: getTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
+    positionType: inferTimelinePositionType(timeline),
+    duration: inferTimelinePositionType(timeline) === "time" && Number.isFinite(timeline.duration) && (timeline.duration ?? 0) > 0
       ? Math.round(timeline.duration ?? 1)
       : null,
     translateUnit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
@@ -915,9 +915,9 @@ function commitTransformField(
   return changed;
 }
 
-function sanitizeTimeline(data: Partial<WebKeyframesTimeline>, index: number, defaults: WebKeyframesTimeline): WebKeyframesTimeline {
+function coerceEditorTimeline(data: Partial<WebKeyframesTimeline>, index: number, defaults: WebKeyframesTimeline): WebKeyframesTimeline {
   const fallback = index === 0 ? cloneTimeline(defaults) : { ...cloneTimeline(defaults), animationName: `${defaults.animationName}-${index + 1}` };
-  const positionType = resolvePositionType(data, fallback.positionType ?? "time");
+  const positionType = inferEditorPositionType(data, fallback.positionType ?? "time");
   const keyframes = (Array.isArray(data.keyframes) ? data.keyframes : fallback.keyframes).map((keyframe) => cloneSparseKeyframe(keyframe));
   return {
     animationName: typeof data.animationName === "string" && data.animationName.trim() ? data.animationName.trim() : fallback.animationName,
@@ -926,11 +926,11 @@ function sanitizeTimeline(data: Partial<WebKeyframesTimeline>, index: number, de
       ? { duration: typeof data.duration === "number" && Number.isFinite(data.duration) && data.duration > 0 ? Math.round(data.duration) : fallback.duration }
       : {}),
     translateConfig: { unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit },
-    keyframes: sortKeyframes(keyframes, positionType).map((keyframe) => sanitizeKeyframe(positionType, keyframe)),
+    keyframes: sortKeyframes(keyframes, positionType).map((keyframe) => coerceEditorKeyframe(positionType, keyframe)),
   };
 }
 
-function sanitizeKeyframe(positionType: KeyframePositionMode, keyframe: WebKeyframe): WebKeyframe {
+function coerceEditorKeyframe(positionType: KeyframePositionMode, keyframe: WebKeyframe): WebKeyframe {
   return {
     ...(positionType === "time"
       ? { time: typeof keyframe.time === "number" && Number.isFinite(keyframe.time) ? keyframe.time : 0 }
@@ -962,7 +962,7 @@ function createNextTimeline(timelines: WebKeyframesTimeline[], selectedIndex: nu
 }
 
 function createNextKeyframe(timeline: WebKeyframesTimeline, selectedIndex: number): WebKeyframe {
-  const positionType = getTimelinePositionType(timeline);
+  const positionType = inferTimelinePositionType(timeline);
   const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
   const keyframes = sortKeyframes(timeline.keyframes, positionType);
   if (!keyframes.length) {
@@ -1014,7 +1014,7 @@ function convertKeyframesToTime(timeline: WebKeyframesTimeline, duration: number
   });
 }
 
-function resolvePositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
+function inferEditorPositionType(data: Partial<WebKeyframesTimeline>, fallback: KeyframePositionMode): KeyframePositionMode {
   return data.positionType === "time" || data.positionType === "percent"
     ? data.positionType
     : Array.isArray(data.keyframes) && data.keyframes.some((keyframe) => typeof keyframe?.percent === "number")

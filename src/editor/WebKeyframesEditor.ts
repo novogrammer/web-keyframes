@@ -8,7 +8,7 @@ import {
   type EditorState,
   normalizeEditorState,
   renderEditorPanel,
-  sanitizeEditorDocument,
+  coerceEditorDocument,
 } from "./editorCore.js";
 import { EditorDomController } from "./editorDom.js";
 
@@ -55,7 +55,7 @@ export class WebKeyframesEditor {
       throw new Error("root must be an HTMLElement.");
     }
     this.root = options.root;
-    this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
+    this.initialData = coerceEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
     this.dom = new EditorDomController(this.root, this.state, {
       shortcut: options.shortcut,
@@ -116,7 +116,7 @@ export class WebKeyframesEditor {
   }
 
   setData(data: WebKeyframesDocument): void {
-    this.state.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
+    this.state.data = coerceEditorDocument(data, DEFAULT_TIMELINE_DATA);
     normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
     if (this.container) {
       this.render();

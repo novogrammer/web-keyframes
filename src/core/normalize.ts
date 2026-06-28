@@ -33,7 +33,7 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
 }
 
 function normalizeValidatedTimeline(validated: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
-  const positionType = getTimelinePositionType(validated);
+  const positionType = inferTimelinePositionType(validated);
   const duration = positionType === "time" ? validated.duration ?? null : null;
   const keyframes = [...validated.keyframes]
     .sort((left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType))
@@ -79,7 +79,7 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
 }
 
 export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): WebKeyframesTimeline {
-  const positionType = getTimelinePositionType(timeline);
+  const positionType = inferTimelinePositionType(timeline);
   return {
     animationName: timeline.animationName.trim(),
     ...(positionType === "percent" ? { positionType } : timeline.positionType ? { positionType } : {}),
@@ -188,7 +188,7 @@ export function getTransformOperations(
   return property ? property.value.map(cloneTransform) : fallback.map(cloneTransform);
 }
 
-export function getTimelinePositionType(
+export function inferTimelinePositionType(
   timeline: Pick<WebKeyframesTimeline, "positionType" | "duration" | "keyframes"> | Pick<NormalizedWebKeyframesTimeline, "positionType">,
 ): KeyframePositionMode {
   if (timeline.positionType === "percent" || timeline.positionType === "time") {
