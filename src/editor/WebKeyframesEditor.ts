@@ -207,7 +207,7 @@ export class WebKeyframesEditor {
     if (input.type === "range") {
       if (eventType === "input") {
         const value = Number(input.value);
-        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, createDefaultTimeline(), { type: "fieldAction", field, value })) {
+        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, { type: "fieldAction", field, value })) {
           return;
         }
         this.dom.syncNumberFieldValues(this.container, field, value, input);
@@ -235,14 +235,14 @@ export class WebKeyframesEditor {
 
   private commitFieldEdit(action: { type: "fieldAction"; field: string; value: string | number }, field: string, input: HTMLInputElement | HTMLSelectElement): void {
     const focusSnapshot = this.dom.captureFocusSnapshot(this.container, field, input);
-    if (dispatchEditorAction(this.state, createDefaultTimeline(), { ...action, focusSnapshot })) {
+    if (dispatchEditorAction(this.state, { ...action, focusSnapshot })) {
       this.render();
     }
   }
 
   private runAction(actionOrFactory: EditorAction | (() => EditorAction)): void {
     const action = typeof actionOrFactory === "function" ? actionOrFactory() : actionOrFactory;
-    if (dispatchEditorAction(this.state, createDefaultTimeline(), action)) {
+    if (dispatchEditorAction(this.state, action)) {
       this.render();
     }
   }

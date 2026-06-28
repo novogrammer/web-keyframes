@@ -126,6 +126,8 @@ const TRANSFORM_BUTTONS = [
 ] as const satisfies ReadonlyArray<readonly [TransformKind, string]>;
 
 const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] as const satisfies ReadonlyArray<TranslateUnit>;
+const DEFAULT_NEW_ANIMATION_NAME = "new-animation";
+const DEFAULT_TIME_DURATION = 1200;
 
 export function createEditorState(initialData: WebKeyframesDocument): EditorState {
   return {
@@ -196,7 +198,7 @@ export function renderEditorPanel(state: EditorState): string {
   `;
 }
 
-export function dispatchEditorAction(state: EditorState, defaults: WebKeyframesTimeline, action: EditorAction): boolean {
+export function dispatchEditorAction(state: EditorState, action: EditorAction): boolean {
   switch (action.type) {
     case "reset":
       state.data = cloneDocument(action.initialData);
@@ -208,18 +210,17 @@ export function dispatchEditorAction(state: EditorState, defaults: WebKeyframesT
       setStatus(state, "success", "Reset editor data to the initial state.");
       return true;
     case "collectionAction":
-      return action.target === "timeline" ? dispatchTimelineAction(state, defaults, action) : dispatchKeyframeAction(state, defaults, action);
+      return action.target === "timeline" ? dispatchTimelineAction(state, action) : dispatchKeyframeAction(state, action);
     case "fieldAction":
-      return dispatchFieldAction(state, defaults, action);
+      return dispatchFieldAction(state, action);
     case "transformAction":
-      return dispatchTransformAction(state, defaults, action);
+      return dispatchTransformAction(state, action);
   }
   return false;
 }
 
 function dispatchTimelineAction(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   action: TimelineCollectionAction,
 ): boolean {
   switch (action.operation) {
@@ -228,7 +229,7 @@ function dispatchTimelineAction(
       normalizeEditorState(state);
       return true;
     case "add": {
-      const next = createNextTimeline(state.data.timelines, state.selectedTimelineIndex, defaults);
+      const next = createNextTimeline(state.data.timelines, state.selectedTimelineIndex);
       state.data = { timelines: [...state.data.timelines.map((timeline) => cloneTimeline(timeline)), next] };
       state.selectedTimelineIndex = state.data.timelines.findIndex((timeline) => timeline.animationName === next.animationName);
       state.selectedKeyframeIndex = 0;
@@ -265,7 +266,6 @@ function dispatchTimelineAction(
 
 function dispatchKeyframeAction(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   action: KeyframeCollectionAction,
 ): boolean {
   switch (action.operation) {
@@ -273,7 +273,7 @@ function dispatchKeyframeAction(
       state.selectedKeyframeIndex = clampIndex(action.index ?? 0, getSelectedTimeline(state).keyframes.length);
       return true;
     case "add":
-      editTimeline(state, defaults, (timeline) => {
+      editTimeline(state, (timeline) => {
         const next = createNextKeyframe(timeline, state.selectedKeyframeIndex);
         const positionType = timeline.positionType;
         timeline.keyframes = sortKeyframes([...timeline.keyframes, next], positionType);
@@ -281,7 +281,7 @@ function dispatchKeyframeAction(
       });
       return true;
     case "duplicate":
-      editTimeline(state, defaults, (timeline) => {
+      editTimeline(state, (timeline) => {
         const source = timeline.keyframes[state.selectedKeyframeIndex];
         if (!source) {
           return;
@@ -305,7 +305,7 @@ function dispatchKeyframeAction(
       if (timeline.keyframes.length === 0) {
         return false;
       }
-      editTimeline(state, defaults, (next) => {
+      editTimeline(state, (next) => {
         next.keyframes = next.keyframes.filter((_, index) => index !== state.selectedKeyframeIndex);
         state.selectedKeyframeIndex = clampIndex(state.selectedKeyframeIndex, next.keyframes.length);
       });
@@ -317,7 +317,6 @@ function dispatchKeyframeAction(
 
 function dispatchFieldAction(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   action: FieldEditorAction,
 ): boolean {
   const operation = action.operation ?? "set";
@@ -346,25 +345,25 @@ function dispatchFieldAction(
     }
     const handlers: Record<string, () => void> = {
       animationName: () => {
-        editTimeline(state, defaults, (timeline) => {
+        editTimeline(state, (timeline) => {
           timeline.animationName = stringValue.trim();
         });
       },
       positionType: () => {
-        editTimeline(state, defaults, (timeline) => {
+        editTimeline(state, (timeline) => {
           const nextType = stringValue === "percent" ? "percent" : "time";
           if (nextType === timeline.positionType) {
             return;
           }
           if (nextType === "percent") {
-            convertKeyframesToPercent(timeline, defaults.duration ?? 1);
+            convertKeyframesToPercent(timeline, DEFAULT_TIME_DURATION);
           } else {
-            convertKeyframesToTime(timeline, defaults.duration ?? 1200);
+            convertKeyframesToTime(timeline, DEFAULT_TIME_DURATION);
           }
         });
       },
       translateUnit: () => {
-        editTimeline(state, defaults, (timeline) => {
+        editTimeline(state, (timeline) => {
           timeline.translateConfig = { ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }), unit: stringValue as TranslateUnit };
         });
       },
@@ -376,7 +375,7 @@ function dispatchFieldAction(
     }
     const transformField = parseTransformField(action.field);
     return transformField?.type === "kind"
-      ? commitTransformField(state, defaults, focusSnapshot, {
+      ? commitTransformField(state, focusSnapshot, {
           type: "transformAction",
           operation: "changeKind",
           index: transformField.index,
@@ -400,7 +399,7 @@ function dispatchFieldAction(
   }
   const handlers: Record<string, () => void> = {
     duration: () => {
-      editTimeline(state, defaults, (timeline) => {
+      editTimeline(state, (timeline) => {
         if (timeline.positionType === "percent") {
           return;
         }
@@ -413,7 +412,7 @@ function dispatchFieldAction(
       });
     },
     position: () => {
-      editTimeline(state, defaults, (timeline) => {
+      editTimeline(state, (timeline) => {
         const selected = timeline.keyframes[state.selectedKeyframeIndex];
         if (!selected) {
           return;
@@ -438,7 +437,7 @@ function dispatchFieldAction(
   }
   const transformField = parseTransformField(action.field);
   return transformField?.type === "value"
-    ? commitTransformField(state, defaults, focusSnapshot, {
+    ? commitTransformField(state, focusSnapshot, {
         type: "transformAction",
         operation: "changeValue",
         index: transformField.index,
@@ -450,7 +449,6 @@ function dispatchFieldAction(
 
 function dispatchTransformAction(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   action: TransformEditorAction,
 ): boolean {
   switch (action.operation) {
@@ -464,7 +462,7 @@ function dispatchTransformAction(
         added = true;
       }, false);
       if (!added) {
-        editTimeline(state, defaults, (timeline) => {
+        editTimeline(state, (timeline) => {
           timeline.keyframes = cloneTimeline(addTransform(timeline, state.selectedKeyframeIndex, action.kind ?? "translate")).keyframes;
         });
       }
@@ -473,7 +471,7 @@ function dispatchTransformAction(
     }
     case "delete":
       if (typeof action.index === "number") {
-        editTimeline(state, defaults, (timeline) => {
+        editTimeline(state, (timeline) => {
           timeline.keyframes = cloneTimeline(removeTransform(timeline, state.selectedKeyframeIndex, action.index!)).keyframes;
         });
         setStatus(state, "info", "Removed transform.");
@@ -487,13 +485,13 @@ function dispatchTransformAction(
         upsertKeyframeProperty(keyframe, createTransformProperty([]));
       });
     case "move":
-      return mutateTransforms(state, defaults, "Reordered transforms.", (timeline) =>
+      return mutateTransforms(state, "Reordered transforms.", (timeline) =>
         moveTransform(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.direction ?? 1));
     case "changeKind":
-      return mutateTransforms(state, defaults, "Editing timeline data.", (timeline) =>
+      return mutateTransforms(state, "Editing timeline data.", (timeline) =>
         replaceTransformKind(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.kind ?? "translate"));
     case "changeValue":
-      return mutateTransforms(state, defaults, "Editing timeline data.", (timeline) =>
+      return mutateTransforms(state, "Editing timeline data.", (timeline) =>
         setTransformFieldValue(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.field ?? "x", action.value ?? 0));
   }
   return false;
@@ -853,7 +851,7 @@ function transformSummary(transform: TransformOperation, unit: TranslateUnit): s
   }
 }
 
-function editTimeline(state: EditorState, defaults: WebKeyframesTimeline, run: (timeline: WebKeyframesTimeline) => void): void {
+function editTimeline(state: EditorState, run: (timeline: WebKeyframesTimeline) => void): void {
   const timeline = getSelectedTimeline(state);
   run(timeline);
   normalizeEditorState(state);
@@ -879,11 +877,10 @@ function editSelectedKeyframe(
 
 function mutateTransforms(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   message: string,
   run: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
 ): boolean {
-  editTimeline(state, defaults, (timeline) => {
+  editTimeline(state, (timeline) => {
     timeline.keyframes = cloneTimeline(run(timeline)).keyframes;
   });
   setStatus(state, "info", message);
@@ -898,11 +895,10 @@ function commitField(state: EditorState, focusSnapshot: FocusSnapshot | null): b
 
 function commitTransformField(
   state: EditorState,
-  defaults: WebKeyframesTimeline,
   focusSnapshot: FocusSnapshot | null,
   action: TransformEditorAction,
 ): boolean {
-  const changed = dispatchTransformAction(state, defaults, action);
+  const changed = dispatchTransformAction(state, action);
   if (changed && focusSnapshot) {
     state.pendingFocus = focusSnapshot;
   }
@@ -919,13 +915,22 @@ function cloneSparseKeyframe(keyframe: Partial<WebKeyframe>): WebKeyframe {
   };
 }
 
-function createNextTimeline(timelines: WebKeyframesTimeline[], selectedIndex: number, defaults: WebKeyframesTimeline): WebKeyframesTimeline {
-  const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : cloneTimeline(defaults);
+function createNextTimeline(timelines: WebKeyframesTimeline[], selectedIndex: number): WebKeyframesTimeline {
+  const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createEmptyTimelineSeed();
   return {
     animationName: uniqueAnimationName(source.animationName, timelines),
     positionType: source.positionType,
     ...(source.positionType !== "percent" && typeof source.duration === "number" ? { duration: source.duration } : {}),
     translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
+    keyframes: [],
+  };
+}
+
+function createEmptyTimelineSeed(): WebKeyframesTimeline {
+  return {
+    animationName: DEFAULT_NEW_ANIMATION_NAME,
+    positionType: "percent",
+    translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
     keyframes: [],
   };
 }
