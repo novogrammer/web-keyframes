@@ -1,5 +1,5 @@
-import { getTimelinePositionType } from "../core/normalize.js";
-import type { WebKeyframesTimeline } from "../core/types.js";
+import { getTimelinePositionType } from "../../core/normalize.js";
+import type { WebKeyframesTimeline } from "../../core/types.js";
 import {
   applyEditorKeyframePosition,
   clampIndex,
@@ -8,14 +8,14 @@ import {
   createNextKeyframe,
   getEditorKeyframePosition,
   roundEditorPosition,
-} from "./editorModel.js";
+} from "../editorModel.js";
 import {
   type EditorState,
   getSelectedTimeline,
   setStatus,
   sortKeyframesByPosition,
   updateSelectedTimeline,
-} from "./editorStateController.js";
+} from "../editorStateController.js";
 
 export class EditorKeyframeCollectionController {
   constructor(

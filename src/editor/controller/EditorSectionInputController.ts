@@ -1,17 +1,17 @@
-import { replaceTransformKind, setTransformFieldValue } from "../core/edit.js";
+import { replaceTransformKind, setTransformFieldValue } from "../../core/edit.js";
 import {
   createOpacityProperty,
   DEFAULT_TRANSLATE_CONFIG,
   getTimelinePositionType,
   upsertKeyframeProperty,
-} from "../core/normalize.js";
-import type { TransformKind, TranslateUnit, WebKeyframesTimeline } from "../core/types.js";
+} from "../../core/normalize.js";
+import type { TransformKind, TranslateUnit, WebKeyframesTimeline } from "../../core/types.js";
 import {
   applyEditorKeyframePosition,
   clampNumber,
   getEditorKeyframePosition,
   roundEditorPosition,
-} from "./editorModel.js";
+} from "../editorModel.js";
 import {
   type EditorState,
   applyEditedTransforms,
@@ -19,7 +19,7 @@ import {
   updateSelectedTimeline,
   updateSelectedTimelineKeyframes,
   withSelectedKeyframe,
-} from "./editorStateController.js";
+} from "../editorStateController.js";
 
 export class EditorSectionInputController {
   constructor(

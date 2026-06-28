@@ -1,4 +1,4 @@
-import { formatNumber } from "../core/generateCss.js";
+import { formatNumber } from "../../core/generateCss.js";
 import type { EditorRenderState } from "./editorViewPrimitives.js";
 import {
   escapeHtml,

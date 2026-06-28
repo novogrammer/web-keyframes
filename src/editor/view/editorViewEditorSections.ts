@@ -1,5 +1,5 @@
-import { formatNumber } from "../core/generateCss.js";
-import type { TransformOperation, WebKeyframe } from "../core/types.js";
+import { formatNumber } from "../../core/generateCss.js";
+import type { TransformOperation, WebKeyframe } from "../../core/types.js";
 import type { EditorRenderState } from "./editorViewPrimitives.js";
 import {
   escapeHtml,

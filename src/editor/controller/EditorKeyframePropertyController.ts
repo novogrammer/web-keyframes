@@ -1,4 +1,4 @@
-import { addTransform, moveTransform, removeTransform } from "../core/edit.js";
+import { addTransform, moveTransform, removeTransform } from "../../core/edit.js";
 import {
   createDefaultTransform,
   createOpacityProperty,
@@ -6,14 +6,14 @@ import {
   deleteKeyframeProperty,
   hasKeyframeProperty,
   upsertKeyframeProperty,
-} from "../core/normalize.js";
-import type { TransformKind, WebKeyframesTimeline } from "../core/types.js";
+} from "../../core/normalize.js";
+import type { TransformKind, WebKeyframesTimeline } from "../../core/types.js";
 import {
   type EditorState,
   applyEditedTransforms,
   setStatus,
   withSelectedKeyframe,
-} from "./editorStateController.js";
+} from "../editorStateController.js";
 
 export class EditorKeyframePropertyController {
   constructor(

@@ -2,12 +2,12 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { deriveEditorRenderState, sanitizeEditorDocument, clampIndex } from "./editorModel.js";
-import { EditorKeyframeCollectionController } from "./EditorKeyframeCollectionController.js";
-import { EditorKeyframePropertyController } from "./EditorKeyframePropertyController.js";
-import { EditorLifecycleController } from "./EditorLifecycleController.js";
-import { EditorPreviewController } from "./EditorPreviewController.js";
-import { EditorSectionInputController } from "./EditorSectionInputController.js";
-import { EditorTimelineCollectionController } from "./EditorTimelineCollectionController.js";
+import { EditorKeyframeCollectionController } from "./controller/EditorKeyframeCollectionController.js";
+import { EditorKeyframePropertyController } from "./controller/EditorKeyframePropertyController.js";
+import { EditorLifecycleController } from "./controller/EditorLifecycleController.js";
+import { EditorPreviewController } from "./controller/EditorPreviewController.js";
+import { EditorSectionInputController } from "./controller/EditorSectionInputController.js";
+import { EditorTimelineCollectionController } from "./controller/EditorTimelineCollectionController.js";
 import {
   type EditorState,
   createEditorState,
@@ -16,7 +16,7 @@ import {
   setStatus,
 } from "./editorStateController.js";
 import { createEditorContainer } from "./editorShell.js";
-import { renderEditorPanel } from "./editorView.js";
+import { renderEditorPanel } from "./view/editorView.js";
 
 type WebKeyframesEditorOptions = {
   root: HTMLElement;

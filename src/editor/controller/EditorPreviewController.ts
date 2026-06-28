@@ -1,7 +1,7 @@
-import { generateCss } from "../core/generateCss.js";
-import { getTimelineAnimationName, normalizeWebKeyframesTimeline } from "../core/normalize.js";
-import type { WebKeyframesTimeline } from "../core/types.js";
-import { type EditorState, clearPreviewPanel, getSelectedTimeline, setPreviewPanel, setStatus } from "./editorStateController.js";
+import { generateCss } from "../../core/generateCss.js";
+import { getTimelineAnimationName, normalizeWebKeyframesTimeline } from "../../core/normalize.js";
+import type { WebKeyframesTimeline } from "../../core/types.js";
+import { type EditorState, clearPreviewPanel, getSelectedTimeline, setPreviewPanel, setStatus } from "../editorStateController.js";
 
 type PreviewTargetState = {
   element: HTMLElement;

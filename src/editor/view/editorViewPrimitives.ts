@@ -1,7 +1,7 @@
-import { formatNumber } from "../core/generateCss.js";
-import { getOpacityValue, getTransformOperations, hasKeyframeProperty } from "../core/normalize.js";
-import type { TransformOperation, WebKeyframe, WebKeyframesTimeline } from "../core/types.js";
-import type { deriveEditorRenderState } from "./editorModel.js";
+import { formatNumber } from "../../core/generateCss.js";
+import { getOpacityValue, getTransformOperations, hasKeyframeProperty } from "../../core/normalize.js";
+import type { TransformOperation, WebKeyframe, WebKeyframesTimeline } from "../../core/types.js";
+import type { deriveEditorRenderState } from "../editorModel.js";
 
 export type EditorRenderState = ReturnType<typeof deriveEditorRenderState>;
 type EditorTimelineView = EditorRenderState["selectedTimeline"];

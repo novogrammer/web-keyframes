@@ -1,6 +1,6 @@
-import { clampNumber } from "./editorModel.js";
-import { setContainerVisibility } from "./editorShell.js";
-import type { FocusSnapshot, PanelPosition } from "./editorStateController.js";
+import { clampNumber } from "../editorModel.js";
+import { setContainerVisibility } from "../editorShell.js";
+import type { FocusSnapshot, PanelPosition } from "../editorStateController.js";
 
 const PANEL_MIN_VISIBLE_X = 72;
 const PANEL_MIN_VISIBLE_Y = 56;

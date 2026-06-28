@@ -1,16 +1,16 @@
-import { cloneTimeline } from "../core/normalize.js";
-import type { WebKeyframesTimeline } from "../core/types.js";
+import { cloneTimeline } from "../../core/normalize.js";
+import type { WebKeyframesTimeline } from "../../core/types.js";
 import {
   createDuplicatedTimeline,
   createNextTimeline,
   sanitizeEditorDocument,
-} from "./editorModel.js";
+} from "../editorModel.js";
 import {
   type EditorState,
   getSelectedTimeline,
   normalizeEditorState,
   setStatus,
-} from "./editorStateController.js";
+} from "../editorStateController.js";
 
 export class EditorTimelineCollectionController {
   constructor(
