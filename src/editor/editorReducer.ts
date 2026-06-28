@@ -36,27 +36,36 @@ import {
   setStatus,
 } from "./editorStateController.js";
 
-type TimelineOperation = "select" | "add" | "duplicate" | "delete";
-type KeyframeOperation = "select" | "add" | "duplicate" | "delete";
-type PropertyTarget = "timingFunction" | "opacity" | "transform";
-type PropertyOperation = "set" | "clear" | "add" | "delete" | "move" | "changeKind" | "changeValue";
+type CollectionTarget = "timeline" | "keyframe";
+type CollectionOperation = "select" | "add" | "duplicate" | "delete";
+type FieldOperation = "set" | "clear" | "add" | "delete";
+type TransformOperation = "add" | "delete" | "clear" | "move" | "changeKind" | "changeValue";
 type TransformValueField = "x" | "y" | "value";
 
 export type EditorAction =
   | { type: "reset"; initialData: WebKeyframesDocument }
-  | { type: "timelineAction"; operation: TimelineOperation; index?: number }
-  | { type: "keyframeAction"; operation: KeyframeOperation; index?: number }
   | {
-      type: "propertyAction";
-      target: PropertyTarget;
-      operation: PropertyOperation;
-      value?: string | number;
-      kind?: TransformKind;
+      type: "collectionAction";
+      target: CollectionTarget;
+      operation: CollectionOperation;
       index?: number;
-      direction?: -1 | 1;
-      field?: "x" | "y" | "value";
     }
-  | { type: "applyField"; field: string; value: string | number; focusSnapshot?: FocusSnapshot | null };
+  | {
+      type: "fieldAction";
+      field: string;
+      operation?: FieldOperation;
+      value?: string | number;
+      focusSnapshot?: FocusSnapshot | null;
+    }
+  | {
+      type: "transformAction";
+      operation: TransformOperation;
+      index?: number;
+      kind?: TransformKind;
+      direction?: -1 | 1;
+      field?: TransformValueField;
+      value?: number;
+    }
 
 export function dispatchEditorAction(
   state: EditorState,
@@ -73,43 +82,37 @@ export function dispatchEditorAction(
       state.pendingFocus = null;
       setStatus(state, "success", "Reset editor data to the initial state.");
       return true;
-    case "timelineAction":
-      return handleTimelineAction(state, defaultTimelineData, action);
-    case "keyframeAction":
-      return handleKeyframeAction(state, defaultTimelineData, action);
-    case "propertyAction":
-      return handlePropertyAction(state, defaultTimelineData, action);
-    case "applyField":
-      return handleFieldAction(state, defaultTimelineData, action.field, action.value, action.focusSnapshot ?? null);
+    case "collectionAction":
+      return handleCollectionAction(state, defaultTimelineData, action);
+    case "fieldAction":
+      return handleFieldAction(state, defaultTimelineData, action);
+    case "transformAction":
+      return handleTransformAction(state, defaultTimelineData, action);
   }
 }
 
-function handleTimelineAction(
+function handleCollectionAction(
   state: EditorState,
   defaultTimelineData: WebKeyframesTimeline,
-  action: Extract<EditorAction, { type: "timelineAction" }>,
+  action: Extract<EditorAction, { type: "collectionAction" }>,
 ): boolean {
-  switch (action.operation) {
-    case "select":
-      state.selectedTimelineIndex = clampIndex(action.index ?? 0, state.data.timelines.length);
-      normalizeEditorState(state, defaultTimelineData);
-      return true;
-    case "add":
-      addTimeline(state, defaultTimelineData);
-      return true;
-    case "duplicate":
-      duplicateTimeline(state, defaultTimelineData);
-      return true;
-    case "delete":
-      return deleteTimeline(state, defaultTimelineData);
+  if (action.target === "timeline") {
+    switch (action.operation) {
+      case "select":
+        state.selectedTimelineIndex = clampIndex(action.index ?? 0, state.data.timelines.length);
+        normalizeEditorState(state, defaultTimelineData);
+        return true;
+      case "add":
+        addTimeline(state, defaultTimelineData);
+        return true;
+      case "duplicate":
+        duplicateTimeline(state, defaultTimelineData);
+        return true;
+      case "delete":
+        return deleteTimeline(state, defaultTimelineData);
+    }
   }
-}
 
-function handleKeyframeAction(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  action: Extract<EditorAction, { type: "keyframeAction" }>,
-): boolean {
   switch (action.operation) {
     case "select":
       state.selectedKeyframeIndex = clampIndex(action.index ?? 0, getSelectedTimelineKeyframeLength(state));
@@ -125,49 +128,11 @@ function handleKeyframeAction(
   }
 }
 
-function handlePropertyAction(
+function handleTransformAction(
   state: EditorState,
   defaultTimelineData: WebKeyframesTimeline,
-  action: Extract<EditorAction, { type: "propertyAction" }>,
+  action: Extract<EditorAction, { type: "transformAction" }>,
 ): boolean {
-  if (action.target === "timingFunction") {
-    return editSelectedKeyframe(
-      state,
-      "Editing timeline data.",
-      action.operation === "set"
-        ? (_, keyframe) => {
-            keyframe.timingFunction = String(action.value ?? "");
-            state.pendingFocus = {
-              field: "timingFunction",
-              index: 0,
-              selectionStart: String(action.value ?? "").length,
-              selectionEnd: String(action.value ?? "").length,
-            };
-          }
-        : (_, keyframe) => {
-            delete keyframe.timingFunction;
-            state.pendingFocus = {
-              field: "timingFunction",
-              index: 0,
-              selectionStart: 0,
-              selectionEnd: 0,
-            };
-          },
-    );
-  }
-
-  if (action.target === "opacity") {
-    if (action.operation === "add") {
-      return editSelectedKeyframe(state, "Added opacity to the selected keyframe.", (_, keyframe) => {
-        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
-      });
-    }
-
-    return editSelectedKeyframe(state, "Deleted opacity from the selected keyframe.", (_, keyframe) => {
-      deleteKeyframeProperty(keyframe, "opacity");
-    });
-  }
-
   switch (action.operation) {
     case "add":
       addSelectedTransform(state, defaultTimelineData, action.kind ?? "translate");
@@ -223,7 +188,7 @@ function handlePropertyAction(
           state.selectedKeyframeIndex,
           action.index ?? 0,
           action.field ?? "x",
-          Number(action.value ?? 0),
+          action.value ?? 0,
         ),
       );
     default:
@@ -234,10 +199,11 @@ function handlePropertyAction(
 function handleFieldAction(
   state: EditorState,
   defaultTimelineData: WebKeyframesTimeline,
-  field: string,
-  value: string | number,
-  focusSnapshot: FocusSnapshot | null,
+  action: Extract<EditorAction, { type: "fieldAction" }>,
 ): boolean {
+  const { field, operation = "set", focusSnapshot = null } = action;
+  const value = action.value;
+
   if (typeof value === "string") {
     switch (field) {
       case "animationName":
@@ -270,6 +236,21 @@ function handleFieldAction(
         });
         return commitFieldEditResult(state, focusSnapshot);
       case "timingFunction":
+        if (operation === "clear") {
+          return editSelectedKeyframe(
+            state,
+            "Editing timeline data.",
+            (_, keyframe) => {
+              delete keyframe.timingFunction;
+              state.pendingFocus = {
+                field: "timingFunction",
+                index: 0,
+                selectionStart: 0,
+                selectionEnd: 0,
+              };
+            },
+          );
+        }
         editSelectedKeyframe(state, "", (_, keyframe) => {
           if (value.trim() === "") {
             delete keyframe.timingFunction;
@@ -285,9 +266,8 @@ function handleFieldAction(
       return false;
     }
 
-    const changed = handlePropertyAction(state, defaultTimelineData, {
-      type: "propertyAction",
-      target: "transform",
+    const changed = handleTransformAction(state, defaultTimelineData, {
+      type: "transformAction",
       operation: "changeKind",
       index: transformField.index,
       kind: value as TransformKind,
@@ -296,6 +276,23 @@ function handleFieldAction(
       state.pendingFocus = focusSnapshot;
     }
     return changed;
+  }
+
+  if (field === "opacity") {
+    if (operation === "add") {
+      return editSelectedKeyframe(state, "Added opacity to the selected keyframe.", (_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+      });
+    }
+    if (operation === "delete") {
+      return editSelectedKeyframe(state, "Deleted opacity from the selected keyframe.", (_, keyframe) => {
+        deleteKeyframeProperty(keyframe, "opacity");
+      });
+    }
+  }
+
+  if (typeof value !== "number") {
+    return false;
   }
 
   switch (field) {
@@ -340,9 +337,8 @@ function handleFieldAction(
     return false;
   }
 
-  const changed = handlePropertyAction(state, defaultTimelineData, {
-    type: "propertyAction",
-    target: "transform",
+  const changed = handleTransformAction(state, defaultTimelineData, {
+    type: "transformAction",
     operation: "changeValue",
     field: transformField.field,
     index: transformField.index,

@@ -213,26 +213,24 @@ export class WebKeyframesEditor {
     }
 
     if (action === "select-timeline") {
-      this.runAction({ type: "timelineAction", operation: "select", index: getActionIndex(actionTarget) });
+      this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index: getActionIndex(actionTarget) });
       return;
     }
     if (action === "select-keyframe") {
-      this.runAction({ type: "keyframeAction", operation: "select", index: getActionIndex(actionTarget) });
+      this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index: getActionIndex(actionTarget) });
       return;
     }
     if (action === "set-timing-function") {
       this.runAction({
-        type: "propertyAction",
-        target: "timingFunction",
-        operation: "set",
+        type: "fieldAction",
+        field: "timingFunction",
         value: actionTarget.dataset.wkfValue ?? "",
       });
       return;
     }
     if (action === "move-transform-up" || action === "move-transform-down") {
       this.runAction({
-        type: "propertyAction",
-        target: "transform",
+        type: "transformAction",
         operation: "move",
         index: getActionIndex(actionTarget),
         direction: action === "move-transform-up" ? -1 : 1,
@@ -240,13 +238,12 @@ export class WebKeyframesEditor {
       return;
     }
     if (action === "delete-transform") {
-      this.runAction({ type: "propertyAction", target: "transform", operation: "delete", index: getActionIndex(actionTarget) });
+      this.runAction({ type: "transformAction", operation: "delete", index: getActionIndex(actionTarget) });
       return;
     }
     if (action === "add-transform") {
       this.runAction({
-        type: "propertyAction",
-        target: "transform",
+        type: "transformAction",
         operation: "add",
         kind: (actionTarget.dataset.wkfKind ?? "translate") as TransformKind,
       });
@@ -263,17 +260,17 @@ export class WebKeyframesEditor {
       this.previewController.disposeAppliedPreview();
       return { type: "reset", initialData: this.initialData };
     }),
-    "add-timeline": () => this.runAction({ type: "timelineAction", operation: "add" }),
-    "duplicate-timeline": () => this.runAction({ type: "timelineAction", operation: "duplicate" }),
-    "delete-timeline": () => this.runAction({ type: "timelineAction", operation: "delete" }),
-    "clear-timing-function": () => this.runAction({ type: "propertyAction", target: "timingFunction", operation: "clear" }),
-    "add-opacity": () => this.runAction({ type: "propertyAction", target: "opacity", operation: "add" }),
-    "delete-opacity": () => this.runAction({ type: "propertyAction", target: "opacity", operation: "delete" }),
-    "delete-transforms": () => this.runAction({ type: "propertyAction", target: "transform", operation: "delete" }),
-    "clear-transforms": () => this.runAction({ type: "propertyAction", target: "transform", operation: "clear" }),
-    "add-keyframe": () => this.runAction({ type: "keyframeAction", operation: "add" }),
-    "delete-keyframe": () => this.runAction({ type: "keyframeAction", operation: "delete" }),
-    "duplicate-keyframe": () => this.runAction({ type: "keyframeAction", operation: "duplicate" }),
+    "add-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "add" }),
+    "duplicate-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "duplicate" }),
+    "delete-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "delete" }),
+    "clear-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" }),
+    "add-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "add", value: 1 }),
+    "delete-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 }),
+    "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
+    "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
+    "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
+    "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
+    "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
     "run-preview": () => this.runAndRender(() => this.previewController.runPreview()),
     "reset-preview": () => this.runAndRender(() => this.previewController.resetAppliedPreview()),
     "view-json": () => this.runAndRender(() => this.previewController.openGeneratedPreview("json")),
@@ -316,7 +313,7 @@ export class WebKeyframesEditor {
   ): void {
     if (input instanceof HTMLSelectElement) {
       if (eventType === "change") {
-        this.commitFieldEdit({ type: "applyField", field, value: input.value }, field, input);
+        this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
       }
       return;
     }
@@ -325,7 +322,7 @@ export class WebKeyframesEditor {
       if (eventType === "input") {
         const value = Number(input.value);
         if (!Number.isFinite(value) || !dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, {
-          type: "applyField",
+          type: "fieldAction",
           field,
           value,
         })) {
@@ -348,7 +345,7 @@ export class WebKeyframesEditor {
     }
 
     if (eventType === "input") {
-      this.commitFieldEdit({ type: "applyField", field, value: input.value }, field, input);
+      this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
     }
   }
 
@@ -358,11 +355,11 @@ export class WebKeyframesEditor {
       return;
     }
 
-    this.commitFieldEdit({ type: "applyField", field, value }, field, input);
+    this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
   }
 
   private commitFieldEdit(
-    action: { type: "applyField"; field: string; value: string | number },
+    action: { type: "fieldAction"; field: string; value: string | number },
     field: string,
     input: HTMLInputElement | HTMLSelectElement,
   ): void {
