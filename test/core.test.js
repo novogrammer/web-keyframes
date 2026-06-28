@@ -79,7 +79,7 @@ test("normalizeWebKeyframesTimeline applies default translate config and sorts k
   );
 });
 
-test("generateCss uses animationName instead of id", () => {
+test("generateCss uses animationName for keyframes", () => {
   const css = generateCss({
     timelines: [
       {
