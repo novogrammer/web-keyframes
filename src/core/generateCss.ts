@@ -49,7 +49,7 @@ function renderTimelineCss(
     return lines.join("\n");
   });
 
-  return ["@keyframes " + normalized.id + " {", ...keyframeBlocks, "}"].join("\n\n");
+  return ["@keyframes " + normalized.animationName + " {", ...keyframeBlocks, "}"].join("\n\n");
 }
 
 function renderTransform(

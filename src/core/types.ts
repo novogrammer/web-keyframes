@@ -77,7 +77,7 @@ export type TranslateConfig = {
 };
 
 export type WebKeyframesTimeline = {
-  id: string;
+  animationName: string;
   positionType?: KeyframePositionMode;
   duration?: number;
   translateConfig?: TranslateConfig;

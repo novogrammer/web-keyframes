@@ -37,6 +37,9 @@ npm install github:novogrammer/web-keyframes#v0.3.0
 `generateCss()` が出力するのは `@keyframes` だけです。`animation`、easing、
 fill-mode、再生時間などは利用側のスタイルシートで指定します。
 
+`timeline.animationName` が CSS の animation 名で、生成される `@keyframes` と editor
+preview の両方が `animationName` を使います。
+
 ## 基本的な使い方
 
 ### エディタ
@@ -73,7 +76,7 @@ import { generateCss } from "web-keyframes";
 const css = generateCss({
   timelines: [
     {
-      id: "hero-logo",
+      animationName: "hero-logo",
       duration: 1200,
       keyframes: [
         {
@@ -161,7 +164,7 @@ editor.toCss();
 {
   "timelines": [
     {
-      "id": "hero-logo",
+      "animationName": "hero-logo",
       "duration": 1200,
       "translateConfig": {
         "unit": "px"
@@ -202,8 +205,10 @@ editor.toCss();
 }
 ```
 
-document は `timelines[]` を持ち、各 timeline が自分の `id`、`positionType`、
+document は `timelines[]` を持ち、各 timeline が自分の `animationName`、`positionType`、
 `translateConfig`、`keyframes` を持ちます。
+
+- `animationName`: 生成される `@keyframes` と editor preview に使う CSS animation 名
 
 timeline の位置指定モードは 2 種類あります。
 

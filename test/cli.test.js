@@ -18,7 +18,7 @@ test("CLI converts a single JSON file to CSS", async () => {
     JSON.stringify({
       timelines: [
         {
-          id: "hero-logo",
+          animationName: "hero-logo",
           duration: 1200,
           translateConfig: {
             unit: "px",
@@ -57,7 +57,7 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
     JSON.stringify({
       timelines: [
         {
-          id: "a",
+          animationName: "a",
           duration: 100,
           keyframes: [
             createKeyframe(0, 0, [
@@ -80,7 +80,7 @@ test("CLI converts only .timeline.json files from a directory and joins them wit
     JSON.stringify({
       timelines: [
         {
-          id: "b",
+          animationName: "b",
           duration: 100,
           keyframes: [
             createKeyframe(0, 0, [

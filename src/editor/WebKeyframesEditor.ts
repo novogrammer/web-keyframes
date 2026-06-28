@@ -25,7 +25,7 @@ type WebKeyframesEditorOptions = {
 };
 
 const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
-  id: "new-animation",
+  animationName: "new-animation",
   positionType: "percent",
   translateConfig: {
     unit: DEFAULT_TRANSLATE_CONFIG.unit,

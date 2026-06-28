@@ -1,7 +1,7 @@
 {
   "timelines": [
     {
-      "id": "hero-title-intro",
+      "animationName": "hero-title-intro",
       "positionType": "percent",
       "translateConfig": {
         "unit": "%"
@@ -63,7 +63,7 @@
       ]
     },
     {
-      "id": "hero-date-intro",
+      "animationName": "hero-date-intro",
       "positionType": "percent",
       "translateConfig": {
         "unit": "%"
@@ -125,7 +125,7 @@
       ]
     },
     {
-      "id": "hero-badge-intro",
+      "animationName": "hero-badge-intro",
       "positionType": "percent",
       "translateConfig": {
         "unit": "%"
@@ -158,7 +158,7 @@
       ]
     },
     {
-      "id": "hero-balloon-loop",
+      "animationName": "hero-balloon-loop",
       "positionType": "percent",
       "translateConfig": {
         "unit": "%"

@@ -41,9 +41,9 @@ export class EditorSectionInputController {
 
   private applyTimelineStringField(field: string, value: string): boolean {
     switch (field) {
-      case "id":
+      case "animationName":
         updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          timeline.id = value;
+          timeline.animationName = value;
         });
         return true;
       case "positionType":

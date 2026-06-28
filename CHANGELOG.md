@@ -4,6 +4,11 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Breaking: removed timeline `id` and made `animationName` the only timeline name; generated `@keyframes` and editor preview now use `animationName`
+- Updated the editor UI, tests, and example timeline JSON files to require explicit `animationName`
+
 ## [0.3.0] - 2026-06-25
 
 ### Changed

@@ -18,7 +18,7 @@ export function renderSelectedTimelineSection({ selectedTimeline }: EditorRender
     <div class="wkf__section">
       <div class="wkf__section-title">Selected Timeline</div>
       <div class="wkf__grid wkf__grid--meta">
-        ${renderTextField("id", "ID", selectedTimeline.id)}
+        ${renderTextField("animationName", "Animation Name", selectedTimeline.animationName)}
         ${renderSelectField("positionType", "Keyframe Position", selectedTimeline.positionType, [
           { value: "time", label: "time" },
           { value: "percent", label: "percent" },

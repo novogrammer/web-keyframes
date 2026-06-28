@@ -75,8 +75,8 @@ function validateTimeline(timeline: unknown, timelineIndex: number | null): stri
   const prefix = timelineIndex === null ? "" : `timelines[${timelineIndex}].`;
   const positionType = resolveTimelinePositionType(candidate);
 
-  if (typeof candidate.id !== "string" || candidate.id.trim() === "") {
-    issues.push(`${prefix}id is required.`);
+  if (typeof candidate.animationName !== "string" || candidate.animationName.trim() === "") {
+    issues.push(`${prefix}animationName is required.`);
   }
 
   if (candidate.positionType !== undefined && candidate.positionType !== "time" && candidate.positionType !== "percent") {

@@ -99,7 +99,7 @@ test("data helpers stay available before and after mount", () => {
   editor.setData({
     timelines: [
       {
-        id: "hero-logo",
+        animationName: "hero-logo",
         duration: 900,
         keyframes: [
           createKeyframe(0, 0, [
@@ -117,10 +117,9 @@ test("data helpers stay available before and after mount", () => {
     ],
   });
 
-  assert.equal(editor.getData().timelines[0].id, "hero-logo");
   assert.match(editor.toCss(), /@keyframes hero-logo/);
-  const idInput = window.document.querySelector("[data-wkf-field='id']");
-  assert.equal(idInput?.value, "hero-logo");
+  const animationNameInput = window.document.querySelector("[data-wkf-field='animationName']");
+  assert.equal(animationNameInput?.value, "hero-logo");
 });
 
 test("timeline meta inputs update selected timeline data", () => {
@@ -129,13 +128,13 @@ test("timeline meta inputs update selected timeline data", () => {
 
   editor.mount();
 
-  setInputValue(window.document, "id", "hero-title");
+  setInputValue(window.document, "animationName", "hero-title-enter");
   setSelectValue(window.document, "translateUnit", "vw");
   setSelectValue(window.document, "positionType", "time");
   setNumberValue(window.document, "duration", 1600);
 
   const data = editor.getData();
-  assert.equal(data.timelines[0].id, "hero-title");
+  assert.equal(data.timelines[0].animationName, "hero-title-enter");
   assert.equal(data.timelines[0].translateConfig?.unit, "vw");
   assert.equal(data.timelines[0].duration, 1600);
 });
@@ -189,8 +188,8 @@ test("timeline selection switches the visible editor", async () => {
   buttons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   await Promise.resolve();
 
-  const idInput = window.document.querySelector("[data-wkf-field='id']");
-  assert.equal(idInput?.value, "hero-out");
+  const animationNameInput = window.document.querySelector("[data-wkf-field='animationName']");
+  assert.equal(animationNameInput?.value, "hero-out");
   assert.match(editor.toCss(), /@keyframes hero-in/);
   assert.match(editor.toCss(), /@keyframes hero-out/);
 });
@@ -217,7 +216,7 @@ test("sparse initialData round-trips through getData and toJson without densifyi
   const initialData = {
     timelines: [
       {
-        id: "hero-title-intro",
+          animationName: "hero-title-intro",
         positionType: "percent",
         translateConfig: { unit: "%" },
         keyframes: [
@@ -253,7 +252,7 @@ test("empty initialData stays empty until the first keyframe is added", async ()
   const initialData = {
     timelines: [
       {
-        id: "hero-title-intro",
+          animationName: "hero-title-intro",
         positionType: "percent",
         translateConfig: { unit: "%" },
         keyframes: [],
@@ -433,7 +432,7 @@ test("keyframes can be deleted down to an empty timeline", async () => {
     initialData: {
       timelines: [
         {
-          id: "hero-logo",
+          animationName: "hero-logo-enter",
           duration: 1200,
           keyframes: [createKeyframe(0, 0, [{ kind: "translate", x: 0, y: 40 }])],
         },
@@ -503,21 +502,26 @@ test("preview applies generated keyframes to matching animation-name targets and
   const originalGetComputedStyle = window.getComputedStyle.bind(window);
   window.getComputedStyle = (element) => {
     if (element === target) {
-      return { animationName: "new-animation" };
+      return { animationName: "hero-logo-enter" };
     }
 
     return originalGetComputedStyle(element);
   };
 
-  const editor = new WebKeyframesEditor({ root: window.document.body });
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData: {
+      timelines: [createTimeline("hero-logo-enter", 1000)],
+    },
+  });
   editor.mount();
 
   await clickAction(window.document, "run-preview");
 
   const style = window.document.head.querySelector("style[data-wkf-preview='true']");
   assert.ok(style);
-  assert.match(style.textContent ?? "", /@keyframes new-animation__wkf_preview/);
-  assert.equal(target.style.animationName, "new-animation__wkf_preview");
+  assert.match(style.textContent ?? "", /@keyframes hero-logo-enter__wkf_preview/);
+  assert.equal(target.style.animationName, "hero-logo-enter__wkf_preview");
 
   await clickAction(window.document, "reset-preview");
 
@@ -554,18 +558,18 @@ test("reset restores initialData after edits", async () => {
   });
 
   editor.mount();
-  setInputValue(window.document, "id", "custom-id");
+  setInputValue(window.document, "animationName", "custom-animation");
   await clickAction(window.document, "reset");
 
   const data = editor.getData();
   assert.equal(data.timelines.length, 2);
-  assert.equal(data.timelines[0].id, "hero-in");
-  assert.equal(data.timelines[1].id, "hero-out");
+  assert.equal(data.timelines[0].animationName, "hero-in");
+  assert.equal(data.timelines[1].animationName, "hero-out");
 });
 
-function createTimeline(id, duration) {
+function createTimeline(animationName, duration) {
   return {
-    id,
+    animationName,
     duration,
     keyframes: [
       createKeyframe(0, 0, [

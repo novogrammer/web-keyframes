@@ -27,7 +27,7 @@ export class EditorTimelineCollectionController {
     this.state.data = sanitizeEditorDocument({
       timelines: [...this.state.data.timelines, nextTimeline],
     }, this.defaultTimelineData);
-    this.state.selectedTimelineIndex = this.state.data.timelines.findIndex((timeline) => timeline.id === nextTimeline.id);
+    this.state.selectedTimelineIndex = this.state.data.timelines.findIndex((timeline) => timeline.animationName === nextTimeline.animationName);
     this.state.selectedKeyframeIndex = 0;
     setStatus(this.state, "info", "Added timeline.");
   }

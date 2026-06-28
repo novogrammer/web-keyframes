@@ -1,5 +1,5 @@
 import { generateCss } from "../core/generateCss.js";
-import { normalizeWebKeyframesTimeline } from "../core/normalize.js";
+import { getTimelineAnimationName, normalizeWebKeyframesTimeline } from "../core/normalize.js";
 import type { WebKeyframesTimeline } from "../core/types.js";
 import { type EditorState, clearPreviewPanel, getSelectedTimeline, setPreviewPanel, setStatus } from "./editorStateController.js";
 
@@ -55,13 +55,14 @@ export class EditorPreviewController {
   runPreview(): void {
     try {
       const timeline = getSelectedTimeline(this.state);
+      const animationName = getTimelineAnimationName(timeline);
       const ownerDocument = this.root.ownerDocument;
       clearAppliedPreview(this.state.activePreview);
       this.state.activePreview = applyPreview(ownerDocument, timeline);
       setStatus(
         this.state,
         "success",
-        `Applied preview to ${this.state.activePreview.targets.length} element${this.state.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.id}".`,
+        `Applied preview to ${this.state.activePreview.targets.length} element${this.state.activePreview.targets.length === 1 ? "" : "s"} for "${animationName}".`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -96,14 +97,14 @@ function applyPreview(
   }
 
   const normalizedTimeline = normalizeWebKeyframesTimeline(timeline);
-  const targets = findPreviewTargets(ownerDocument, normalizedTimeline.id);
+  const targets = findPreviewTargets(ownerDocument, normalizedTimeline.animationName);
   if (targets.length === 0) {
-    throw new Error(`No elements using animation-name "${normalizedTimeline.id}" were found.`);
+    throw new Error(`No elements using animation-name "${normalizedTimeline.animationName}" were found.`);
   }
 
-  const previewName = `${normalizedTimeline.id}__wkf_preview`;
+  const previewName = `${normalizedTimeline.animationName}__wkf_preview`;
   const styleElement = ensurePreviewStyleElement(ownerDocument);
-  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.id);
+  styleElement.textContent = generatePreviewCssText(timeline, previewName, normalizedTimeline.animationName);
 
   const appliedTargets = targets.map((element) => ({
     element,
@@ -112,7 +113,7 @@ function applyPreview(
 
   for (const target of appliedTargets) {
     const computedAnimationName = ownerWindow.getComputedStyle(target.element).animationName;
-    const nextAnimationName = replaceAnimationName(computedAnimationName, normalizedTimeline.id, previewName);
+    const nextAnimationName = replaceAnimationName(computedAnimationName, normalizedTimeline.animationName, previewName);
     target.element.style.animationName = "none";
     void target.element.offsetWidth;
     target.element.style.animationName = nextAnimationName;

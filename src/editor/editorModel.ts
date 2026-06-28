@@ -3,6 +3,7 @@ import {
   cloneTimeline,
   DEFAULT_TRANSLATE_CONFIG,
   getOpacityValue,
+  getTimelineAnimationName,
   getTimelinePositionType,
   getTransformOperations,
   hasKeyframeProperty,
@@ -130,7 +131,9 @@ function sanitizeEditorTimeline(
     .map((keyframe) => cloneSparseKeyframe(keyframe));
 
   return {
-    id: typeof data.id === "string" ? data.id : fallback.id,
+    animationName: typeof data.animationName === "string" && data.animationName.trim() !== ""
+      ? data.animationName
+      : fallback.animationName,
     ...(positionType === "percent" || data.positionType === "time" ? { positionType } : {}),
     ...(positionType === "time"
       ? {
@@ -165,7 +168,7 @@ function createDefaultTimeline(index: number, defaultTimelineData: WebKeyframesT
     return timeline;
   }
 
-  timeline.id = `${defaultTimelineData.id}-${index + 1}`;
+  timeline.animationName = `${defaultTimelineData.animationName}-${index + 1}`;
   return timeline;
 }
 
@@ -176,7 +179,7 @@ export function createNextTimeline(
 ): WebKeyframesTimeline {
   const source = timelines[selectedIndex] ? cloneTimeline(timelines[selectedIndex]) : createDefaultTimeline(timelines.length, defaultTimelineData);
   return {
-    id: createUniqueTimelineId(source.id, timelines),
+    animationName: createUniqueTimelineAnimationName(getTimelineAnimationName(source), timelines),
     positionType: source.positionType,
     ...(source.positionType !== "percent" && typeof source.duration === "number" ? { duration: source.duration } : {}),
     translateConfig: source.translateConfig ? { ...source.translateConfig } : undefined,
@@ -189,12 +192,12 @@ export function createDuplicatedTimeline(
   timelines: WebKeyframesTimeline[],
 ): WebKeyframesTimeline {
   const duplicate = cloneTimeline(timeline);
-  duplicate.id = createUniqueTimelineId(`${timeline.id}-copy`, timelines);
+  duplicate.animationName = createUniqueTimelineAnimationName(`${getTimelineAnimationName(timeline)}-copy`, timelines);
   return duplicate;
 }
 
-function createUniqueTimelineId(seed: string, timelines: WebKeyframesTimeline[]): string {
-  const existing = new Set(timelines.map((timeline) => timeline.id));
+function createUniqueTimelineAnimationName(seed: string, timelines: WebKeyframesTimeline[]): string {
+  const existing = new Set(timelines.map((timeline) => getTimelineAnimationName(timeline)));
   if (!existing.has(seed)) {
     return seed;
   }

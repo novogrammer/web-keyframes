@@ -1,7 +1,7 @@
 {
   "timelines": [
     {
-      "id": "hero-logo-intro",
+      "animationName": "hero-logo-intro",
       "positionType": "percent",
       "translateConfig": {
         "unit": "px"
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "id": "hero-logo-idle",
+      "animationName": "hero-logo-idle",
       "positionType": "percent",
       "translateConfig": {
         "unit": "px"
@@ -86,7 +86,7 @@
       ]
     },
     {
-      "id": "hero-badge-intro",
+      "animationName": "hero-badge-intro",
       "positionType": "percent",
       "translateConfig": {
         "unit": "px"
@@ -129,7 +129,7 @@
       ]
     },
     {
-      "id": "hero-badge-idle",
+      "animationName": "hero-badge-idle",
       "positionType": "percent",
       "translateConfig": {
         "unit": "px"

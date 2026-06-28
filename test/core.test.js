@@ -16,7 +16,7 @@ import {
 } from "../src/core/validate.ts";
 
 const baseTimeline = {
-  id: "hero-logo",
+  animationName: "hero-logo",
   duration: 1200,
   translateConfig: { unit: "px" },
   keyframes: [
@@ -52,7 +52,7 @@ test("generateCss concatenates multiple timelines", () => {
       baseTimeline,
       {
         ...baseTimeline,
-        id: "hero-shadow",
+        animationName: "hero-shadow",
       },
     ],
   });
@@ -77,6 +77,19 @@ test("normalizeWebKeyframesTimeline applies default translate config and sorts k
     normalized.keyframes.map((keyframe) => keyframe.time),
     [0, 1200],
   );
+});
+
+test("generateCss uses animationName instead of id", () => {
+  const css = generateCss({
+    timelines: [
+      {
+        ...baseTimeline,
+        animationName: "hero-logo-enter",
+      },
+    ],
+  });
+
+  assert.match(css, /@keyframes hero-logo-enter/);
 });
 
 test("normalizeWebKeyframesDocument preserves sparse properties while normalizing positions", () => {
@@ -130,7 +143,7 @@ test("generateCss supports percent-based keyframes without duration", () => {
   const css = generateCss({
     timelines: [
       {
-        id: "hero-logo",
+        animationName: "hero-logo",
         positionType: "percent",
         keyframes: [
           { percent: 0, properties: [createOpacityProperty(0)] },
@@ -239,7 +252,7 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
         timelines: [
           {
             ...baseTimeline,
-            id: "",
+            animationName: "",
             duration: 0,
             keyframes: [],
           },
@@ -248,7 +261,7 @@ test("validateWebKeyframesDocument rejects missing and invalid required fields",
     (error) =>
       error instanceof Error &&
       error.name === "WebKeyframesValidationError" &&
-      error.issues.includes("timelines[0].id is required.") &&
+      error.issues.includes("timelines[0].animationName is required.") &&
       error.issues.includes("timelines[0].duration must be a number greater than 0 when positionType is time."),
   );
 });
@@ -272,7 +285,7 @@ test("validateWebKeyframesDocument rejects duration on percent timelines", () =>
       validateWebKeyframesDocument({
         timelines: [
           {
-            id: "hero-logo",
+            animationName: "hero-logo",
             positionType: "percent",
             duration: 1200,
             keyframes: [{ percent: 0 }],

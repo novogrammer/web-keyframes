@@ -42,7 +42,7 @@ function normalizeValidatedTimeline(validated: WebKeyframesTimeline): Normalized
   const keyframes = sortedKeyframes.map((keyframe) => normalizeKeyframe(keyframe, positionType, validated.duration ?? null));
 
   return {
-    id: validated.id,
+    animationName: getTimelineAnimationName(validated),
     positionType,
     duration: positionType === "time" ? validated.duration ?? null : null,
     translateConfig: {
@@ -87,7 +87,7 @@ export function cloneTransform(transform: TransformOperation): TransformOperatio
 export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyframesTimeline): WebKeyframesTimeline {
   const positionType = getTimelinePositionType(timeline);
   return {
-    id: timeline.id,
+    animationName: getTimelineAnimationName(timeline),
     ...(positionType === "percent" ? { positionType } : timeline.positionType ? { positionType } : {}),
     ...(positionType === "time" && typeof timeline.duration === "number" ? { duration: timeline.duration } : {}),
     translateConfig: timeline.translateConfig
@@ -209,6 +209,12 @@ export function getTimelinePositionType(
   }
 
   return "time";
+}
+
+export function getTimelineAnimationName(
+  timeline: Pick<WebKeyframesTimeline, "animationName"> | Pick<NormalizedWebKeyframesTimeline, "animationName">,
+): string {
+  return timeline.animationName.trim();
 }
 
 export function getKeyframePositionValue(

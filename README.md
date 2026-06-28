@@ -38,6 +38,9 @@ npm install github:novogrammer/web-keyframes#v0.3.0
 `generateCss()` only emits `@keyframes`. You still control `animation`, easing, fill mode,
 and timing from your own stylesheet.
 
+`timeline.animationName` is the CSS animation name. Generated `@keyframes` and editor preview
+both use `animationName`.
+
 ## Basic usage
 
 ### Editor
@@ -73,7 +76,7 @@ import { generateCss } from "web-keyframes";
 const css = generateCss({
   timelines: [
     {
-      id: "hero-logo",
+      animationName: "hero-logo",
       duration: 1200,
       keyframes: [
         {
@@ -161,7 +164,7 @@ editor.toCss();
 {
   "timelines": [
     {
-      "id": "hero-logo",
+      "animationName": "hero-logo",
       "duration": 1200,
       "translateConfig": {
         "unit": "px"
@@ -202,8 +205,10 @@ editor.toCss();
 }
 ```
 
-Each document contains `timelines[]`. Each timeline owns its own `id`, `positionType`,
-`translateConfig`, and `keyframes`.
+Each document contains `timelines[]`. Each timeline owns its own `animationName`,
+`positionType`, `translateConfig`, and `keyframes`.
+
+- `animationName`: CSS animation name used for generated `@keyframes` and editor preview
 
 Timelines support two position modes:
 

@@ -36,7 +36,7 @@ export function renderTimelineListSection(
                 data-wkf-action="select-timeline"
                 data-wkf-index="${index}"
               >
-                <span class="wkf__keyframe-time">${escapeHtml(timeline.id)}</span>
+                <span class="wkf__keyframe-time">${escapeHtml(timeline.animationName)}</span>
                 <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
                 <span class="wkf__keyframe-meta">${escapeHtml(formatTimelineSummary(timeline))}</span>
               </button>
