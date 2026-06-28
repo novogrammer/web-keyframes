@@ -219,106 +219,76 @@ export class WebKeyframesEditor {
       return;
     }
 
-    if (action === "hide") {
-      this.hide();
+    const syncHandler = this.createClickActionHandlers(actionTarget)[action];
+    if (syncHandler) {
+      syncHandler();
       return;
     }
-    if (action === "reset") {
-      this.previewController.disposeAppliedPreview();
-      resetEditorState(this.state, this.initialData);
-      setStatus(this.state, "success", "Reset editor data to the initial state.");
-      this.render();
-      return;
-    }
-    if (action === "select-timeline") {
-      this.state.selectedTimelineIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), this.state.data.timelines.length);
-      normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
-      this.render();
-      return;
-    }
-    if (action === "add-timeline" || action === "duplicate-timeline" || action === "delete-timeline") {
-      this.timelineCollectionController[action === "add-timeline" ? "addTimeline" : action === "duplicate-timeline" ? "duplicateTimeline" : "deleteTimeline"]();
-      this.render();
-      return;
-    }
-    if (action === "select-keyframe") {
-      this.state.selectedKeyframeIndex = clampIndex(Number(actionTarget.dataset.wkfIndex ?? "0"), renderStateKeyframeLength(this.state));
-      this.render();
-      return;
-    }
-    if (action === "set-timing-function") {
-      this.propertyController.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
-      this.render();
-      return;
-    }
-    if (action === "clear-timing-function") {
-      this.propertyController.clearTimingFunction();
-      this.render();
-      return;
-    }
-    if (action === "move-transform-up" || action === "move-transform-down") {
-      this.propertyController.moveSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"), action === "move-transform-up" ? -1 : 1);
-      this.render();
-      return;
-    }
-    if (action === "delete-transform") {
-      this.propertyController.deleteSelectedTransform(Number(actionTarget.dataset.wkfIndex ?? "0"));
-      this.render();
-      return;
-    }
-    if (action === "add-transform") {
-      this.propertyController.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
-      this.render();
-      return;
-    }
-    if (action === "add-opacity") {
-      this.propertyController.addOpacityProperty();
-      this.render();
-      return;
-    }
-    if (action === "delete-opacity") {
-      this.propertyController.deleteOpacityProperty();
-      this.render();
-      return;
-    }
-    if (action === "delete-transforms") {
-      this.propertyController.deleteTransformProperty();
-      this.render();
-      return;
-    }
-    if (action === "clear-transforms") {
-      this.propertyController.clearTransformProperty();
-      this.render();
-      return;
-    }
-    if (action === "add-keyframe" || action === "delete-keyframe" || action === "duplicate-keyframe") {
-      this.keyframeCollectionController[action === "add-keyframe" ? "addKeyframe" : action === "delete-keyframe" ? "deleteKeyframe" : "duplicateKeyframe"]();
-      this.render();
-      return;
-    }
+
     if (action === "copy-json" || action === "copy-css") {
       void this.handleCopyAction(action === "copy-json" ? "json" : "css");
-      return;
     }
-    if (action === "run-preview") {
-      this.previewController.runPreview();
-      this.render();
-      return;
-    }
-    if (action === "reset-preview") {
-      this.previewController.resetAppliedPreview();
-      this.render();
-      return;
-    }
-    if (action === "view-json" || action === "view-css") {
-      this.previewController.openGeneratedPreview(action === "view-json" ? "json" : "css");
-      this.render();
-      return;
-    }
-    if (action === "close-preview") {
-      this.previewController.closePreview("Closed preview.");
-      this.render();
-    }
+  }
+
+  private createClickActionHandlers(actionTarget: HTMLElement): Record<string, () => void> {
+    return {
+      hide: () => this.hide(),
+      reset: () => {
+        this.previewController.disposeAppliedPreview();
+        resetEditorState(this.state, this.initialData);
+        setStatus(this.state, "success", "Reset editor data to the initial state.");
+        this.render();
+      },
+      "select-timeline": () => this.handleSelectTimeline(actionTarget),
+      "add-timeline": () => this.runAndRender(() => this.timelineCollectionController.addTimeline()),
+      "duplicate-timeline": () => this.runAndRender(() => this.timelineCollectionController.duplicateTimeline()),
+      "delete-timeline": () => this.runAndRender(() => this.timelineCollectionController.deleteTimeline()),
+      "select-keyframe": () => this.handleSelectKeyframe(actionTarget),
+      "set-timing-function": () => this.runAndRender(() => {
+        this.propertyController.setTimingFunctionPreset(actionTarget.dataset.wkfValue ?? "");
+      }),
+      "clear-timing-function": () => this.runAndRender(() => this.propertyController.clearTimingFunction()),
+      "move-transform-up": () => this.handleMoveTransform(actionTarget, -1),
+      "move-transform-down": () => this.handleMoveTransform(actionTarget, 1),
+      "delete-transform": () => this.runAndRender(() => {
+        this.propertyController.deleteSelectedTransform(getActionIndex(actionTarget));
+      }),
+      "add-transform": () => this.runAndRender(() => {
+        this.propertyController.addSelectedTransform((actionTarget.dataset.wkfKind ?? "translate") as TransformKind);
+      }),
+      "add-opacity": () => this.runAndRender(() => this.propertyController.addOpacityProperty()),
+      "delete-opacity": () => this.runAndRender(() => this.propertyController.deleteOpacityProperty()),
+      "delete-transforms": () => this.runAndRender(() => this.propertyController.deleteTransformProperty()),
+      "clear-transforms": () => this.runAndRender(() => this.propertyController.clearTransformProperty()),
+      "add-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.addKeyframe()),
+      "delete-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.deleteKeyframe()),
+      "duplicate-keyframe": () => this.runAndRender(() => this.keyframeCollectionController.duplicateKeyframe()),
+      "run-preview": () => this.runAndRender(() => this.previewController.runPreview()),
+      "reset-preview": () => this.runAndRender(() => this.previewController.resetAppliedPreview()),
+      "view-json": () => this.runAndRender(() => this.previewController.openGeneratedPreview("json")),
+      "view-css": () => this.runAndRender(() => this.previewController.openGeneratedPreview("css")),
+      "close-preview": () => this.runAndRender(() => this.previewController.closePreview("Closed preview.")),
+    };
+  }
+
+  private handleSelectTimeline(actionTarget: HTMLElement): void {
+    this.state.selectedTimelineIndex = clampIndex(getActionIndex(actionTarget), this.state.data.timelines.length);
+    normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
+    this.render();
+  }
+
+  private handleSelectKeyframe(actionTarget: HTMLElement): void {
+    this.state.selectedKeyframeIndex = clampIndex(getActionIndex(actionTarget), renderStateKeyframeLength(this.state));
+    this.render();
+  }
+
+  private handleMoveTransform(actionTarget: HTMLElement, direction: -1 | 1): void {
+    this.runAndRender(() => this.propertyController.moveSelectedTransform(getActionIndex(actionTarget), direction));
+  }
+
+  private runAndRender(action: () => void): void {
+    action();
+    this.render();
   }
 
   private async handleCopyAction(kind: "json" | "css"): Promise<void> {
@@ -410,4 +380,8 @@ export class WebKeyframesEditor {
 
 function renderStateKeyframeLength(state: EditorState): number {
   return state.data.timelines[state.selectedTimelineIndex]?.keyframes.length ?? 0;
+}
+
+function getActionIndex(actionTarget: HTMLElement): number {
+  return Number(actionTarget.dataset.wkfIndex ?? "0");
 }

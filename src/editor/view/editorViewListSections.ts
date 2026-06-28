@@ -29,16 +29,11 @@ export function renderTimelineListSection(
         ${renderTimelines
           .map(
             (timeline, index) => `
-              <button
-                type="button"
-                class="wkf__keyframe-item${index === selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}"
-                data-wkf-action="select-timeline"
-                data-wkf-index="${index}"
-              >
+              ${renderSelectableListItem("select-timeline", index, index === selectedTimelineIndex, `
                 <span class="wkf__keyframe-time">${escapeHtml(timeline.animationName)}</span>
                 <span class="wkf__keyframe-percent">${escapeHtml(formatTimelinePositionSummary(timeline))}</span>
                 <span class="wkf__keyframe-meta">${escapeHtml(`${timeline.keyframes.length} keyframes`)}</span>
-              </button>
+              `)}
             `,
           )
           .join("")}
@@ -72,16 +67,11 @@ export function renderKeyframeListSection(
             ? selectedTimeline.keyframes
               .map(
                 (keyframe, index) => `
-                  <button
-                    type="button"
-                    class="wkf__keyframe-item${index === selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}"
-                    data-wkf-action="select-keyframe"
-                    data-wkf-index="${index}"
-                  >
+                  ${renderSelectableListItem("select-keyframe", index, index === selectedKeyframeIndex, `
                     <span class="wkf__keyframe-time">${escapeHtml(formatKeyframePositionLabel(keyframe, selectedTimeline))}</span>
                     <span class="wkf__keyframe-percent">${escapeHtml(formatKeyframeSecondaryLabel(keyframe, selectedTimeline))}</span>
                     <span class="wkf__keyframe-meta">${escapeHtml(formatKeyframeSummary(selectedSourceTimeline.keyframes[index] ?? keyframe, selectedTimeline.translateConfig))}</span>
-                  </button>
+                  `)}
                 `,
               )
               .join("")
@@ -89,5 +79,18 @@ export function renderKeyframeListSection(
         }
       </div>
     </div>
+  `;
+}
+
+function renderSelectableListItem(action: string, index: number, active: boolean, content: string): string {
+  return `
+    <button
+      type="button"
+      class="wkf__keyframe-item${active ? " wkf__keyframe-item--active" : ""}"
+      data-wkf-action="${action}"
+      data-wkf-index="${index}"
+    >
+      ${content}
+    </button>
   `;
 }

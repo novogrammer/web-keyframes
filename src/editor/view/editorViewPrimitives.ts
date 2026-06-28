@@ -74,9 +74,7 @@ export function renderNumberField(
         type="number"
         data-wkf-field="${escapeHtml(field)}"
         value="${escapeHtml(String(value))}"
-        ${min !== undefined ? `min="${min}"` : ""}
-        ${max !== undefined ? `max="${max}"` : ""}
-        ${step !== undefined ? `step="${step}"` : ""}
+        ${renderNumericInputAttributes(min, max, step)}
       >
     </label>
   `;
@@ -93,10 +91,7 @@ export function renderBoundedNumberField(
   return `
     <div class="wkf__field wkf__field--full">
       <span class="wkf__label">${escapeHtml(label)}</span>
-      <div class="wkf__time-row">
-        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-      </div>
+      ${renderRangeNumberInputs(field, value, min, max, step)}
     </div>
   `;
 }
@@ -113,10 +108,7 @@ export function renderRangeField(
   return `
     <div class="wkf__field wkf__field--time">
       <span class="wkf__label">${escapeHtml(label)}</span>
-      <div class="wkf__time-row">
-        <input class="wkf__range" type="range" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-        <input class="wkf__input" type="number" data-wkf-field="${escapeHtml(field)}" value="${escapeHtml(String(value))}" min="${min}" max="${max}" step="${step}">
-      </div>
+      ${renderRangeNumberInputs(field, value, min, max, step)}
       ${suffix !== "" ? `<span class="wkf__subtitle">${escapeHtml(suffix)}</span>` : ""}
     </div>
   `;
@@ -252,4 +244,30 @@ function renderTransformFields(transform: TransformOperation, index: number): st
     case "skew":
       return `${renderNumberField(`transform-x-${index}`, "Skew X", transform.x, undefined, 0.1)}${renderNumberField(`transform-y-${index}`, "Skew Y", transform.y, undefined, 0.1)}`;
   }
+}
+
+function renderRangeNumberInputs(
+  field: string,
+  value: number,
+  min: number,
+  max: number,
+  step: number,
+): string {
+  const escapedField = escapeHtml(field);
+  const escapedValue = escapeHtml(String(value));
+  const numericAttributes = renderNumericInputAttributes(min, max, step);
+  return `
+    <div class="wkf__time-row">
+      <input class="wkf__range" type="range" data-wkf-field="${escapedField}" value="${escapedValue}" ${numericAttributes}>
+      <input class="wkf__input" type="number" data-wkf-field="${escapedField}" value="${escapedValue}" ${numericAttributes}>
+    </div>
+  `;
+}
+
+function renderNumericInputAttributes(min?: number, max?: number, step?: number): string {
+  return [
+    min !== undefined ? `min="${min}"` : "",
+    max !== undefined ? `max="${max}"` : "",
+    step !== undefined ? `step="${step}"` : "",
+  ].filter(Boolean).join(" ");
 }

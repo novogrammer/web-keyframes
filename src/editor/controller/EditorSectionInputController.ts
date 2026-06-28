@@ -28,71 +28,71 @@ export class EditorSectionInputController {
   ) {}
 
   applyStringField(field: string, value: string): boolean {
-    return this.applyTimelineStringField(field, value)
-      || this.applyKeyframeStringField(field, value)
-      || this.applyTransformStringField(field, value);
+    const handler = this.timelineStringHandlers[field] ?? this.keyframeStringHandlers[field];
+    if (handler) {
+      handler(value);
+      return true;
+    }
+
+    return this.applyTransformStringField(field, value);
   }
 
   applyNumberField(field: string, value: number): boolean {
-    return this.applyTimelineNumberField(field, value)
-      || this.applyKeyframeNumberField(field, value)
-      || this.applyTransformNumberField(field, value);
-  }
-
-  private applyTimelineStringField(field: string, value: string): boolean {
-    switch (field) {
-      case "animationName":
-        if (value.trim() === "") {
-          return true;
-        }
-        updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          timeline.animationName = value.trim();
-        });
-        return true;
-      case "positionType":
-        updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          const nextPositionType = value === "percent" ? "percent" : "time";
-          if (nextPositionType === timeline.positionType) {
-            return;
-          }
-
-          if (nextPositionType === "percent") {
-            convertTimelineKeyframesToPercent(timeline, this.defaultTimelineData.duration ?? 1);
-            return;
-          }
-
-          convertTimelineKeyframesToTime(timeline, this.defaultTimelineData.duration ?? 1200);
-        });
-        normalizeEditorState(this.state, this.defaultTimelineData);
-        return true;
-      case "translateUnit":
-        updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          timeline.translateConfig = {
-            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-            unit: value as TranslateUnit,
-          };
-        });
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private applyKeyframeStringField(field: string, value: string): boolean {
-    if (field !== "timingFunction") {
-      return false;
+    const handler = this.timelineNumberHandlers[field] ?? this.keyframeNumberHandlers[field];
+    if (handler) {
+      handler(value);
+      return true;
     }
 
-    withSelectedKeyframe(this.state, (_, keyframe) => {
-      const trimmed = value.trim();
-      if (trimmed === "") {
-        delete keyframe.timingFunction;
-      } else {
-        keyframe.timingFunction = trimmed;
+    return this.applyTransformNumberField(field, value);
+  }
+
+  private readonly timelineStringHandlers: Record<string, (value: string) => void> = {
+    animationName: (value) => {
+      if (value.trim() === "") {
+        return;
       }
-    });
-    return true;
-  }
+      updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
+        timeline.animationName = value.trim();
+      });
+    },
+    positionType: (value) => {
+      updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
+        const nextPositionType = value === "percent" ? "percent" : "time";
+        if (nextPositionType === timeline.positionType) {
+          return;
+        }
+
+        if (nextPositionType === "percent") {
+          convertTimelineKeyframesToPercent(timeline, this.defaultTimelineData.duration ?? 1);
+          return;
+        }
+
+        convertTimelineKeyframesToTime(timeline, this.defaultTimelineData.duration ?? 1200);
+      });
+      normalizeEditorState(this.state, this.defaultTimelineData);
+    },
+    translateUnit: (value) => {
+      updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
+        timeline.translateConfig = {
+          ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+          unit: value as TranslateUnit,
+        };
+      });
+    },
+  };
+
+  private readonly keyframeStringHandlers: Record<string, (value: string) => void> = {
+    timingFunction: (value) => {
+      withSelectedKeyframe(this.state, (_, keyframe) => {
+        if (value.trim() === "") {
+          delete keyframe.timingFunction;
+          return;
+        }
+        keyframe.timingFunction = value.trim();
+      });
+    },
+  };
 
   private applyTransformStringField(field: string, value: string): boolean {
     if (!field.startsWith("transform-kind-")) {
@@ -106,55 +106,47 @@ export class EditorSectionInputController {
     return true;
   }
 
-  private applyTimelineNumberField(field: string, value: number): boolean {
-    switch (field) {
-      case "duration":
-        updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          if (timeline.positionType === "percent") {
-            return;
-          }
+  private readonly timelineNumberHandlers: Record<string, (value: number) => void> = {
+    duration: (value) => {
+      updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
+        if (timeline.positionType === "percent") {
+          return;
+        }
 
-          timeline.duration = Math.max(1, Math.round(value));
-          clampTimelineKeyframesToDuration(timeline);
-        });
-        normalizeEditorState(this.state, this.defaultTimelineData);
-        return true;
-      default:
-        return false;
-    }
-  }
+        timeline.duration = Math.max(1, Math.round(value));
+        clampTimelineKeyframesToDuration(timeline);
+      });
+      normalizeEditorState(this.state, this.defaultTimelineData);
+    },
+  };
 
-  private applyKeyframeNumberField(field: string, value: number): boolean {
-    switch (field) {
-      case "position":
-        updateSelectedTimelineKeyframes(this.state, this.defaultTimelineData, (keyframes, timeline) => {
-          const selected = keyframes[this.state.selectedKeyframeIndex];
-          if (!selected) {
-            return;
-          }
+  private readonly keyframeNumberHandlers: Record<string, (value: number) => void> = {
+    position: (value) => {
+      updateSelectedTimelineKeyframes(this.state, this.defaultTimelineData, (keyframes, timeline) => {
+        const selected = keyframes[this.state.selectedKeyframeIndex];
+        if (!selected) {
+          return;
+        }
 
-          const positionType = getTimelinePositionType(timeline);
-          const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-          applyEditorKeyframePosition(
-            selected,
-            positionType,
-            clampNumber(roundEditorPosition(value, positionType), 0, maxPosition),
-          );
-          keyframes.splice(0, keyframes.length, ...keyframes.sort(
-            (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-          ));
-          this.state.selectedKeyframeIndex = keyframes.indexOf(selected);
-        });
-        return true;
-      case "opacity":
-        withSelectedKeyframe(this.state, (_, keyframe) => {
-          upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-        });
-        return true;
-      default:
-        return false;
-    }
-  }
+        const positionType = getTimelinePositionType(timeline);
+        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+        applyEditorKeyframePosition(
+          selected,
+          positionType,
+          clampNumber(roundEditorPosition(value, positionType), 0, maxPosition),
+        );
+        keyframes.splice(0, keyframes.length, ...keyframes.sort(
+          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+        ));
+        this.state.selectedKeyframeIndex = keyframes.indexOf(selected);
+      });
+    },
+    opacity: (value) => {
+      withSelectedKeyframe(this.state, (_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+      });
+    },
+  };
 
   private applyTransformNumberField(field: string, value: number): boolean {
     const match = /^transform-(x|y|value)-(\d+)$/.exec(field);

@@ -13,6 +13,26 @@ import {
   renderTransformEditor,
 } from "./editorViewPrimitives.js";
 
+const POSITION_FIELD_CONFIG = {
+  time: {
+    label: "Time",
+    suffix: "ms",
+    step: 1,
+  },
+  percent: {
+    label: "Percent",
+    suffix: "%",
+    step: 0.1,
+  },
+} as const;
+
+const TRANSFORM_BUTTONS = [
+  { kind: "translate", label: "+ Translate" },
+  { kind: "scale", label: "+ Scale" },
+  { kind: "rotate", label: "+ Rotate" },
+  { kind: "skew", label: "+ Skew" },
+] as const;
+
 export function renderSelectedTimelineSection({ selectedTimeline }: EditorRenderState): string {
   return `
     <div class="wkf__section">
@@ -99,16 +119,17 @@ function renderSelectedKeyframeEditor(
   transformSourceState: EditorRenderState["transformSourceState"],
   selectedSourceTransforms: TransformOperation[],
 ): string {
+  const positionField = getPositionFieldConfig(selectedTimeline, selectedKeyframe);
   return `
     <div class="wkf__grid wkf__grid--editor">
       ${renderRangeField(
         "position",
-        selectedTimeline.positionType === "time" ? "Time" : "Percent",
-        selectedTimeline.positionType === "time" ? (selectedKeyframe.time ?? 0) : (selectedKeyframe.percent ?? 0),
+        positionField.label,
+        positionField.value,
         0,
-        selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
-        selectedTimeline.positionType === "time" ? 1 : 0.1,
-        selectedTimeline.positionType === "time" ? "ms" : "%",
+        positionField.max,
+        positionField.step,
+        positionField.suffix,
       )}
       ${renderTextField("timingFunction", "Timing Function", selectedTimingFunction)}
       ${renderTimingFunctionPresets()}
@@ -189,10 +210,10 @@ function renderTransformProperty(
   return `
     <div class="wkf__property">
       <div class="wkf__inline-actions wkf__inline-actions--wrap">
-        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="translate">+ Translate</button>
-        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="scale">+ Scale</button>
-        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="rotate">+ Rotate</button>
-        <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="skew">+ Skew</button>
+        ${TRANSFORM_BUTTONS.map(
+          ({ kind, label }) =>
+            `<button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" data-wkf-kind="${kind}">${label}</button>`,
+        ).join("")}
       </div>
       ${renderTransformPropertySummary(transformSourceState, selectedSourceTransforms.length)}
       <div class="wkf__transform-list">
@@ -200,6 +221,24 @@ function renderTransformProperty(
       </div>
     </div>
   `;
+}
+
+function getPositionFieldConfig(
+  selectedTimeline: EditorRenderState["selectedTimeline"],
+  selectedKeyframe: WebKeyframe,
+): {
+  label: string;
+  max: number;
+  step: number;
+  suffix: string;
+  value: number;
+} {
+  const config = POSITION_FIELD_CONFIG[selectedTimeline.positionType];
+  return {
+    ...config,
+    max: selectedTimeline.positionType === "time" ? Math.max(selectedTimeline.duration ?? 1, 1) : 100,
+    value: selectedTimeline.positionType === "time" ? (selectedKeyframe.time ?? 0) : (selectedKeyframe.percent ?? 0),
+  };
 }
 
 function renderTransformPropertySummary(
