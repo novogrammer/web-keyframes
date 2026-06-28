@@ -195,11 +195,11 @@ export class WebKeyframesEditor {
     "move-transform-down": (target) => this.runAction({ type: "transformAction", operation: "move", index: actionIndex(target), direction: 1 }),
     "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
     "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
-    "run-preview": () => this.runAndRender(() => this.dom.runPreview()),
-    "reset-preview": () => this.runAndRender(() => this.dom.resetAppliedPreview()),
-    "view-json": () => this.runAndRender(() => this.dom.openPreview("json")),
-    "view-css": () => this.runAndRender(() => this.dom.openPreview("css")),
-    "close-preview": () => this.runAndRender(() => this.dom.closePreview("Closed preview.")),
+    "run-preview": () => { this.dom.runPreview(); this.render(); },
+    "reset-preview": () => { this.dom.resetAppliedPreview(); this.render(); },
+    "view-json": () => { this.dom.openPreview("json"); this.render(); },
+    "view-css": () => { this.dom.openPreview("css"); this.render(); },
+    "close-preview": () => { this.dom.closePreview("Closed preview."); this.render(); },
   };
 
   private async handleCopy(kind: "json" | "css"): Promise<void> {
@@ -237,12 +237,18 @@ export class WebKeyframesEditor {
         this.dom.syncNumberFieldValues(this.container, field, value, input);
         return;
       }
-      this.commitNumberEdit(field, input);
+      const value = Number(input.value);
+      if (Number.isFinite(value)) {
+        this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
+      }
       return;
     }
     if (input.type === "number") {
       if (eventType === "change") {
-        this.commitNumberEdit(field, input);
+        const value = Number(input.value);
+        if (Number.isFinite(value)) {
+          this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
+        }
       }
       return;
     }
@@ -251,23 +257,11 @@ export class WebKeyframesEditor {
     }
   }
 
-  private commitNumberEdit(field: string, input: HTMLInputElement): void {
-    const value = Number(input.value);
-    if (Number.isFinite(value)) {
-      this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
-    }
-  }
-
   private commitFieldEdit(action: { type: "fieldAction"; field: string; value: string | number }, field: string, input: HTMLInputElement | HTMLSelectElement): void {
     const focusSnapshot = this.dom.captureFocusSnapshot(this.container, field, input);
     if (dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { ...action, focusSnapshot })) {
       this.render();
     }
-  }
-
-  private runAndRender(run: () => void): void {
-    run();
-    this.render();
   }
 
   private runAction(actionOrFactory: EditorAction | (() => EditorAction)): void {
