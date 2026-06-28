@@ -1,17 +1,16 @@
 import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, cloneTimeline, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
-import { deriveEditorRenderState, sanitizeEditorDocument } from "./editorModel.js";
-import { EditorLifecycleController } from "./controller/EditorLifecycleController.js";
-import { EditorPreviewController } from "./controller/EditorPreviewController.js";
-import { dispatchEditorAction, type EditorAction } from "./editorReducer.js";
 import {
-  type EditorState,
   createEditorState,
+  dispatchEditorAction,
+  type EditorAction,
+  type EditorState,
   normalizeEditorState,
-} from "./editorStateController.js";
-import { createEditorContainer } from "./editorShell.js";
-import { renderEditorPanel } from "./view/editorView.js";
+  renderEditorPanel,
+  sanitizeEditorDocument,
+} from "./editorCore.js";
+import { EditorDomController } from "./editorDom.js";
 
 type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -22,51 +21,32 @@ type WebKeyframesEditorOptions = {
 const DEFAULT_TIMELINE_DATA: WebKeyframesTimeline = {
   animationName: "new-animation",
   positionType: "percent",
-  translateConfig: {
-    unit: DEFAULT_TRANSLATE_CONFIG.unit,
-  },
+  translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
   keyframes: [
     {
       percent: 0,
       properties: [
         { kind: "opacity", value: 0 },
-        {
-          kind: "transform",
-          value: [
-            { kind: "translate", x: 0, y: 40 },
-            { kind: "scale", x: 1, y: 1 },
-            { kind: "rotate", value: 0 },
-          ],
-        },
+        { kind: "transform", value: [{ kind: "translate", x: 0, y: 40 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
       ],
     },
     {
       percent: 100,
       properties: [
         { kind: "opacity", value: 1 },
-        {
-          kind: "transform",
-          value: [
-            { kind: "translate", x: 0, y: 0 },
-            { kind: "scale", x: 1, y: 1 },
-            { kind: "rotate", value: 0 },
-          ],
-        },
+        { kind: "transform", value: [{ kind: "translate", x: 0, y: 0 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
       ],
     },
   ],
 };
 
-const DEFAULT_EDITOR_DATA: WebKeyframesDocument = {
-  timelines: [cloneTimeline(DEFAULT_TIMELINE_DATA)],
-};
+const DEFAULT_EDITOR_DATA: WebKeyframesDocument = { timelines: [cloneTimeline(DEFAULT_TIMELINE_DATA)] };
 
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly initialData: WebKeyframesDocument;
   private readonly state: EditorState;
-  private readonly previewController: EditorPreviewController;
-  private readonly lifecycleController: EditorLifecycleController;
+  private readonly dom: EditorDomController;
   private container: HTMLElement | null = null;
   private mounted = false;
 
@@ -74,17 +54,17 @@ export class WebKeyframesEditor {
     if (!(options.root instanceof HTMLElement)) {
       throw new Error("root must be an HTMLElement.");
     }
-
     this.root = options.root;
     this.initialData = sanitizeEditorDocument(options.initialData ?? DEFAULT_EDITOR_DATA, DEFAULT_TIMELINE_DATA);
     this.state = createEditorState(this.initialData, DEFAULT_TIMELINE_DATA);
-    this.previewController = new EditorPreviewController(this.root, this.state, () => this.toJson(), () => this.toCss());
-    this.lifecycleController = new EditorLifecycleController(this.root, {
+    this.dom = new EditorDomController(this.root, this.state, {
       shortcut: options.shortcut,
+      getJson: () => this.toJson(),
+      getCss: () => this.toCss(),
       onToggle: () => this.toggle(),
       onEscape: () => {
         if (this.state.previewTitle !== null) {
-          this.previewController.closePreview("Closed preview.");
+          this.dom.closePreview("Closed preview.");
           this.render();
         }
       },
@@ -98,13 +78,10 @@ export class WebKeyframesEditor {
     if (this.mounted) {
       throw new Error("mount() has already been called.");
     }
-
-    const ownerDocument = this.root.ownerDocument;
-    const container = createEditorContainer(ownerDocument);
-    this.container = container;
+    this.container = this.dom.createContainer();
     this.render();
-    this.lifecycleController.mount(container);
-    this.root.append(container);
+    this.dom.mount(this.container);
+    this.root.append(this.container);
     this.mounted = true;
   }
 
@@ -112,9 +89,8 @@ export class WebKeyframesEditor {
     if (!this.mounted) {
       return;
     }
-
-    this.previewController.disposeAppliedPreview();
-    this.lifecycleController.unmount(this.container);
+    this.dom.disposeAppliedPreview();
+    this.dom.unmount();
     this.container?.remove();
     this.container = null;
     this.mounted = false;
@@ -122,17 +98,17 @@ export class WebKeyframesEditor {
 
   show(): void {
     this.ensureMounted();
-    this.lifecycleController.show(this.container!);
+    this.dom.show(this.container!);
   }
 
   hide(): void {
     this.ensureMounted();
-    this.lifecycleController.hide(this.container!);
+    this.dom.hide(this.container!);
   }
 
   toggle(): void {
     this.ensureMounted();
-    this.lifecycleController.toggle(this.container!);
+    this.dom.toggle(this.container!);
   }
 
   getData(): WebKeyframesDocument {
@@ -142,7 +118,7 @@ export class WebKeyframesEditor {
   setData(data: WebKeyframesDocument): void {
     this.state.data = sanitizeEditorDocument(data, DEFAULT_TIMELINE_DATA);
     normalizeEditorState(this.state, DEFAULT_TIMELINE_DATA);
-    if (this.container !== null) {
+    if (this.container) {
       this.render();
     }
   }
@@ -162,226 +138,146 @@ export class WebKeyframesEditor {
   }
 
   private render(): void {
-    if (this.container === null) {
+    if (!this.container) {
       return;
     }
-
-    const renderState = deriveEditorRenderState(
-      this.state.data,
-      this.state.selectedTimelineIndex,
-      this.state.selectedKeyframeIndex,
-      DEFAULT_TIMELINE_DATA,
-    );
-    this.state.selectedTimelineIndex = renderState.selectedTimelineIndex;
-    this.state.selectedKeyframeIndex = renderState.selectedKeyframeIndex;
-    this.container.innerHTML = renderEditorPanel(renderState, {
-      selectedTimelineIndex: this.state.selectedTimelineIndex,
-      selectedKeyframeIndex: this.state.selectedKeyframeIndex,
-      previewTitle: this.state.previewTitle,
-      previewContent: this.state.previewContent,
-      statusMessage: this.state.statusMessage,
-      statusTone: this.state.statusTone,
-    });
-    this.lifecycleController.bindDragging(this.container, this.state.panelPosition, (position) => {
-      this.state.panelPosition = position;
-    });
-    queueMicrotask(() => this.lifecycleController.restoreFocus(this.container, this.state.pendingFocus, () => {
+    this.container.innerHTML = renderEditorPanel(this.state, DEFAULT_TIMELINE_DATA);
+    this.dom.syncPanel(this.container, this.state.panelPosition);
+    queueMicrotask(() => this.dom.restoreFocus(this.container, this.state.pendingFocus, () => {
       this.state.pendingFocus = null;
     }));
   }
 
   private handleDelegatedClick(event: MouseEvent): void {
     const target = event.target;
-    if (!(target instanceof Element) || this.container === null) {
+    if (!(target instanceof Element) || !this.container) {
       return;
     }
-
     const actionTarget = target.closest<HTMLElement>("[data-wkf-action]");
     if (!actionTarget || !this.container.contains(actionTarget) || actionTarget.hasAttribute("disabled")) {
       return;
     }
-
     const action = actionTarget.dataset.wkfAction;
     if (!action) {
       return;
     }
-
-    const syncHandler = this.clickActions[action];
-    if (syncHandler) {
-      syncHandler();
-      return;
-    }
-
-    if (action === "select-timeline") {
-      this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index: getActionIndex(actionTarget) });
-      return;
-    }
-    if (action === "select-keyframe") {
-      this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index: getActionIndex(actionTarget) });
-      return;
-    }
-    if (action === "set-timing-function") {
-      this.runAction({
-        type: "fieldAction",
-        field: "timingFunction",
-        value: actionTarget.dataset.wkfValue ?? "",
-      });
-      return;
-    }
-    if (action === "move-transform-up" || action === "move-transform-down") {
-      this.runAction({
-        type: "transformAction",
-        operation: "move",
-        index: getActionIndex(actionTarget),
-        direction: action === "move-transform-up" ? -1 : 1,
-      });
-      return;
-    }
-    if (action === "delete-transform") {
-      this.runAction({ type: "transformAction", operation: "delete", index: getActionIndex(actionTarget) });
-      return;
-    }
-    if (action === "add-transform") {
-      this.runAction({
-        type: "transformAction",
-        operation: "add",
-        kind: (actionTarget.dataset.wkfKind ?? "translate") as TransformKind,
-      });
+    const immediate = this.clickActions[action];
+    if (immediate) {
+      immediate(actionTarget);
       return;
     }
     if (action === "copy-json" || action === "copy-css") {
-      void this.handleCopyAction(action === "copy-json" ? "json" : "css");
+      void this.handleCopy(action === "copy-json" ? "json" : "css");
     }
   }
 
-  private readonly clickActions: Record<string, () => void> = {
+  private readonly clickActions: Record<string, (target: HTMLElement) => void> = {
     hide: () => this.hide(),
     reset: () => this.runAction(() => {
-      this.previewController.disposeAppliedPreview();
+      this.dom.disposeAppliedPreview();
       return { type: "reset", initialData: this.initialData };
     }),
     "add-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "add" }),
     "duplicate-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "duplicate" }),
     "delete-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "delete" }),
+    "select-timeline": (target) => this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index: actionIndex(target) }),
+    "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
+    "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
+    "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
+    "select-keyframe": (target) => this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index: actionIndex(target) }),
+    "set-timing-function": (target) => this.runAction({ type: "fieldAction", field: "timingFunction", value: target.dataset.wkfValue ?? "" }),
     "clear-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" }),
     "add-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "add", value: 1 }),
     "delete-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 }),
+    "add-transform": (target) => this.runAction({ type: "transformAction", operation: "add", kind: (target.dataset.wkfKind ?? "translate") as TransformKind }),
+    "delete-transform": (target) => this.runAction({ type: "transformAction", operation: "delete", index: actionIndex(target) }),
+    "move-transform-up": (target) => this.runAction({ type: "transformAction", operation: "move", index: actionIndex(target), direction: -1 }),
+    "move-transform-down": (target) => this.runAction({ type: "transformAction", operation: "move", index: actionIndex(target), direction: 1 }),
     "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
     "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
-    "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
-    "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
-    "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
-    "run-preview": () => this.runAndRender(() => this.previewController.runPreview()),
-    "reset-preview": () => this.runAndRender(() => this.previewController.resetAppliedPreview()),
-    "view-json": () => this.runAndRender(() => this.previewController.openGeneratedPreview("json")),
-    "view-css": () => this.runAndRender(() => this.previewController.openGeneratedPreview("css")),
-    "close-preview": () => this.runAndRender(() => this.previewController.closePreview("Closed preview.")),
+    "run-preview": () => this.runAndRender(() => this.dom.runPreview()),
+    "reset-preview": () => this.runAndRender(() => this.dom.resetAppliedPreview()),
+    "view-json": () => this.runAndRender(() => this.dom.openPreview("json")),
+    "view-css": () => this.runAndRender(() => this.dom.openPreview("css")),
+    "close-preview": () => this.runAndRender(() => this.dom.closePreview("Closed preview.")),
   };
 
-  private runAndRender(action: () => void): void {
-    action();
-    this.render();
-  }
-
-  private async handleCopyAction(kind: "json" | "css"): Promise<void> {
-    await this.previewController.copyPayload(kind);
+  private async handleCopy(kind: "json" | "css"): Promise<void> {
+    await this.dom.copyPayload(kind);
     this.render();
   }
 
   private handleDelegatedInput(event: Event): void {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.dataset.wkfField) {
-      return;
+    if (target instanceof HTMLInputElement && target.dataset.wkfField) {
+      this.handleFieldUpdate(target.dataset.wkfField, target, "input");
     }
-
-    this.handleFieldUpdate(target.dataset.wkfField, target, "input");
   }
 
   private handleDelegatedChange(event: Event): void {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || !target.dataset.wkfField) {
-      return;
+    if ((target instanceof HTMLInputElement || target instanceof HTMLSelectElement) && target.dataset.wkfField) {
+      this.handleFieldUpdate(target.dataset.wkfField, target, "change");
     }
-
-    this.handleFieldUpdate(target.dataset.wkfField, target, "change");
   }
 
-  private handleFieldUpdate(
-    field: string,
-    input: HTMLInputElement | HTMLSelectElement,
-    eventType: "input" | "change",
-  ): void {
+  private handleFieldUpdate(field: string, input: HTMLInputElement | HTMLSelectElement, eventType: "input" | "change"): void {
     if (input instanceof HTMLSelectElement) {
       if (eventType === "change") {
         this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
       }
       return;
     }
-
     if (input.type === "range") {
       if (eventType === "input") {
         const value = Number(input.value);
-        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, {
-          type: "fieldAction",
-          field,
-          value,
-        })) {
+        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { type: "fieldAction", field, value })) {
           return;
         }
-
-        this.lifecycleController.syncNumberFieldValues(this.container, field, value, input);
+        this.dom.syncNumberFieldValues(this.container, field, value, input);
         return;
       }
-
-      this.commitNumericFieldEdit(field, input);
+      this.commitNumberEdit(field, input);
       return;
     }
-
     if (input.type === "number") {
       if (eventType === "change") {
-        this.commitNumericFieldEdit(field, input);
+        this.commitNumberEdit(field, input);
       }
       return;
     }
-
     if (eventType === "input") {
       this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
     }
   }
 
-  private commitNumericFieldEdit(field: string, input: HTMLInputElement): void {
+  private commitNumberEdit(field: string, input: HTMLInputElement): void {
     const value = Number(input.value);
-    if (!Number.isFinite(value)) {
-      return;
+    if (Number.isFinite(value)) {
+      this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
     }
-
-    this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
   }
 
-  private commitFieldEdit(
-    action: { type: "fieldAction"; field: string; value: string | number },
-    field: string,
-    input: HTMLInputElement | HTMLSelectElement,
-  ): void {
-    const focusSnapshot = this.lifecycleController.captureFocusSnapshot(this.container, field, input);
-    if (!dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { ...action, focusSnapshot })) {
-      return;
+  private commitFieldEdit(action: { type: "fieldAction"; field: string; value: string | number }, field: string, input: HTMLInputElement | HTMLSelectElement): void {
+    const focusSnapshot = this.dom.captureFocusSnapshot(this.container, field, input);
+    if (dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, { ...action, focusSnapshot })) {
+      this.render();
     }
+  }
 
+  private runAndRender(run: () => void): void {
+    run();
     this.render();
   }
 
-  private runAction(
-    actionOrFactory: EditorAction | (() => EditorAction),
-  ): void {
+  private runAction(actionOrFactory: EditorAction | (() => EditorAction)): void {
     const action = typeof actionOrFactory === "function" ? actionOrFactory() : actionOrFactory;
-    if (!dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, action)) {
-      return;
+    if (dispatchEditorAction(this.state, DEFAULT_TIMELINE_DATA, action)) {
+      this.render();
     }
-    this.render();
   }
 }
 
-function getActionIndex(actionTarget: HTMLElement): number {
-  return Number(actionTarget.dataset.wkfIndex ?? "0");
+function actionIndex(target: HTMLElement): number {
+  return Number(target.dataset.wkfIndex ?? "0");
 }
