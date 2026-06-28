@@ -8,6 +8,7 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 - Breaking: removed timeline `id` and made `animationName` the only timeline name; generated `@keyframes` and editor preview now use `animationName`
 - Updated the editor UI, tests, and example timeline JSON files to require explicit `animationName`
+- Breaking: removed `translateConfig.customUnit` and replaced `custom` units with a fixed translate unit set: `px`, `vw`, `vh`, `vmin`, `vmax`, `%`, `em`, and `rem`
 
 ## [0.3.0] - 2026-06-25
 

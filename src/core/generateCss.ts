@@ -72,8 +72,7 @@ function renderTranslateValue(
   value: number,
   translateConfig: NormalizedTranslateConfig,
 ): string {
-  const unit = translateConfig.unit === "custom" ? translateConfig.customUnit ?? "px" : translateConfig.unit;
-  return `${formatNumber(value)}${unit}`;
+  return `${formatNumber(value)}${translateConfig.unit}`;
 }
 
 function formatPercent(value: number): string {

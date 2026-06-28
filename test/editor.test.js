@@ -194,21 +194,16 @@ test("timeline selection switches the visible editor", async () => {
   assert.match(editor.toCss(), /@keyframes hero-out/);
 });
 
-test("custom unit input keeps focus while typing", async () => {
+test("translate unit select supports additional fixed units", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
   editor.mount();
-  setSelectValue(window.document, "translateUnit", "custom");
+  const textInputCountBefore = window.document.querySelectorAll(".wkf input[type='text']").length;
+  setSelectValue(window.document, "translateUnit", "vmin");
 
-  const input = window.document.querySelector("[data-wkf-field='translateCustomUnit']");
-  input.focus();
-  input.value = "v";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await Promise.resolve();
-
-  const nextInput = window.document.querySelector("[data-wkf-field='translateCustomUnit']");
-  assert.equal(window.document.activeElement, nextInput);
+  assert.equal(editor.getData().timelines[0].translateConfig?.unit, "vmin");
+  assert.equal(window.document.querySelectorAll(".wkf input[type='text']").length, textInputCountBefore);
 });
 
 test("sparse initialData round-trips through getData and toJson without densifying keyframes", () => {
@@ -465,8 +460,7 @@ test("keyframe list summary reflects translate settings and sparse fields withou
   const editor = new WebKeyframesEditor({ root: window.document.body });
 
   editor.mount();
-  setSelectValue(window.document, "translateUnit", "custom");
-  setInputValue(window.document, "translateCustomUnit", "rem");
+  setSelectValue(window.document, "translateUnit", "rem");
   setNumberValue(window.document, "transform-x-0", 2);
   setNumberValue(window.document, "transform-y-0", 4);
   setInputValue(window.document, "timingFunction", "ease-out");

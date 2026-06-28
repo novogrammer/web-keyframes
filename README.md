@@ -209,6 +209,7 @@ Each document contains `timelines[]`. Each timeline owns its own `animationName`
 `positionType`, `translateConfig`, and `keyframes`.
 
 - `animationName`: CSS animation name used for generated `@keyframes` and editor preview
+- `translateConfig.unit`: one of `px`, `vw`, `vh`, `vmin`, `vmax`, `%`, `em`, or `rem`
 
 Timelines support two position modes:
 

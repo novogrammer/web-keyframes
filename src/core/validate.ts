@@ -14,7 +14,7 @@ import type {
   WebKeyframesTimeline,
 } from "./types.js";
 
-const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "%", "custom"]);
+const TRANSLATE_UNITS = new Set(["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"]);
 const TRANSFORM_KINDS = new Set(["translate", "scale", "rotate", "skew"]);
 const PROPERTY_KINDS = new Set(["opacity", "transform"]);
 
@@ -115,15 +115,7 @@ function validateTranslate(translate: unknown, prefix: string): string[] {
   const issues: string[] = [];
 
   if (typeof candidate.unit !== "string" || !TRANSLATE_UNITS.has(candidate.unit)) {
-    issues.push(`${prefix}translateConfig.unit must be one of px, vw, vh, %, or custom.`);
-  }
-
-  if (candidate.customUnit !== undefined && typeof candidate.customUnit !== "string") {
-    issues.push(`${prefix}translateConfig.customUnit must be a string when provided.`);
-  }
-
-  if (candidate.unit === "custom" && (!candidate.customUnit || candidate.customUnit.trim() === "")) {
-    issues.push(`${prefix}translateConfig.customUnit is required when translateConfig.unit is custom.`);
+    issues.push(`${prefix}translateConfig.unit must be one of px, vw, vh, vmin, vmax, %, em, or rem.`);
   }
 
   return issues;

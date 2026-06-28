@@ -19,7 +19,6 @@ import type {
 
 type RenderTranslateConfig = {
   unit: TranslateUnit;
-  customUnit: string;
 };
 
 type RenderWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes" | "duration" | "positionType"> & {
@@ -100,7 +99,6 @@ function getRenderTimelines(data: WebKeyframesDocument): RenderWebKeyframesTimel
       : null,
     translateConfig: {
       unit: timeline.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: timeline.translateConfig?.unit === "custom" ? timeline.translateConfig.customUnit?.trim() || "" : "",
     },
     keyframes: timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe)),
   }));
@@ -144,7 +142,6 @@ function sanitizeEditorTimeline(
       : {}),
     translateConfig: {
       unit: isTranslateUnit(data.translateConfig?.unit) ? data.translateConfig.unit : DEFAULT_TRANSLATE_CONFIG.unit,
-      customUnit: typeof data.translateConfig?.customUnit === "string" ? data.translateConfig.customUnit : undefined,
     },
     keyframes: resolvedKeyframes.map((keyframe) => (
       positionType === "time"
@@ -317,5 +314,5 @@ export function roundEditorPosition(value: number, positionType: KeyframePositio
 }
 
 function isTranslateUnit(value: unknown): value is TranslateUnit {
-  return value === "px" || value === "vw" || value === "vh" || value === "%" || value === "custom";
+  return value === "px" || value === "vw" || value === "vh" || value === "vmin" || value === "vmax" || value === "%" || value === "em" || value === "rem";
 }

@@ -69,11 +69,10 @@ export type NormalizedWebKeyframe = {
   properties: KeyframeProperty[];
 };
 
-export type TranslateUnit = "px" | "vw" | "vh" | "%" | "custom";
+export type TranslateUnit = "px" | "vw" | "vh" | "vmin" | "vmax" | "%" | "em" | "rem";
 
 export type TranslateConfig = {
   unit: TranslateUnit;
-  customUnit?: string;
 };
 
 export type WebKeyframesTimeline = {
@@ -90,7 +89,6 @@ export type WebKeyframesDocument = {
 
 export type NormalizedTranslateConfig = {
   unit: TranslateUnit;
-  customUnit: string | null;
 };
 
 export type NormalizedWebKeyframesTimeline = Omit<WebKeyframesTimeline, "translateConfig" | "keyframes" | "duration" | "positionType"> & {

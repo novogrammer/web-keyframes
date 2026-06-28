@@ -209,6 +209,7 @@ document は `timelines[]` を持ち、各 timeline が自分の `animationName`
 `translateConfig`、`keyframes` を持ちます。
 
 - `animationName`: 生成される `@keyframes` と editor preview に使う CSS animation 名
+- `translateConfig.unit`: `px`, `vw`, `vh`, `vmin`, `vmax`, `%`, `em`, `rem` のいずれか
 
 timeline の位置指定モードは 2 種類あります。
 

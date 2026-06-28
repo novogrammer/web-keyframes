@@ -32,14 +32,12 @@ export function renderSelectedTimelineSection({ selectedTimeline }: EditorRender
           { value: "px", label: "px" },
           { value: "vw", label: "vw" },
           { value: "vh", label: "vh" },
+          { value: "vmin", label: "vmin" },
+          { value: "vmax", label: "vmax" },
           { value: "%", label: "%" },
-          { value: "custom", label: "custom" },
+          { value: "em", label: "em" },
+          { value: "rem", label: "rem" },
         ])}
-        ${
-          selectedTimeline.translateConfig.unit === "custom"
-            ? renderTextField("translateCustomUnit", "Custom Unit", selectedTimeline.translateConfig.customUnit ?? "")
-            : ""
-        }
       </div>
     </div>
   `;

@@ -62,14 +62,6 @@ export class EditorSectionInputController {
         });
         normalizeEditorState(this.state, this.defaultTimelineData);
         return true;
-      case "translateCustomUnit":
-        updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
-          timeline.translateConfig = {
-            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-            customUnit: value,
-          };
-        });
-        return true;
       case "translateUnit":
         updateSelectedTimeline(this.state, this.defaultTimelineData, (timeline) => {
           timeline.translateConfig = {

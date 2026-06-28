@@ -368,7 +368,7 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
           {
             ...baseTimeline,
             translateConfig: {
-              unit: "custom",
+              unit: "abc",
             },
           },
         ],
@@ -376,7 +376,7 @@ test("validateWebKeyframesDocument rejects invalid translate settings", () => {
     (error) =>
       error instanceof Error &&
       error.name === "WebKeyframesValidationError" &&
-      error.issues.includes("timelines[0].translateConfig.customUnit is required when translateConfig.unit is custom."),
+      error.issues.includes("timelines[0].translateConfig.unit must be one of px, vw, vh, vmin, vmax, %, em, or rem."),
   );
 });
 
