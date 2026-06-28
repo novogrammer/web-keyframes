@@ -13,9 +13,7 @@ import type {
 export function generateCss(data: WebKeyframesDocument): string {
   const normalized = normalizeWebKeyframesDocument(data);
 
-  return formatCss(
-    normalized.timelines.map((timeline) => renderTimelineCss(timeline)),
-  );
+  return `${normalized.timelines.map((timeline) => renderTimelineCss(timeline)).join("\n\n")}\n`;
 }
 
 function renderTimelineCss(
@@ -84,8 +82,4 @@ export function formatNumber(value: number): string {
   }
 
   return value.toFixed(3).replace(/\.?0+$/, "");
-}
-
-export function formatCss(blocks: string[]): string {
-  return `${blocks.join("\n\n")}\n`;
 }

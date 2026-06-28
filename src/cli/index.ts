@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { formatCss, generateCss } from "../core/generateCss.js";
+import { generateCss } from "../core/generateCss.js";
 import type { WebKeyframesDocument } from "../core/types.js";
 
 type CliIO = {
@@ -93,7 +93,7 @@ async function buildCssFromInput(inputPath: string): Promise<string> {
       }),
     );
 
-    return formatCss(blocks.map((block) => block.trimEnd()));
+    return `${blocks.map((block) => block.trimEnd()).join("\n\n")}\n`;
   }
 
   if (!inputStat.isFile()) {
