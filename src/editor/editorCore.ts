@@ -318,15 +318,31 @@ function dispatchFieldAction(
   const operation = action.operation ?? "set";
   const focusSnapshot = action.focusSnapshot ?? null;
   if (typeof action.value === "string") {
-    const handlers: Record<string, () => boolean> = {
-      animationName: () => {
-        if (action.value!.trim() === "") {
-          return commitField(state, focusSnapshot);
+    if (action.field === "timingFunction") {
+      if (operation === "clear") {
+        return editSelectedKeyframe(state, "Editing timeline data.", (_, keyframe) => {
+          delete keyframe.timingFunction;
+          state.pendingFocus = { field: "timingFunction", index: 0, selectionStart: 0, selectionEnd: 0 };
+        });
+      }
+      editSelectedKeyframe(state, "", (_, keyframe) => {
+        const value = action.value!.trim();
+        if (value === "") {
+          delete keyframe.timingFunction;
+        } else {
+          keyframe.timingFunction = value;
         }
+      }, false);
+      return commitField(state, focusSnapshot);
+    }
+    if (action.value.trim() === "" && action.field === "animationName") {
+      return commitField(state, focusSnapshot);
+    }
+    const handlers: Record<string, () => void> = {
+      animationName: () => {
         editTimeline(state, defaults, (timeline) => {
           timeline.animationName = action.value!.trim();
         });
-        return commitField(state, focusSnapshot);
       },
       positionType: () => {
         editTimeline(state, defaults, (timeline) => {
@@ -340,35 +356,17 @@ function dispatchFieldAction(
             convertKeyframesToTime(timeline, defaults.duration ?? 1200);
           }
         });
-        return commitField(state, focusSnapshot);
       },
       translateUnit: () => {
         editTimeline(state, defaults, (timeline) => {
           timeline.translateConfig = { ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }), unit: action.value as TranslateUnit };
         });
-        return commitField(state, focusSnapshot);
-      },
-      timingFunction: () => {
-        if (operation === "clear") {
-          return editSelectedKeyframe(state, "Editing timeline data.", (_, keyframe) => {
-            delete keyframe.timingFunction;
-            state.pendingFocus = { field: "timingFunction", index: 0, selectionStart: 0, selectionEnd: 0 };
-          });
-        }
-        editSelectedKeyframe(state, "", (_, keyframe) => {
-          const value = action.value!.trim();
-          if (value === "") {
-            delete keyframe.timingFunction;
-          } else {
-            keyframe.timingFunction = value;
-          }
-        }, false);
-        return commitField(state, focusSnapshot);
       },
     };
     const handler = handlers[action.field];
     if (handler) {
-      return handler();
+      handler();
+      return commitField(state, focusSnapshot);
     }
     const transformField = parseTransformField(action.field);
     return transformField?.type === "kind"
@@ -393,7 +391,7 @@ function dispatchFieldAction(
           deleteKeyframeProperty(keyframe, "opacity");
         });
   }
-  const handlers: Record<string, () => boolean> = {
+  const handlers: Record<string, () => void> = {
     duration: () => {
       editTimeline(state, defaults, (timeline) => {
         if (timeline.positionType === "percent") {
@@ -406,7 +404,6 @@ function dispatchFieldAction(
           return next;
         });
       });
-      return commitField(state, focusSnapshot);
     },
     position: () => {
       editTimeline(state, defaults, (timeline) => {
@@ -420,18 +417,17 @@ function dispatchFieldAction(
         timeline.keyframes = sortKeyframes(timeline.keyframes, type);
         state.selectedKeyframeIndex = timeline.keyframes.indexOf(selected);
       });
-      return commitField(state, focusSnapshot);
     },
     opacity: () => {
       editSelectedKeyframe(state, "", (_, keyframe) => {
         upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(action.value!, 0, 1)));
       }, false);
-      return commitField(state, focusSnapshot);
     },
   };
   const handler = handlers[action.field];
   if (handler) {
-    return handler();
+    handler();
+    return commitField(state, focusSnapshot);
   }
   const transformField = parseTransformField(action.field);
   return transformField?.type === "value"
