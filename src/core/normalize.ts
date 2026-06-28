@@ -33,19 +33,18 @@ export function normalizeWebKeyframesTimeline(data: WebKeyframesTimeline): Norma
 }
 
 function normalizeValidatedTimeline(validated: WebKeyframesTimeline): NormalizedWebKeyframesTimeline {
-  const translateConfig = validated.translateConfig;
   const positionType = getTimelinePositionType(validated);
-  const sortedKeyframes = [...validated.keyframes].sort(
-    (left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType),
-  );
-  const keyframes = sortedKeyframes.map((keyframe) => normalizeKeyframe(keyframe, positionType, validated.duration ?? null));
+  const duration = positionType === "time" ? validated.duration ?? null : null;
+  const keyframes = [...validated.keyframes]
+    .sort((left, right) => getKeyframePositionValue(left, positionType) - getKeyframePositionValue(right, positionType))
+    .map((keyframe) => normalizeKeyframe(keyframe, positionType, duration));
 
   return {
     animationName: validated.animationName.trim(),
     positionType,
-    duration: positionType === "time" ? validated.duration ?? null : null,
+    duration,
     translateConfig: {
-      unit: translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
+      unit: validated.translateConfig?.unit ?? DEFAULT_TRANSLATE_CONFIG.unit,
     },
     keyframes,
   };
@@ -56,14 +55,11 @@ function normalizeKeyframe(
   positionType: KeyframePositionMode,
   duration: number | null,
 ): NormalizedWebKeyframe {
-  const time = positionType === "time" ? (keyframe.time ?? null) : null;
-  const percent = positionType === "time"
-    ? (((keyframe.time ?? 0) / Math.max(duration ?? 1, 1)) * 100)
-    : (keyframe.percent ?? 0);
-
   return {
-    time,
-    percent,
+    time: positionType === "time" ? (keyframe.time ?? null) : null,
+    percent: positionType === "time"
+      ? (((keyframe.time ?? 0) / Math.max(duration ?? 1, 1)) * 100)
+      : (keyframe.percent ?? 0),
     timingFunction: typeof keyframe.timingFunction === "string" ? keyframe.timingFunction : null,
     properties: Array.isArray(keyframe.properties) ? cloneProperties(keyframe.properties) : [],
   };
@@ -88,18 +84,8 @@ export function cloneTimeline(timeline: WebKeyframesTimeline | NormalizedWebKeyf
     animationName: timeline.animationName.trim(),
     ...(positionType === "percent" ? { positionType } : timeline.positionType ? { positionType } : {}),
     ...(positionType === "time" && typeof timeline.duration === "number" ? { duration: timeline.duration } : {}),
-    translateConfig: timeline.translateConfig
-      ? {
-          unit: timeline.translateConfig.unit,
-        }
-      : undefined,
-    keyframes: timeline.keyframes.map((keyframe) => ({
-      ...(positionType === "time"
-        ? { time: keyframe.time ?? 0 }
-        : { percent: keyframe.percent ?? 0 }),
-      ...(keyframe.timingFunction ? { timingFunction: keyframe.timingFunction } : {}),
-      ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
-    })),
+    ...(timeline.translateConfig ? { translateConfig: { unit: timeline.translateConfig.unit } } : {}),
+    keyframes: timeline.keyframes.map((keyframe) => cloneTimelineKeyframe(keyframe, positionType)),
   };
 }
 
@@ -141,6 +127,17 @@ function cloneProperty(property: KeyframeProperty): KeyframeProperty {
 
 export function cloneProperties(properties: KeyframeProperty[]): KeyframeProperty[] {
   return properties.map(cloneProperty);
+}
+
+function cloneTimelineKeyframe(
+  keyframe: WebKeyframe | NormalizedWebKeyframe,
+  positionType: KeyframePositionMode,
+): WebKeyframe {
+  return {
+    ...(positionType === "time" ? { time: keyframe.time ?? 0 } : { percent: keyframe.percent ?? 0 }),
+    ...(keyframe.timingFunction ? { timingFunction: keyframe.timingFunction } : {}),
+    ...(Array.isArray(keyframe.properties) ? { properties: cloneProperties(keyframe.properties) } : {}),
+  };
 }
 
 function getKeyframeProperty(
