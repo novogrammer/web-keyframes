@@ -41,20 +41,26 @@ import {
   withSelectedKeyframe,
 } from "./editorStateController.js";
 
+type TimelineOperation = "select" | "add" | "duplicate" | "delete";
+type KeyframeOperation = "select" | "add" | "duplicate" | "delete";
+type PropertyTarget = "timingFunction" | "opacity" | "transform";
+type PropertyOperation = "set" | "clear" | "add" | "delete" | "move" | "changeKind" | "changeValue";
+
 export type EditorAction =
   | { type: "reset"; initialData: WebKeyframesDocument }
-  | { type: "selectTimeline"; index: number }
-  | { type: "addTimeline" | "duplicateTimeline" | "deleteTimeline" }
-  | { type: "selectKeyframe"; index: number }
-  | { type: "addKeyframe" | "deleteKeyframe" | "duplicateKeyframe" }
-  | { type: "setTimingFunctionPreset"; value: string }
-  | { type: "clearTimingFunction" }
-  | { type: "moveTransform"; index: number; direction: -1 | 1 }
-  | { type: "deleteTransform"; index: number }
-  | { type: "addTransform"; kind: TransformKind }
-  | { type: "addOpacity" | "deleteOpacity" | "deleteTransforms" | "clearTransforms" }
-  | { type: "applyStringField"; field: string; value: string; focusSnapshot?: FocusSnapshot | null }
-  | { type: "applyNumberField"; field: string; value: number; focusSnapshot?: FocusSnapshot | null };
+  | { type: "timelineAction"; operation: TimelineOperation; index?: number }
+  | { type: "keyframeAction"; operation: KeyframeOperation; index?: number }
+  | {
+      type: "propertyAction";
+      target: PropertyTarget;
+      operation: PropertyOperation;
+      value?: string | number;
+      kind?: TransformKind;
+      index?: number;
+      direction?: -1 | 1;
+      field?: "x" | "y" | "value";
+    }
+  | { type: "applyField"; field: string; value: string | number; focusSnapshot?: FocusSnapshot | null };
 
 export function dispatchEditorAction(
   state: EditorState,
@@ -71,63 +77,281 @@ export function dispatchEditorAction(
       state.pendingFocus = null;
       setStatus(state, "success", "Reset editor data to the initial state.");
       return true;
-    case "selectTimeline":
-      state.selectedTimelineIndex = clampIndex(action.index, state.data.timelines.length);
-      normalizeEditorState(state, defaultTimelineData);
-      return true;
-    case "addTimeline":
-      addTimeline(state, defaultTimelineData);
-      return true;
-    case "duplicateTimeline":
-      duplicateTimeline(state, defaultTimelineData);
-      return true;
-    case "deleteTimeline":
-      return deleteTimeline(state, defaultTimelineData);
-    case "selectKeyframe":
-      state.selectedKeyframeIndex = clampIndex(action.index, getSelectedTimelineKeyframeLength(state));
-      return true;
-    case "addKeyframe":
-      addKeyframe(state, defaultTimelineData);
-      return true;
-    case "deleteKeyframe":
-      return deleteKeyframe(state, defaultTimelineData);
-    case "duplicateKeyframe":
-      duplicateKeyframe(state, defaultTimelineData);
-      return true;
-    case "setTimingFunctionPreset":
-      return setTimingFunctionPreset(state, action.value);
-    case "clearTimingFunction":
-      return clearTimingFunction(state);
-    case "moveTransform":
-      moveSelectedTransform(state, defaultTimelineData, action.index, action.direction);
-      return true;
-    case "deleteTransform":
-      deleteSelectedTransform(state, defaultTimelineData, action.index);
-      return true;
-    case "addTransform":
-      addSelectedTransform(state, defaultTimelineData, action.kind);
-      return true;
-    case "addOpacity":
-      return addOpacityProperty(state);
-    case "deleteOpacity":
-      return deleteOpacityProperty(state);
-    case "deleteTransforms":
-      return deleteTransformProperty(state);
-    case "clearTransforms":
-      return clearTransformProperty(state);
-    case "applyStringField":
-      return applyStringField(state, defaultTimelineData, action.field, action.value, action.focusSnapshot ?? null);
-    case "applyNumberField":
-      return applyNumberField(state, defaultTimelineData, action.field, action.value, action.focusSnapshot ?? null);
+    case "timelineAction":
+      return handleTimelineAction(state, defaultTimelineData, action);
+    case "keyframeAction":
+      return handleKeyframeAction(state, defaultTimelineData, action);
+    case "propertyAction":
+      return handlePropertyAction(state, defaultTimelineData, action);
+    case "applyField":
+      return handleFieldAction(state, defaultTimelineData, action.field, action.value, action.focusSnapshot ?? null);
   }
 }
 
+function handleTimelineAction(
+  state: EditorState,
+  defaultTimelineData: WebKeyframesTimeline,
+  action: Extract<EditorAction, { type: "timelineAction" }>,
+): boolean {
+  switch (action.operation) {
+    case "select":
+      state.selectedTimelineIndex = clampIndex(action.index ?? 0, state.data.timelines.length);
+      normalizeEditorState(state, defaultTimelineData);
+      return true;
+    case "add":
+      addTimeline(state, defaultTimelineData);
+      return true;
+    case "duplicate":
+      duplicateTimeline(state, defaultTimelineData);
+      return true;
+    case "delete":
+      return deleteTimeline(state, defaultTimelineData);
+  }
+}
+
+function handleKeyframeAction(
+  state: EditorState,
+  defaultTimelineData: WebKeyframesTimeline,
+  action: Extract<EditorAction, { type: "keyframeAction" }>,
+): boolean {
+  switch (action.operation) {
+    case "select":
+      state.selectedKeyframeIndex = clampIndex(action.index ?? 0, getSelectedTimelineKeyframeLength(state));
+      return true;
+    case "add":
+      addKeyframe(state, defaultTimelineData);
+      return true;
+    case "duplicate":
+      duplicateKeyframe(state, defaultTimelineData);
+      return true;
+    case "delete":
+      return deleteKeyframe(state, defaultTimelineData);
+  }
+}
+
+function handlePropertyAction(
+  state: EditorState,
+  defaultTimelineData: WebKeyframesTimeline,
+  action: Extract<EditorAction, { type: "propertyAction" }>,
+): boolean {
+  if (action.target === "timingFunction") {
+    return editSelectedKeyframe(
+      state,
+      "Editing timeline data.",
+      action.operation === "set"
+        ? (_, keyframe) => {
+            keyframe.timingFunction = String(action.value ?? "");
+            state.pendingFocus = {
+              field: "timingFunction",
+              index: 0,
+              selectionStart: String(action.value ?? "").length,
+              selectionEnd: String(action.value ?? "").length,
+            };
+          }
+        : (_, keyframe) => {
+            delete keyframe.timingFunction;
+            state.pendingFocus = {
+              field: "timingFunction",
+              index: 0,
+              selectionStart: 0,
+              selectionEnd: 0,
+            };
+          },
+    );
+  }
+
+  if (action.target === "opacity") {
+    if (action.operation === "add") {
+      return editSelectedKeyframe(state, "Added opacity to the selected keyframe.", (_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+      });
+    }
+
+    return editSelectedKeyframe(state, "Deleted opacity from the selected keyframe.", (_, keyframe) => {
+      deleteKeyframeProperty(keyframe, "opacity");
+    });
+  }
+
+  switch (action.operation) {
+    case "add":
+      addSelectedTransform(state, defaultTimelineData, action.kind ?? "translate");
+      return true;
+    case "delete":
+      if (typeof action.index === "number") {
+        applyEditedTransforms(state, defaultTimelineData, (timeline) => removeTransform(
+          timeline,
+          state.selectedKeyframeIndex,
+          action.index,
+        ));
+        setStatus(state, "info", "Removed transform.");
+        return true;
+      }
+      return editSelectedKeyframe(state, "Deleted transforms from the selected keyframe.", (_, keyframe) => {
+        deleteKeyframeProperty(keyframe, "transform");
+      });
+    case "clear":
+      return editSelectedKeyframe(state, "Cleared transforms to none for the selected keyframe.", (_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createTransformProperty([]));
+      });
+    case "move":
+      applyEditedTransforms(state, defaultTimelineData, (timeline) => moveTransform(
+        timeline,
+        state.selectedKeyframeIndex,
+        action.index ?? 0,
+        action.direction ?? 1,
+      ));
+      setStatus(state, "info", "Reordered transforms.");
+      return true;
+    case "changeKind":
+      applyEditedTransforms(state, defaultTimelineData, (timeline) =>
+        replaceTransformKind(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.kind ?? "translate")
+      );
+      setStatus(state, "info", "Editing timeline data.");
+      return true;
+    case "changeValue":
+      applyEditedTransforms(state, defaultTimelineData, (timeline) =>
+        setTransformFieldValue(timeline, state.selectedKeyframeIndex, action.index ?? 0, action.field ?? "x", Number(action.value ?? 0))
+      );
+      setStatus(state, "info", "Editing timeline data.");
+      return true;
+    default:
+      return false;
+  }
+}
+
+function handleFieldAction(
+  state: EditorState,
+  defaultTimelineData: WebKeyframesTimeline,
+  field: string,
+  value: string | number,
+  focusSnapshot: FocusSnapshot | null,
+): boolean {
+  if (typeof value === "string") {
+    switch (field) {
+      case "animationName":
+        if (value.trim() === "") {
+          return commitFieldEditResult(state, focusSnapshot);
+        }
+        updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
+          timeline.animationName = value.trim();
+        });
+        return commitFieldEditResult(state, focusSnapshot);
+      case "positionType":
+        updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
+          const nextPositionType = value === "percent" ? "percent" : "time";
+          if (nextPositionType === timeline.positionType) {
+            return;
+          }
+          if (nextPositionType === "percent") {
+            convertTimelineKeyframesToPercent(timeline, defaultTimelineData.duration ?? 1);
+            return;
+          }
+          convertTimelineKeyframesToTime(timeline, defaultTimelineData.duration ?? 1200);
+        });
+        normalizeEditorState(state, defaultTimelineData);
+        return commitFieldEditResult(state, focusSnapshot);
+      case "translateUnit":
+        updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
+          timeline.translateConfig = {
+            ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
+            unit: value as TranslateUnit,
+          };
+        });
+        return commitFieldEditResult(state, focusSnapshot);
+      case "timingFunction":
+        editSelectedKeyframe(state, "", (_, keyframe) => {
+          if (value.trim() === "") {
+            delete keyframe.timingFunction;
+            return;
+          }
+          keyframe.timingFunction = value.trim();
+        }, false);
+        return commitFieldEditResult(state, focusSnapshot);
+    }
+
+    const kindMatch = /^transform-kind-(\d+)$/.exec(field);
+    if (!kindMatch) {
+      return false;
+    }
+
+    const changed = handlePropertyAction(state, defaultTimelineData, {
+      type: "propertyAction",
+      target: "transform",
+      operation: "changeKind",
+      index: Number(kindMatch[1]),
+      kind: value as TransformKind,
+    });
+    if (changed && focusSnapshot) {
+      state.pendingFocus = focusSnapshot;
+    }
+    return changed;
+  }
+
+  switch (field) {
+    case "duration":
+      updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
+        if (timeline.positionType === "percent") {
+          return;
+        }
+        timeline.duration = Math.max(1, Math.round(value));
+        clampTimelineKeyframesToDuration(timeline);
+      });
+      normalizeEditorState(state, defaultTimelineData);
+      return commitFieldEditResult(state, focusSnapshot);
+    case "position":
+      updateSelectedTimelineKeyframes(state, defaultTimelineData, (keyframes, timeline) => {
+        const selected = keyframes[state.selectedKeyframeIndex];
+        if (!selected) {
+          return;
+        }
+
+        const positionType = getTimelinePositionType(timeline);
+        const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
+        applyEditorKeyframePosition(
+          selected,
+          positionType,
+          clampNumber(roundEditorPosition(value, positionType), 0, maxPosition),
+        );
+        keyframes.splice(0, keyframes.length, ...keyframes.sort(
+          (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
+        ));
+        state.selectedKeyframeIndex = keyframes.indexOf(selected);
+      });
+      return commitFieldEditResult(state, focusSnapshot);
+    case "opacity":
+      editSelectedKeyframe(state, "", (_, keyframe) => {
+        upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
+      }, false);
+      return commitFieldEditResult(state, focusSnapshot);
+  }
+
+  const valueMatch = /^transform-(x|y|value)-(\d+)$/.exec(field);
+  if (!valueMatch) {
+    return false;
+  }
+
+  const changed = handlePropertyAction(state, defaultTimelineData, {
+    type: "propertyAction",
+    target: "transform",
+    operation: "changeValue",
+    field: valueMatch[1] as "x" | "y" | "value",
+    index: Number(valueMatch[2]),
+    value,
+  });
+  if (changed && focusSnapshot) {
+    state.pendingFocus = focusSnapshot;
+  }
+  return changed;
+}
+
+function commitFieldEditResult(state: EditorState, focusSnapshot: FocusSnapshot | null): boolean {
+  state.pendingFocus = focusSnapshot;
+  setStatus(state, "info", "Editing timeline data.");
+  return true;
+}
+
 function addTimeline(state: EditorState, defaultTimelineData: WebKeyframesTimeline): void {
-  const nextTimeline = createNextTimeline(
-    state.data.timelines,
-    state.selectedTimelineIndex,
-    defaultTimelineData,
-  );
+  const nextTimeline = createNextTimeline(state.data.timelines, state.selectedTimelineIndex, defaultTimelineData);
   state.data = sanitizeEditorDocument({ timelines: [...state.data.timelines, nextTimeline] }, defaultTimelineData);
   state.selectedTimelineIndex = state.data.timelines.findIndex((timeline) => timeline.animationName === nextTimeline.animationName);
   state.selectedKeyframeIndex = 0;
@@ -149,7 +373,6 @@ function deleteTimeline(state: EditorState, defaultTimelineData: WebKeyframesTim
   if (state.data.timelines.length <= 1) {
     return false;
   }
-
   state.data = sanitizeEditorDocument({
     timelines: state.data.timelines.filter((_, index) => index !== state.selectedTimelineIndex),
   }, defaultTimelineData);
@@ -172,7 +395,6 @@ function deleteKeyframe(state: EditorState, defaultTimelineData: WebKeyframesTim
   if (timeline.keyframes.length === 0) {
     return false;
   }
-
   updateSelectedTimeline(state, defaultTimelineData, (candidate) => {
     candidate.keyframes = candidate.keyframes.filter((_, index) => index !== state.selectedKeyframeIndex);
     state.selectedKeyframeIndex = clampIndex(state.selectedKeyframeIndex, candidate.keyframes.length);
@@ -187,7 +409,6 @@ function duplicateKeyframe(state: EditorState, defaultTimelineData: WebKeyframes
     if (!source) {
       return;
     }
-
     const duplicate = cloneSparseKeyframe(source);
     const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
     const offset = positionType === "time" ? Math.max(1, Math.round((timeline.duration ?? 1) * 0.1)) : 10;
@@ -203,77 +424,12 @@ function duplicateKeyframe(state: EditorState, defaultTimelineData: WebKeyframes
   setStatus(state, "info", "Duplicated selected keyframe.");
 }
 
-function setTimingFunctionPreset(state: EditorState, value: string): boolean {
-  let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    keyframe.timingFunction = value;
-    changed = true;
-  });
-  if (!changed) {
-    return false;
-  }
-
-  state.pendingFocus = {
-    field: "timingFunction",
-    index: 0,
-    selectionStart: value.length,
-    selectionEnd: value.length,
-  };
-  setStatus(state, "info", "Editing timeline data.");
-  return true;
-}
-
-function clearTimingFunction(state: EditorState): boolean {
-  let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    delete keyframe.timingFunction;
-    changed = true;
-  });
-  if (!changed) {
-    return false;
-  }
-
-  state.pendingFocus = {
-    field: "timingFunction",
-    index: 0,
-    selectionStart: 0,
-    selectionEnd: 0,
-  };
-  setStatus(state, "info", "Editing timeline data.");
-  return true;
-}
-
-function moveSelectedTransform(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  index: number,
-  direction: -1 | 1,
-): void {
-  applyEditedTransforms(state, defaultTimelineData, (timeline) => moveTransform(
-    timeline,
-    state.selectedKeyframeIndex,
-    index,
-    direction,
-  ));
-  setStatus(state, "info", "Reordered transforms.");
-}
-
-function deleteSelectedTransform(state: EditorState, defaultTimelineData: WebKeyframesTimeline, index: number): void {
-  applyEditedTransforms(state, defaultTimelineData, (timeline) => removeTransform(
-    timeline,
-    state.selectedKeyframeIndex,
-    index,
-  ));
-  setStatus(state, "info", "Removed transform.");
-}
-
 function addSelectedTransform(state: EditorState, defaultTimelineData: WebKeyframesTimeline, kind: TransformKind): void {
   let addedInline = false;
   withSelectedKeyframe(state, (_, keyframe) => {
     if (hasKeyframeProperty(keyframe, "transform")) {
       return;
     }
-
     upsertKeyframeProperty(keyframe, createTransformProperty([createDefaultTransform(kind)]));
     addedInline = true;
   });
@@ -287,217 +443,21 @@ function addSelectedTransform(state: EditorState, defaultTimelineData: WebKeyfra
   setStatus(state, "info", `Added ${kind} transform.`);
 }
 
-function addOpacityProperty(state: EditorState): boolean {
+function editSelectedKeyframe(
+  state: EditorState,
+  statusMessage: string,
+  update: (timeline: WebKeyframesTimeline, keyframe: WebKeyframe) => void,
+  withStatus = true,
+): boolean {
   let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    upsertKeyframeProperty(keyframe, createOpacityProperty(1));
+  withSelectedKeyframe(state, (timeline, keyframe) => {
+    update(timeline, keyframe);
     changed = true;
   });
-  if (changed) {
-    setStatus(state, "info", "Added opacity to the selected keyframe.");
+  if (changed && withStatus && statusMessage !== "") {
+    setStatus(state, "info", statusMessage);
   }
   return changed;
-}
-
-function deleteOpacityProperty(state: EditorState): boolean {
-  let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    deleteKeyframeProperty(keyframe, "opacity");
-    changed = true;
-  });
-  if (changed) {
-    setStatus(state, "info", "Deleted opacity from the selected keyframe.");
-  }
-  return changed;
-}
-
-function deleteTransformProperty(state: EditorState): boolean {
-  let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    deleteKeyframeProperty(keyframe, "transform");
-    changed = true;
-  });
-  if (changed) {
-    setStatus(state, "info", "Deleted transforms from the selected keyframe.");
-  }
-  return changed;
-}
-
-function clearTransformProperty(state: EditorState): boolean {
-  let changed = false;
-  withSelectedKeyframe(state, (_, keyframe) => {
-    upsertKeyframeProperty(keyframe, createTransformProperty([]));
-    changed = true;
-  });
-  if (changed) {
-    setStatus(state, "info", "Cleared transforms to none for the selected keyframe.");
-  }
-  return changed;
-}
-
-function applyStringField(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  field: string,
-  value: string,
-  focusSnapshot: FocusSnapshot | null,
-): boolean {
-  const handler = timelineStringHandlers[field] ?? keyframeStringHandlers[field];
-  if (handler) {
-    handler(state, defaultTimelineData, value);
-    state.pendingFocus = focusSnapshot;
-    setStatus(state, "info", "Editing timeline data.");
-    return true;
-  }
-
-  return applyTransformStringField(state, defaultTimelineData, field, value, focusSnapshot);
-}
-
-function applyNumberField(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  field: string,
-  value: number,
-  focusSnapshot: FocusSnapshot | null,
-): boolean {
-  const handler = timelineNumberHandlers[field] ?? keyframeNumberHandlers[field];
-  if (handler) {
-    handler(state, defaultTimelineData, value);
-    state.pendingFocus = focusSnapshot;
-    setStatus(state, "info", "Editing timeline data.");
-    return true;
-  }
-
-  return applyTransformNumberField(state, defaultTimelineData, field, value, focusSnapshot);
-}
-
-const timelineStringHandlers: Record<string, (state: EditorState, defaultTimelineData: WebKeyframesTimeline, value: string) => void> = {
-  animationName: (state, defaultTimelineData, value) => {
-    if (value.trim() === "") {
-      return;
-    }
-    updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
-      timeline.animationName = value.trim();
-    });
-  },
-  positionType: (state, defaultTimelineData, value) => {
-    updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
-      const nextPositionType = value === "percent" ? "percent" : "time";
-      if (nextPositionType === timeline.positionType) {
-        return;
-      }
-      if (nextPositionType === "percent") {
-        convertTimelineKeyframesToPercent(timeline, defaultTimelineData.duration ?? 1);
-        return;
-      }
-      convertTimelineKeyframesToTime(timeline, defaultTimelineData.duration ?? 1200);
-    });
-    normalizeEditorState(state, defaultTimelineData);
-  },
-  translateUnit: (state, defaultTimelineData, value) => {
-    updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
-      timeline.translateConfig = {
-        ...(timeline.translateConfig ?? { unit: DEFAULT_TRANSLATE_CONFIG.unit }),
-        unit: value as TranslateUnit,
-      };
-    });
-  },
-};
-
-const keyframeStringHandlers: Record<string, (state: EditorState, defaultTimelineData: WebKeyframesTimeline, value: string) => void> = {
-  timingFunction: (state, _defaultTimelineData, value) => {
-    withSelectedKeyframe(state, (_, keyframe) => {
-      if (value.trim() === "") {
-        delete keyframe.timingFunction;
-        return;
-      }
-      keyframe.timingFunction = value.trim();
-    });
-  },
-};
-
-const timelineNumberHandlers: Record<string, (state: EditorState, defaultTimelineData: WebKeyframesTimeline, value: number) => void> = {
-  duration: (state, defaultTimelineData, value) => {
-    updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
-      if (timeline.positionType === "percent") {
-        return;
-      }
-
-      timeline.duration = Math.max(1, Math.round(value));
-      clampTimelineKeyframesToDuration(timeline);
-    });
-    normalizeEditorState(state, defaultTimelineData);
-  },
-};
-
-const keyframeNumberHandlers: Record<string, (state: EditorState, defaultTimelineData: WebKeyframesTimeline, value: number) => void> = {
-  position: (state, defaultTimelineData, value) => {
-    updateSelectedTimelineKeyframes(state, defaultTimelineData, (keyframes, timeline) => {
-      const selected = keyframes[state.selectedKeyframeIndex];
-      if (!selected) {
-        return;
-      }
-
-      const positionType = getTimelinePositionType(timeline);
-      const maxPosition = positionType === "time" ? Math.max(timeline.duration ?? 1, 1) : 100;
-      applyEditorKeyframePosition(
-        selected,
-        positionType,
-        clampNumber(roundEditorPosition(value, positionType), 0, maxPosition),
-      );
-      keyframes.splice(0, keyframes.length, ...keyframes.sort(
-        (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-      ));
-      state.selectedKeyframeIndex = keyframes.indexOf(selected);
-    });
-  },
-  opacity: (state, _defaultTimelineData, value) => {
-    withSelectedKeyframe(state, (_, keyframe) => {
-      upsertKeyframeProperty(keyframe, createOpacityProperty(clampNumber(value, 0, 1)));
-    });
-  },
-};
-
-function applyTransformStringField(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  field: string,
-  value: string,
-  focusSnapshot: FocusSnapshot | null,
-): boolean {
-  if (!field.startsWith("transform-kind-")) {
-    return false;
-  }
-
-  const index = Number(field.slice("transform-kind-".length));
-  applyEditedTransforms(state, defaultTimelineData, (timeline) =>
-    replaceTransformKind(timeline, state.selectedKeyframeIndex, index, value as TransformKind)
-  );
-  state.pendingFocus = focusSnapshot;
-  setStatus(state, "info", "Editing timeline data.");
-  return true;
-}
-
-function applyTransformNumberField(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  field: string,
-  value: number,
-  focusSnapshot: FocusSnapshot | null,
-): boolean {
-  const match = /^transform-(x|y|value)-(\d+)$/.exec(field);
-  if (!match) {
-    return false;
-  }
-
-  const transformField = match[1] as "x" | "y" | "value";
-  const index = Number(match[2]);
-  applyEditedTransforms(state, defaultTimelineData, (timeline) =>
-    setTransformFieldValue(timeline, state.selectedKeyframeIndex, index, transformField, value)
-  );
-  state.pendingFocus = focusSnapshot;
-  setStatus(state, "info", "Editing timeline data.");
-  return true;
 }
 
 function convertTimelineKeyframesToPercent(timeline: WebKeyframesTimeline, fallbackDuration: number): void {
