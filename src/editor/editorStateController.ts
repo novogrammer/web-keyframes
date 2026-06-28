@@ -1,11 +1,6 @@
-import { cloneDocument, cloneTimeline } from "../core/normalize.js";
-import type { NormalizedWebKeyframesTimeline, WebKeyframe, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
-import {
-  clampIndex,
-  sanitizeEditorDocument,
-  cloneSparseKeyframe,
-  getEditorKeyframePosition,
-} from "./editorModel.js";
+import { cloneDocument } from "../core/normalize.js";
+import type { WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
+import { clampIndex, sanitizeEditorDocument } from "./editorModel.js";
 import type { ActivePreview } from "./controller/EditorPreviewController.js";
 
 export type StatusTone = "info" | "success" | "error";
@@ -79,69 +74,4 @@ export function setPreviewPanel(state: EditorState, title: string, content: stri
 export function clearPreviewPanel(state: EditorState): void {
   state.previewTitle = null;
   state.previewContent = "";
-}
-
-export function resetEditorState(
-  state: EditorState,
-  initialData: WebKeyframesDocument,
-): void {
-  state.data = cloneDocument(initialData);
-  state.selectedTimelineIndex = 0;
-  state.selectedKeyframeIndex = 0;
-  clearPreviewPanel(state);
-}
-
-export function updateSelectedTimeline(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  update: (timeline: WebKeyframesTimeline) => void,
-): void {
-  const timeline = getSelectedTimeline(state);
-  update(timeline);
-  normalizeEditorState(state, defaultTimelineData);
-}
-
-export function updateSelectedTimelineKeyframes(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  update: (keyframes: WebKeyframe[], timeline: WebKeyframesTimeline) => void,
-): void {
-  const timeline = getSelectedTimeline(state);
-  const keyframes = timeline.keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-
-  update(keyframes, timeline);
-  timeline.keyframes = keyframes.map((keyframe) => cloneSparseKeyframe(keyframe));
-  normalizeEditorState(state, defaultTimelineData);
-}
-
-export function withSelectedKeyframe(
-  state: EditorState,
-  run: (timeline: WebKeyframesTimeline, keyframe: WebKeyframe) => void,
-): void {
-  const timeline = getSelectedTimeline(state);
-  const keyframe = timeline.keyframes[state.selectedKeyframeIndex];
-  if (!keyframe) {
-    return;
-  }
-
-  run(timeline, keyframe);
-}
-
-export function applyEditedTransforms(
-  state: EditorState,
-  defaultTimelineData: WebKeyframesTimeline,
-  edit: (timeline: WebKeyframesTimeline) => WebKeyframesTimeline | NormalizedWebKeyframesTimeline,
-): void {
-  updateSelectedTimeline(state, defaultTimelineData, (timeline) => {
-    timeline.keyframes = cloneTimeline(edit(timeline)).keyframes;
-  });
-}
-
-export function sortKeyframesByPosition(
-  keyframes: WebKeyframe[],
-  positionType: "time" | "percent",
-): WebKeyframe[] {
-  return [...keyframes].sort(
-    (left, right) => getEditorKeyframePosition(left, positionType) - getEditorKeyframePosition(right, positionType),
-  );
 }
