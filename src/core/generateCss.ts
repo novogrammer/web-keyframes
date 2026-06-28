@@ -1,4 +1,3 @@
-import { formatCss } from "./formatCss.js";
 import {
   getOpacityProperty,
   getTransformProperty,
@@ -85,4 +84,8 @@ export function formatNumber(value: number): string {
   }
 
   return value.toFixed(3).replace(/\.?0+$/, "");
+}
+
+export function formatCss(blocks: string[]): string {
+  return `${blocks.join("\n\n")}\n`;
 }

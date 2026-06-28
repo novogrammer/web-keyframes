@@ -3,8 +3,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { formatCss } from "../core/formatCss.js";
-import { generateCss } from "../core/generateCss.js";
+import { formatCss, generateCss } from "../core/generateCss.js";
 import type { WebKeyframesDocument } from "../core/types.js";
 
 type CliIO = {
