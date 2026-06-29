@@ -8,6 +8,8 @@ All notable changes to `web-keyframes` will be documented in this file.
 
 - Breaking: `timeline.positionType` is now required in timeline JSON and validation no longer infers the mode from keyframe fields
 - Switched the overlay editor rendering to an internal `preact` implementation while keeping the public editor API unchanged
+- Replaced generic editor `field` dispatch with meaning-based timeline / keyframe actions so the UI passes explicit edit intent into the core
+- Split the selected keyframe editor into smaller `preact` sections and tuned the overlay styling for clearer hierarchy without changing behavior
 
 ### Fixed
 

@@ -15,6 +15,8 @@
 - sparse な keyframe JSON を editor が勝手に密化せず、読み込みと書き出しで同じ形を維持するようにした。
 - keyframe の位置指定を `time` と `percent` の別 field に分離し、`duration` は `time` モードの timeline にだけ持たせる形へ整理した。
 - timeline JSON は `positionType` 必須の正規形に寄せ、keyframe field から位置モードを推測しない方針にした。
+- editor core の高頻度編集を、`field` 名文字列ベースの分岐から、timeline / keyframe ごとの意味ベース action へ置き換えた。
+- `EditorApp.tsx` は「どの input 名が変わったか」ではなく「何を変更したいか」を core へ渡す薄い変換層へ寄せた。
 
 ## プレビュー
 
@@ -46,6 +48,8 @@
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
 - editor UI の Lit 化を検討したが、現段階では導入しない判断にした。
 - overlay editor の描画を `preact` ベースへ置き換え、公開 API を変えずにコンポーネント単位で UI を整理した。
+- selected keyframe editor の長い表示ロジックを、timing function / property add / opacity の単位へ分割して読みやすさを上げた。
+- overlay editor の見た目は、実装を広げずに視覚階層と一覧の読みやすさを中心に小さく調整した。
 
 ## Examples
 
