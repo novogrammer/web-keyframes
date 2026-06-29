@@ -1,8 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/cli/index.ts"],
+  entry: ["src/editor.ts"],
   format: ["esm"],
   dts: true,
-  clean: true,
+  clean: false,
+  skipNodeModulesBundle: true,
+  noExternal: ["preact"],
 });

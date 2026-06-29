@@ -33,7 +33,7 @@
     "web-keyframes": "./bin/web-keyframes.js"
   },
   "scripts": {
-    "build": "tsup --config tsup.config.ts && node scripts/copy-editor-css.mjs",
+    "build": "tsup --config tsup.config.ts && tsup --config tsup.editor.config.ts && node scripts/copy-editor-css.mjs",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
