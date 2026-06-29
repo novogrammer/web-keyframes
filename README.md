@@ -58,6 +58,7 @@ editor.mount();
 ```
 
 The editor UI can show generated JSON and CSS and lets you copy them without wiring the API or CLI first.
+The overlay editor is implemented with `preact` internally, but the public editor API stays small and DOM-oriented.
 
 ## Convert To CSS
 

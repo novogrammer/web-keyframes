@@ -84,7 +84,7 @@ export type EditorAction =
   | FieldEditorAction
   | TransformEditorAction;
 
-type RenderTimeline = {
+export type RenderTimeline = {
   animationName: string;
   positionType: KeyframePositionMode;
   duration: number | null;
@@ -92,7 +92,7 @@ type RenderTimeline = {
   keyframes: WebKeyframe[];
 };
 
-type EditorView = {
+export type EditorView = {
   timelines: RenderTimeline[];
   selectedTimeline: RenderTimeline;
   sourceTimeline: WebKeyframesTimeline;
@@ -106,7 +106,7 @@ type EditorView = {
   timingFunction: string;
 };
 
-const TIMING_FUNCTION_PRESETS = [
+export const TIMING_FUNCTION_PRESETS = [
   "linear",
   "ease",
   "ease-in",
@@ -118,14 +118,14 @@ const TIMING_FUNCTION_PRESETS = [
   "steps(4, end)",
 ] as const;
 
-const TRANSFORM_BUTTONS = [
+export const TRANSFORM_BUTTONS = [
   ["translate", "+ Translate"],
   ["scale", "+ Scale"],
   ["rotate", "+ Rotate"],
   ["skew", "+ Skew"],
 ] as const satisfies ReadonlyArray<readonly [TransformKind, string]>;
 
-const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] as const satisfies ReadonlyArray<TranslateUnit>;
+export const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] as const satisfies ReadonlyArray<TranslateUnit>;
 const DEFAULT_NEW_ANIMATION_NAME = "new-animation";
 const DEFAULT_TIME_DURATION = 1200;
 
@@ -616,6 +616,18 @@ function deriveView(data: WebKeyframesDocument, timelineIndex: number, keyframeI
   };
 }
 
+export function deriveEditorView(data: WebKeyframesDocument, timelineIndex: number, keyframeIndex: number): EditorView {
+  return deriveView(data, timelineIndex, keyframeIndex);
+}
+
+export function deriveViewForState(state: EditorState): EditorView {
+  normalizeEditorState(state);
+  const view = deriveView(state.data, state.selectedTimelineIndex, state.selectedKeyframeIndex);
+  state.selectedTimelineIndex = view.timelines.indexOf(view.selectedTimeline);
+  state.selectedKeyframeIndex = view.selectedKeyframe ? view.selectedTimeline.keyframes.indexOf(view.selectedKeyframe) : 0;
+  return view;
+}
+
 function renderTimelineList(view: EditorView, selectedTimelineIndex: number): string {
   return `
     <div class="wkf__section wkf__section--list">
@@ -892,11 +904,11 @@ function renderSelectableItem(action: string, index: number, active: boolean, co
   return `<button type="button" class="wkf__keyframe-item${active ? " wkf__keyframe-item--active" : ""}" data-wkf-action="${action}" data-wkf-index="${index}">${content}</button>`;
 }
 
-function keyframeLabel(keyframe: WebKeyframe, timeline: RenderTimeline): string {
+export function keyframeLabel(keyframe: WebKeyframe, timeline: RenderTimeline): string {
   return timeline.positionType === "time" ? `${formatNumber(keyframe.time ?? 0)}ms` : `${formatNumber(keyframe.percent ?? 0)}%`;
 }
 
-function keyframeSecondaryLabel(keyframe: WebKeyframe, timeline: RenderTimeline): string {
+export function keyframeSecondaryLabel(keyframe: WebKeyframe, timeline: RenderTimeline): string {
   if (timeline.positionType === "percent") {
     return "";
   }
@@ -904,7 +916,7 @@ function keyframeSecondaryLabel(keyframe: WebKeyframe, timeline: RenderTimeline)
   return `${formatNumber(((keyframe.time ?? 0) / safeDuration) * 100)}%`;
 }
 
-function keyframeSummary(keyframe: WebKeyframe, translateUnit: TranslateUnit): string {
+export function keyframeSummary(keyframe: WebKeyframe, translateUnit: TranslateUnit): string {
   const parts: string[] = [];
   const hasTransform = hasKeyframeProperty(keyframe, "transform");
   const transforms = hasTransform ? getTransformOperations(keyframe) : [];
@@ -933,6 +945,8 @@ function transformSummary(transform: TransformOperation, unit: TranslateUnit): s
       return `skew(${formatNumber(transform.x)}deg, ${formatNumber(transform.y)}deg)`;
   }
 }
+
+export type ViewTransformOperation = TransformOperation;
 
 function editTimeline(state: EditorState, run: (timeline: WebKeyframesTimeline) => void): void {
   const timeline = getSelectedTimeline(state);

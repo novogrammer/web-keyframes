@@ -1,18 +1,23 @@
+import { h, render } from "preact";
+
 import { generateCss } from "../core/generateCss.js";
-import { cloneDocument } from "../core/normalize.js";
-import type { TransformKind, WebKeyframesDocument } from "../core/types.js";
+import { cloneDocument, normalizeWebKeyframesTimeline } from "../core/normalize.js";
+import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { validateWebKeyframesDocument } from "../core/validate.js";
+import { EditorApp, type InputMeta } from "./EditorApp.js";
 import {
   createDefaultEditorDocument,
-  createDefaultTimeline,
   createEditorState,
   dispatchEditorAction,
+  getSelectedTimeline,
+  normalizeEditorState,
+  setStatus,
+  type ActivePreview,
   type EditorAction,
   type EditorState,
-  normalizeEditorState,
-  renderEditorPanel,
+  type FocusSnapshot,
 } from "./editorCore.js";
-import { EditorDomController } from "./editorDom.js";
+import { createEditorContainer, setContainerVisibility } from "./editorShell.js";
 
 type WebKeyframesEditorOptions = {
   root: HTMLElement;
@@ -20,13 +25,57 @@ type WebKeyframesEditorOptions = {
   shortcut?: string | false;
 };
 
+type Shortcut = { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean };
+
+const PANEL_MIN_VISIBLE_X = 72;
+const PANEL_MIN_VISIBLE_Y = 56;
+
 export class WebKeyframesEditor {
   private readonly root: HTMLElement;
   private readonly initialData: WebKeyframesDocument;
   private readonly state: EditorState;
-  private readonly dom: EditorDomController;
+  private readonly shortcut: Shortcut | null;
+  private readonly handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (this.state.previewTitle !== null) {
+        this.closePreview("Closed preview.");
+      }
+      return;
+    }
+    if (this.shortcut && matchesShortcut(event, this.shortcut)) {
+      event.preventDefault();
+      this.toggle();
+    }
+  };
+  private readonly handleDragMove = (event: MouseEvent): void => {
+    if (!this.dragOffset || !this.container) {
+      return;
+    }
+    const panel = this.container.querySelector<HTMLElement>(".wkf__panel");
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (!panel || !ownerWindow) {
+      return;
+    }
+    const rect = panel.getBoundingClientRect();
+    this.state.panelPosition = {
+      left: clampNumber(event.clientX - this.dragOffset.x, Math.min(0, PANEL_MIN_VISIBLE_X - rect.width), Math.max(0, ownerWindow.innerWidth - PANEL_MIN_VISIBLE_X)),
+      top: clampNumber(event.clientY - this.dragOffset.y, Math.min(0, PANEL_MIN_VISIBLE_Y - rect.height), Math.max(0, ownerWindow.innerHeight - PANEL_MIN_VISIBLE_Y)),
+    };
+    this.applyPanelPosition();
+  };
+  private readonly handleDragEnd = (): void => {
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (ownerWindow) {
+      ownerWindow.removeEventListener("mousemove", this.handleDragMove);
+      ownerWindow.removeEventListener("mouseup", this.handleDragEnd);
+    }
+    this.container?.querySelector<HTMLElement>(".wkf__panel")?.classList.remove("wkf__panel--dragging");
+    this.dragOffset = null;
+  };
   private container: HTMLElement | null = null;
   private mounted = false;
+  private dragOffset: { x: number; y: number } | null = null;
 
   constructor(options: WebKeyframesEditorOptions) {
     if (!(options.root instanceof HTMLElement)) {
@@ -35,30 +84,16 @@ export class WebKeyframesEditor {
     this.root = options.root;
     this.initialData = options.initialData ? validateAndCloneEditorData(options.initialData) : createDefaultEditorDocument();
     this.state = createEditorState(this.initialData);
-    this.dom = new EditorDomController(this.root, this.state, {
-      shortcut: options.shortcut,
-      getJson: () => this.toJson(),
-      getCss: () => this.toCss(),
-      onToggle: () => this.toggle(),
-      onEscape: () => {
-        if (this.state.previewTitle !== null) {
-          this.dom.closePreview("Closed preview.");
-          this.render();
-        }
-      },
-      onClick: (event) => this.handleDelegatedClick(event),
-      onInput: (event) => this.handleDelegatedInput(event),
-      onChange: (event) => this.handleDelegatedChange(event),
-    });
+    this.shortcut = parseShortcut(options.shortcut);
   }
 
   mount(): void {
     if (this.mounted) {
       throw new Error("mount() has already been called.");
     }
-    this.container = this.dom.createContainer();
+    this.container = createEditorContainer(this.root.ownerDocument);
+    this.root.ownerDocument.addEventListener("keydown", this.handleKeydown);
     this.render();
-    this.dom.mount(this.container);
     this.root.append(this.container);
     this.mounted = true;
   }
@@ -67,26 +102,30 @@ export class WebKeyframesEditor {
     if (!this.mounted) {
       return;
     }
-    this.dom.disposeAppliedPreview();
-    this.dom.unmount();
-    this.container?.remove();
+    this.disposeAppliedPreview();
+    this.handleDragEnd();
+    this.root.ownerDocument.removeEventListener("keydown", this.handleKeydown);
+    if (this.container) {
+      render(null, this.container);
+      this.container.remove();
+    }
     this.container = null;
     this.mounted = false;
   }
 
   show(): void {
     this.ensureMounted();
-    this.dom.show(this.container!);
+    setContainerVisibility(this.container!, true);
   }
 
   hide(): void {
     this.ensureMounted();
-    this.dom.hide(this.container!);
+    setContainerVisibility(this.container!, false);
   }
 
   toggle(): void {
     this.ensureMounted();
-    this.dom.toggle(this.container!);
+    setContainerVisibility(this.container!, !this.container!.classList.contains("wkf--visible"));
   }
 
   getData(): WebKeyframesDocument {
@@ -96,9 +135,7 @@ export class WebKeyframesEditor {
   setData(data: WebKeyframesDocument): void {
     this.state.data = validateAndCloneEditorData(data);
     normalizeEditorState(this.state);
-    if (this.container) {
-      this.render();
-    }
+    this.render();
   }
 
   toJson(): string {
@@ -119,141 +156,289 @@ export class WebKeyframesEditor {
     if (!this.container) {
       return;
     }
-    this.container.innerHTML = renderEditorPanel(this.state);
-    this.dom.syncPanel(this.container, this.state.panelPosition);
-    queueMicrotask(() => this.dom.restoreFocus(this.container, this.state.pendingFocus, () => {
-      this.state.pendingFocus = null;
-    }));
+    render(
+      h(EditorApp, {
+        state: this.state,
+        onAction: (action, index, value) => this.handleAction(action, index, value),
+        onFieldInput: (field, value, meta) => this.handleFieldInput(field, value, meta),
+        onFieldChange: (field, value, meta) => this.handleFieldChange(field, value, meta),
+        onDragStart: (event) => this.startDrag(event),
+      }),
+      this.container,
+    );
+    this.applyPanelPosition();
+    queueMicrotask(() => this.restoreFocus());
   }
 
-  private handleDelegatedClick(event: MouseEvent): void {
-    const target = event.target;
-    if (!(target instanceof Element) || !this.container) {
-      return;
-    }
-    const actionTarget = target.closest<HTMLElement>("[data-wkf-action]");
-    if (!actionTarget || !this.container.contains(actionTarget) || actionTarget.hasAttribute("disabled")) {
-      return;
-    }
-    const action = actionTarget.dataset.wkfAction;
-    if (!action) {
-      return;
-    }
-    const immediate = this.clickActions[action];
-    if (immediate) {
-      immediate(actionTarget);
-      return;
-    }
-    if (action === "copy-json" || action === "copy-css") {
-      void this.handleCopy(action === "copy-json" ? "json" : "css");
-    }
+  private handleAction(action: string, index?: number, value?: string): void {
+    const clickActions: Record<string, () => void> = {
+      hide: () => this.hide(),
+      reset: () => this.runAction(() => {
+        this.disposeAppliedPreview();
+        return { type: "reset", initialData: this.initialData };
+      }),
+      "add-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "add" }),
+      "duplicate-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "duplicate" }),
+      "delete-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "delete" }),
+      "select-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index }),
+      "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
+      "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
+      "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
+      "select-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index }),
+      "set-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", value: value ?? "" }),
+      "clear-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" }),
+      "add-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "add", value: 1 }),
+      "delete-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 }),
+      "add-transform": () => this.runAction({ type: "transformAction", operation: "add", kind: (value ?? "translate") as TransformKind }),
+      "delete-transform": () => this.runAction({ type: "transformAction", operation: "delete", index }),
+      "move-transform-up": () => this.runAction({ type: "transformAction", operation: "move", index, direction: -1 }),
+      "move-transform-down": () => this.runAction({ type: "transformAction", operation: "move", index, direction: 1 }),
+      "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
+      "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
+      "run-preview": () => { this.runPreview(); this.render(); },
+      "reset-preview": () => { this.resetAppliedPreview(); this.render(); },
+      "view-json": () => { this.openPreview("json"); this.render(); },
+      "view-css": () => { this.openPreview("css"); this.render(); },
+      "close-preview": () => { this.closePreview("Closed preview."); this.render(); },
+      "copy-json": () => { void this.copyPayload("json"); },
+      "copy-css": () => { void this.copyPayload("css"); },
+    };
+    clickActions[action]?.();
   }
 
-  private readonly clickActions: Record<string, (target: HTMLElement) => void> = {
-    hide: () => this.hide(),
-    reset: () => this.runAction(() => {
-      this.dom.disposeAppliedPreview();
-      return { type: "reset", initialData: this.initialData };
-    }),
-    "add-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "add" }),
-    "duplicate-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "duplicate" }),
-    "delete-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "delete" }),
-    "select-timeline": (target) => this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index: actionIndex(target) }),
-    "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
-    "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
-    "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
-    "select-keyframe": (target) => this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index: actionIndex(target) }),
-    "set-timing-function": (target) => this.runAction({ type: "fieldAction", field: "timingFunction", value: target.dataset.wkfValue ?? "" }),
-    "clear-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" }),
-    "add-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "add", value: 1 }),
-    "delete-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 }),
-    "add-transform": (target) => this.runAction({ type: "transformAction", operation: "add", kind: (target.dataset.wkfKind ?? "translate") as TransformKind }),
-    "delete-transform": (target) => this.runAction({ type: "transformAction", operation: "delete", index: actionIndex(target) }),
-    "move-transform-up": (target) => this.runAction({ type: "transformAction", operation: "move", index: actionIndex(target), direction: -1 }),
-    "move-transform-down": (target) => this.runAction({ type: "transformAction", operation: "move", index: actionIndex(target), direction: 1 }),
-    "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
-    "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
-    "run-preview": () => { this.dom.runPreview(); this.render(); },
-    "reset-preview": () => { this.dom.resetAppliedPreview(); this.render(); },
-    "view-json": () => { this.dom.openPreview("json"); this.render(); },
-    "view-css": () => { this.dom.openPreview("css"); this.render(); },
-    "close-preview": () => { this.dom.closePreview("Closed preview."); this.render(); },
-  };
-
-  private async handleCopy(kind: "json" | "css"): Promise<void> {
-    await this.dom.copyPayload(kind);
-    this.render();
-  }
-
-  private handleDelegatedInput(event: Event): void {
-    const target = event.target;
-    if (target instanceof HTMLInputElement && target.dataset.wkfField) {
-      this.handleFieldUpdate(target.dataset.wkfField, target, "input");
-    }
-  }
-
-  private handleDelegatedChange(event: Event): void {
-    const target = event.target;
-    if ((target instanceof HTMLInputElement || target instanceof HTMLSelectElement) && target.dataset.wkfField) {
-      this.handleFieldUpdate(target.dataset.wkfField, target, "change");
-    }
-  }
-
-  private handleFieldUpdate(field: string, input: HTMLInputElement | HTMLSelectElement, eventType: "input" | "change"): void {
-    if (input instanceof HTMLSelectElement) {
-      if (eventType === "change") {
-        this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
-      }
+  private handleFieldInput(field: string, rawValue: string, meta: InputMeta): void {
+    if (meta.inputType === "text") {
+      this.commitFieldEdit({ type: "fieldAction", field, value: rawValue }, meta.focusSnapshot);
       return;
     }
-    if (input.type === "range") {
-      if (eventType === "input") {
-        const value = Number(input.value);
-        if (!Number.isFinite(value) || !dispatchEditorAction(this.state, { type: "fieldAction", field, value })) {
-          return;
-        }
-        this.dom.syncNumberFieldValues(this.container, field, value, input);
+    if (meta.inputType === "range") {
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) {
         return;
       }
-      const value = Number(input.value);
-      if (Number.isFinite(value)) {
-        this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
+      if (dispatchEditorAction(this.state, { type: "fieldAction", field, value })) {
+        this.render();
       }
-      return;
-    }
-    if (input.type === "number") {
-      if (eventType === "change") {
-        const value = Number(input.value);
-        if (Number.isFinite(value)) {
-          this.commitFieldEdit({ type: "fieldAction", field, value }, field, input);
-        }
-      }
-      return;
-    }
-    if (eventType === "input") {
-      this.commitFieldEdit({ type: "fieldAction", field, value: input.value }, field, input);
     }
   }
 
-  private commitFieldEdit(action: { type: "fieldAction"; field: string; value: string | number }, field: string, input: HTMLInputElement | HTMLSelectElement): void {
-    const focusSnapshot = this.dom.captureFocusSnapshot(this.container, field, input);
+  private handleFieldChange(field: string, rawValue: string, meta: InputMeta): void {
+    if (meta.inputType === "select-one") {
+      this.commitFieldEdit({ type: "fieldAction", field, value: rawValue }, meta.focusSnapshot);
+      return;
+    }
+    const value = Number(rawValue);
+    if (meta.inputType === "range" || meta.inputType === "number") {
+      if (!Number.isFinite(value)) {
+        return;
+      }
+      this.commitFieldEdit({ type: "fieldAction", field, value }, meta.focusSnapshot);
+    }
+  }
+
+  private commitFieldEdit(
+    action: { type: "fieldAction"; field: string; value: string | number },
+    focusSnapshot: FocusSnapshot | null,
+  ): void {
     if (dispatchEditorAction(this.state, { ...action, focusSnapshot })) {
       this.render();
     }
   }
 
-  private runAction(actionOrFactory: EditorAction | (() => EditorAction)): void {
-    const action = typeof actionOrFactory === "function" ? actionOrFactory() : actionOrFactory;
-    if (dispatchEditorAction(this.state, action)) {
+  private runAction(action: EditorAction | (() => EditorAction)): void {
+    const resolved = typeof action === "function" ? action() : action;
+    if (dispatchEditorAction(this.state, resolved)) {
       this.render();
     }
   }
-}
 
-function actionIndex(target: HTMLElement): number {
-  return Number(target.dataset.wkfIndex ?? "0");
+  private async copyPayload(kind: "json" | "css"): Promise<void> {
+    const payload = getPayload(kind, () => this.toJson(), () => this.toCss());
+    try {
+      const clipboard = this.root.ownerDocument.defaultView?.navigator?.clipboard;
+      if (!clipboard?.writeText) {
+        throw new Error("Clipboard API is not available.");
+      }
+      await clipboard.writeText(payload.text);
+      setStatus(this.state, "success", payload.copyMessage);
+    } catch (error) {
+      setStatus(this.state, "error", error instanceof Error ? error.message : String(error));
+    }
+    this.render();
+  }
+
+  private openPreview(kind: "json" | "css"): void {
+    const payload = getPayload(kind, () => this.toJson(), () => this.toCss());
+    this.state.previewTitle = payload.previewTitle;
+    this.state.previewContent = payload.text;
+    setStatus(this.state, "success", payload.openMessage);
+  }
+
+  private closePreview(message: string): void {
+    this.state.previewTitle = null;
+    this.state.previewContent = "";
+    setStatus(this.state, "info", message);
+  }
+
+  private runPreview(): void {
+    try {
+      const timeline = getSelectedTimeline(this.state);
+      clearPreview(this.state.activePreview);
+      this.state.activePreview = applyPreview(this.root.ownerDocument, timeline);
+      setStatus(
+        this.state,
+        "success",
+        `Applied preview to ${this.state.activePreview.targets.length} element${this.state.activePreview.targets.length === 1 ? "" : "s"} for "${timeline.animationName}".`,
+      );
+    } catch (error) {
+      setStatus(this.state, "error", error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private resetAppliedPreview(): void {
+    if (this.state.activePreview === null) {
+      setStatus(this.state, "info", "Preview is not active.");
+      return;
+    }
+    clearPreview(this.state.activePreview);
+    this.state.activePreview = null;
+    setStatus(this.state, "success", "Reset preview.");
+  }
+
+  private disposeAppliedPreview(): void {
+    clearPreview(this.state.activePreview);
+    this.state.activePreview = null;
+  }
+
+  private startDrag(event: MouseEvent): void {
+    if (event.button !== 0 || !this.container) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-wkf-no-drag='true'], button, input, select, textarea, label")) {
+      return;
+    }
+    const panel = this.container.querySelector<HTMLElement>(".wkf__panel");
+    const ownerWindow = this.root.ownerDocument.defaultView;
+    if (!panel || !ownerWindow) {
+      return;
+    }
+    const rect = panel.getBoundingClientRect();
+    this.state.panelPosition = { left: rect.left, top: rect.top };
+    this.dragOffset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    panel.classList.add("wkf__panel--dragging");
+    ownerWindow.addEventListener("mousemove", this.handleDragMove);
+    ownerWindow.addEventListener("mouseup", this.handleDragEnd);
+    event.preventDefault();
+  }
+
+  private applyPanelPosition(): void {
+    const panel = this.container?.querySelector<HTMLElement>(".wkf__panel");
+    if (!panel) {
+      return;
+    }
+    const position = this.state.panelPosition;
+    if (position === null) {
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.bottom = "";
+      panel.style.transform = "";
+      return;
+    }
+    panel.style.left = `${position.left}px`;
+    panel.style.top = `${position.top}px`;
+    panel.style.bottom = "auto";
+    panel.style.transform = "none";
+  }
+
+  private restoreFocus(): void {
+    if (!this.container || !this.state.pendingFocus) {
+      return;
+    }
+    const pending = this.state.pendingFocus;
+    const inputs = this.container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${pending.field}']`);
+    const input = inputs[pending.index];
+    if (!input) {
+      this.state.pendingFocus = null;
+      return;
+    }
+    input.focus();
+    if (input instanceof HTMLInputElement && pending.selectionStart !== null && pending.selectionEnd !== null) {
+      input.setSelectionRange(pending.selectionStart, pending.selectionEnd);
+    }
+    this.state.pendingFocus = null;
+  }
 }
 
 function validateAndCloneEditorData(data: WebKeyframesDocument): WebKeyframesDocument {
   return cloneDocument(validateWebKeyframesDocument(data));
+}
+
+function getPayload(kind: "json" | "css", getJson: () => string, getCss: () => string) {
+  return kind === "json"
+    ? { text: getJson(), previewTitle: "JSON Preview", copyMessage: "Copied JSON to clipboard.", openMessage: "Opened json preview." }
+    : { text: getCss(), previewTitle: "CSS Preview", copyMessage: "Copied CSS to clipboard.", openMessage: "Opened css preview." };
+}
+
+function applyPreview(ownerDocument: Document, timeline: WebKeyframesTimeline): ActivePreview {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) {
+    throw new Error("Preview is not available in this environment.");
+  }
+  const normalized = normalizeWebKeyframesTimeline(timeline);
+  const targets = Array.from(ownerDocument.querySelectorAll<HTMLElement>("body *")).filter((element) =>
+    ownerWindow.getComputedStyle(element).animationName.split(",").map((part) => part.trim()).includes(normalized.animationName)
+  );
+  if (!targets.length) {
+    throw new Error(`No elements using animation-name "${normalized.animationName}" were found.`);
+  }
+  const previewName = `${normalized.animationName}__wkf_preview`;
+  const styleElement = ownerDocument.head.querySelector<HTMLStyleElement>("style[data-wkf-preview='true']") ?? ownerDocument.createElement("style");
+  styleElement.dataset.wkfPreview = "true";
+  styleElement.textContent = generateCss({ timelines: [timeline] }).replace(/^@keyframes\s+[^\s{]+\s+\{/, `@keyframes ${previewName} {`);
+  if (!styleElement.parentElement) {
+    ownerDocument.head.append(styleElement);
+  }
+  const applied = targets.map((element) => ({ element, inlineAnimationName: element.style.animationName }));
+  for (const target of applied) {
+    const computed = ownerWindow.getComputedStyle(target.element).animationName;
+    const names = computed.split(",").map((part) => part.trim()).filter((part) => part && part !== "none");
+    target.element.style.animationName = "none";
+    void target.element.offsetWidth;
+    target.element.style.animationName = (names.length ? names : [normalized.animationName]).map((name) => name === normalized.animationName ? previewName : name).join(", ");
+  }
+  return { styleElement, targets: applied };
+}
+
+function clearPreview(activePreview: ActivePreview | null): void {
+  if (!activePreview) {
+    return;
+  }
+  for (const target of activePreview.targets) {
+    target.element.style.animationName = target.inlineAnimationName;
+  }
+  activePreview.styleElement.remove();
+}
+
+function parseShortcut(shortcut: string | false | undefined): Shortcut | null {
+  if (!shortcut || typeof shortcut !== "string") {
+    return null;
+  }
+  const parts = shortcut.toLowerCase().split("+").map((part) => part.trim()).filter(Boolean);
+  const key = parts.pop();
+  return !key
+    ? null
+    : { key, ctrlKey: parts.includes("ctrl"), metaKey: parts.includes("meta") || parts.includes("cmd"), shiftKey: parts.includes("shift"), altKey: parts.includes("alt") || parts.includes("option") };
+}
+
+function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut): boolean {
+  return event.key.toLowerCase() === shortcut.key
+    && event.ctrlKey === shortcut.ctrlKey
+    && event.metaKey === shortcut.metaKey
+    && event.shiftKey === shortcut.shiftKey
+    && event.altKey === shortcut.altKey;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
