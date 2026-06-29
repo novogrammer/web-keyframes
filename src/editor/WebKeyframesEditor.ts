@@ -4,7 +4,7 @@ import { generateCss } from "../core/generateCss.js";
 import { cloneDocument, normalizeWebKeyframesTimeline } from "../core/normalize.js";
 import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
 import { validateWebKeyframesDocument } from "../core/validate.js";
-import { EditorApp, type InputMeta } from "./EditorApp.js";
+import { EditorApp } from "./EditorApp.js";
 import {
   createDefaultEditorDocument,
   createEditorState,
@@ -159,9 +159,14 @@ export class WebKeyframesEditor {
     render(
       h(EditorApp, {
         state: this.state,
-        onAction: (action, index, value) => this.handleAction(action, index, value),
-        onFieldInput: (field, value, meta) => this.handleFieldInput(field, value, meta),
-        onFieldChange: (field, value, meta) => this.handleFieldChange(field, value, meta),
+        apply: (action) => this.apply(action),
+        reset: () => this.reset(),
+        hide: () => this.hide(),
+        copyPayload: (kind) => { void this.copyPayload(kind); },
+        openPreview: (kind) => this.openPreview(kind),
+        closePreview: () => this.closePreview("Closed preview."),
+        runPreview: () => this.runPreviewAndRender(),
+        resetPreview: () => this.resetPreviewAndRender(),
         onDragStart: (event) => this.startDrag(event),
       }),
       this.container,
@@ -170,86 +175,15 @@ export class WebKeyframesEditor {
     queueMicrotask(() => this.restoreFocus());
   }
 
-  private handleAction(action: string, index?: number, value?: string): void {
-    const clickActions: Record<string, () => void> = {
-      hide: () => this.hide(),
-      reset: () => this.runAction(() => {
-        this.disposeAppliedPreview();
-        return { type: "reset", initialData: this.initialData };
-      }),
-      "add-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "add" }),
-      "duplicate-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "duplicate" }),
-      "delete-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "delete" }),
-      "select-timeline": () => this.runAction({ type: "collectionAction", target: "timeline", operation: "select", index }),
-      "add-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "add" }),
-      "duplicate-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "duplicate" }),
-      "delete-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "delete" }),
-      "select-keyframe": () => this.runAction({ type: "collectionAction", target: "keyframe", operation: "select", index }),
-      "set-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", value: value ?? "" }),
-      "clear-timing-function": () => this.runAction({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" }),
-      "add-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "add", value: 1 }),
-      "delete-opacity": () => this.runAction({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 }),
-      "add-transform": () => this.runAction({ type: "transformAction", operation: "add", kind: (value ?? "translate") as TransformKind }),
-      "delete-transform": () => this.runAction({ type: "transformAction", operation: "delete", index }),
-      "move-transform-up": () => this.runAction({ type: "transformAction", operation: "move", index, direction: -1 }),
-      "move-transform-down": () => this.runAction({ type: "transformAction", operation: "move", index, direction: 1 }),
-      "delete-transforms": () => this.runAction({ type: "transformAction", operation: "delete" }),
-      "clear-transforms": () => this.runAction({ type: "transformAction", operation: "clear" }),
-      "run-preview": () => { this.runPreview(); this.render(); },
-      "reset-preview": () => { this.resetAppliedPreview(); this.render(); },
-      "view-json": () => { this.openPreview("json"); this.render(); },
-      "view-css": () => { this.openPreview("css"); this.render(); },
-      "close-preview": () => { this.closePreview("Closed preview."); this.render(); },
-      "copy-json": () => { void this.copyPayload("json"); },
-      "copy-css": () => { void this.copyPayload("css"); },
-    };
-    clickActions[action]?.();
-  }
-
-  private handleFieldInput(field: string, rawValue: string, meta: InputMeta): void {
-    if (meta.inputType === "text") {
-      this.commitFieldEdit({ type: "fieldAction", field, value: rawValue }, meta.focusSnapshot);
-      return;
-    }
-    if (meta.inputType === "range") {
-      const value = Number(rawValue);
-      if (!Number.isFinite(value)) {
-        return;
-      }
-      if (dispatchEditorAction(this.state, { type: "fieldAction", field, value })) {
-        this.render();
-      }
-    }
-  }
-
-  private handleFieldChange(field: string, rawValue: string, meta: InputMeta): void {
-    if (meta.inputType === "select-one") {
-      this.commitFieldEdit({ type: "fieldAction", field, value: rawValue }, meta.focusSnapshot);
-      return;
-    }
-    const value = Number(rawValue);
-    if (meta.inputType === "range" || meta.inputType === "number") {
-      if (!Number.isFinite(value)) {
-        return;
-      }
-      this.commitFieldEdit({ type: "fieldAction", field, value }, meta.focusSnapshot);
-    }
-  }
-
-  private commitFieldEdit(
-    action: { type: "fieldAction"; field: string; value: string | number },
-    focusSnapshot: FocusSnapshot | null,
-  ): void {
-    if (dispatchEditorAction(this.state, { ...action, focusSnapshot })) {
+  private apply(action: EditorAction): void {
+    if (dispatchEditorAction(this.state, action)) {
       this.render();
     }
   }
 
-  private runAction(action: EditorAction | (() => EditorAction)): void {
-    const resolved = typeof action === "function" ? action() : action;
-    if (dispatchEditorAction(this.state, resolved)) {
-      this.render();
-    }
+  private reset(): void {
+    this.disposeAppliedPreview();
+    this.apply({ type: "reset", initialData: this.initialData });
   }
 
   private async copyPayload(kind: "json" | "css"): Promise<void> {
@@ -272,12 +206,14 @@ export class WebKeyframesEditor {
     this.state.previewTitle = payload.previewTitle;
     this.state.previewContent = payload.text;
     setStatus(this.state, "success", payload.openMessage);
+    this.render();
   }
 
   private closePreview(message: string): void {
     this.state.previewTitle = null;
     this.state.previewContent = "";
     setStatus(this.state, "info", message);
+    this.render();
   }
 
   private runPreview(): void {
@@ -295,6 +231,11 @@ export class WebKeyframesEditor {
     }
   }
 
+  private runPreviewAndRender(): void {
+    this.runPreview();
+    this.render();
+  }
+
   private resetAppliedPreview(): void {
     if (this.state.activePreview === null) {
       setStatus(this.state, "info", "Preview is not active.");
@@ -303,6 +244,11 @@ export class WebKeyframesEditor {
     clearPreview(this.state.activePreview);
     this.state.activePreview = null;
     setStatus(this.state, "success", "Reset preview.");
+  }
+
+  private resetPreviewAndRender(): void {
+    this.resetAppliedPreview();
+    this.render();
   }
 
   private disposeAppliedPreview(): void {

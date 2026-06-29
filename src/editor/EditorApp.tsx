@@ -3,6 +3,7 @@ import type { JSX } from "preact";
 import { formatNumber } from "../core/generateCss.js";
 import type { TransformKind } from "../core/types.js";
 import type {
+  EditorAction,
   EditorState,
   EditorView,
   FocusSnapshot,
@@ -21,15 +22,15 @@ import {
 
 type EditorAppProps = {
   state: EditorState;
-  onAction: (action: string, index?: number, value?: string) => void;
-  onFieldInput: (field: string, value: string, meta: InputMeta) => void;
-  onFieldChange: (field: string, value: string, meta: InputMeta) => void;
+  apply: (action: EditorAction) => void;
+  reset: () => void;
+  hide: () => void;
+  copyPayload: (kind: "json" | "css") => void;
+  openPreview: (kind: "json" | "css") => void;
+  closePreview: () => void;
+  runPreview: () => void;
+  resetPreview: () => void;
   onDragStart: (event: MouseEvent) => void;
-};
-
-export type InputMeta = {
-  inputType: string;
-  focusSnapshot: FocusSnapshot | null;
 };
 
 export function EditorApp(props: EditorAppProps): JSX.Element {
@@ -42,18 +43,27 @@ export function EditorApp(props: EditorAppProps): JSX.Element {
           <h2 class="wkf__title">Keyframe Data Editor</h2>
         </div>
         <div class="wkf__actions" data-wkf-no-drag="true">
-          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="reset" onClick={() => props.onAction("reset")}>Reset</button>
-          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide" onClick={() => props.onAction("hide")}>Hide</button>
+          <button
+            type="button"
+            class="wkf__button wkf__button--ghost"
+            data-wkf-action="reset"
+            onClick={props.reset}
+          >
+            Reset
+          </button>
+          <button type="button" class="wkf__button wkf__button--ghost" data-wkf-action="hide" onClick={props.hide}>
+            Hide
+          </button>
         </div>
       </div>
       <div class="wkf__layout">
         <div class="wkf__columns">
-          <TimelineList view={view} state={props.state} onAction={props.onAction} />
+          <TimelineList view={view} state={props.state} apply={props.apply} />
           <div class="wkf__section">
-            <SelectedTimelineForm timeline={view.selectedTimeline} onFieldInput={props.onFieldInput} onFieldChange={props.onFieldChange} />
+            <SelectedTimelineForm timeline={view.selectedTimeline} apply={props.apply} />
             <div class="wkf__columns wkf__columns--stacked">
-              <KeyframeList view={view} state={props.state} onAction={props.onAction} />
-              <SelectedKeyframeForm view={view} onAction={props.onAction} onFieldInput={props.onFieldInput} onFieldChange={props.onFieldChange} />
+              <KeyframeList view={view} state={props.state} apply={props.apply} />
+              <SelectedKeyframeForm view={view} apply={props.apply} />
             </div>
           </div>
         </div>
@@ -66,7 +76,7 @@ export function EditorApp(props: EditorAppProps): JSX.Element {
                   <div class="wkf__section-title">{props.state.previewTitle}</div>
                   <p class="wkf__subtitle">Current generated output</p>
                 </div>
-                <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview" onClick={() => props.onAction("close-preview")}>Close</button>
+                <button type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="close-preview" onClick={props.closePreview}>Close</button>
               </div>
               <textarea class="wkf__preview-textarea" readOnly value={props.state.previewContent} />
             </div>
@@ -75,27 +85,27 @@ export function EditorApp(props: EditorAppProps): JSX.Element {
       <div class="wkf__footer" data-wkf-drag-handle="true" onMouseDown={(event) => props.onDragStart(event as unknown as MouseEvent)}>
         <p class={`wkf__note wkf__note--${props.state.statusTone}`} data-wkf-status>{props.state.statusMessage}</p>
         <div class="wkf__inline-actions">
-          <ActionButton action="run-preview" label="Preview" onAction={props.onAction} ghost small />
-          <ActionButton action="reset-preview" label="Reset Preview" onAction={props.onAction} ghost small />
-          <ActionButton action="view-json" label="View JSON" onAction={props.onAction} ghost small />
-          <ActionButton action="view-css" label="View CSS" onAction={props.onAction} ghost small />
-          <ActionButton action="copy-json" label="Copy JSON" onAction={props.onAction} ghost small />
-          <ActionButton action="copy-css" label="Copy CSS" onAction={props.onAction} small />
+          <ActionButton action="run-preview" label="Preview" ghost small onClick={props.runPreview} />
+          <ActionButton action="reset-preview" label="Reset Preview" ghost small onClick={props.resetPreview} />
+          <ActionButton action="view-json" label="View JSON" ghost small onClick={() => props.openPreview("json")} />
+          <ActionButton action="view-css" label="View CSS" ghost small onClick={() => props.openPreview("css")} />
+          <ActionButton action="copy-json" label="Copy JSON" ghost small onClick={() => props.copyPayload("json")} />
+          <ActionButton action="copy-css" label="Copy CSS" small onClick={() => props.copyPayload("css")} />
         </div>
       </div>
     </div>
   );
 }
 
-function TimelineList({ view, state, onAction }: { view: EditorView; state: EditorState; onAction: EditorAppProps["onAction"] }) {
+function TimelineList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section wkf__section--list">
       <div class="wkf__section-head">
         <div class="wkf__section-title">Timelines</div>
         <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          <ActionButton action="add-timeline" label="Add" onAction={onAction} small />
-          <ActionButton action="duplicate-timeline" label="Duplicate" onAction={onAction} ghost small />
-          <ActionButton action="delete-timeline" label="Delete" onAction={onAction} ghost small disabled={view.timelines.length <= 1} />
+          <ActionButton action="add-timeline" label="Add" small onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "add" })} />
+          <ActionButton action="duplicate-timeline" label="Duplicate" ghost small onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "duplicate" })} />
+          <ActionButton action="delete-timeline" label="Delete" ghost small disabled={view.timelines.length <= 1} onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "delete" })} />
         </div>
       </div>
       <div class="wkf__keyframe-list">
@@ -105,7 +115,7 @@ function TimelineList({ view, state, onAction }: { view: EditorView; state: Edit
             type="button"
             class={`wkf__keyframe-item${index === state.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}`}
             data-wkf-action="select-timeline"
-            onClick={() => onAction("select-timeline", index)}
+            onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "select", index })}
           >
             <span class="wkf__keyframe-time">{timeline.animationName}</span>
             <span class="wkf__keyframe-percent">{timeline.positionType === "time" ? `${String(timeline.duration ?? 1)}ms` : "percent mode"}</span>
@@ -117,35 +127,57 @@ function TimelineList({ view, state, onAction }: { view: EditorView; state: Edit
   );
 }
 
-function SelectedTimelineForm(
-  { timeline, onFieldInput, onFieldChange }: {
-    timeline: RenderTimeline;
-    onFieldInput: EditorAppProps["onFieldInput"];
-    onFieldChange: EditorAppProps["onFieldChange"];
-  },
-) {
+function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section">
       <div class="wkf__section-title">Selected Timeline</div>
       <div class="wkf__grid wkf__grid--meta">
-        <TextField field="animationName" label="Animation Name" value={timeline.animationName} onInput={onFieldInput} />
-        <SelectField field="positionType" label="Keyframe Position" value={timeline.positionType} options={[["time", "time"], ["percent", "percent"]]} onChange={onFieldChange} />
-        {timeline.positionType === "time" ? <NumberField field="duration" label="Duration" value={timeline.duration ?? 1} min={1} step={1} onChange={onFieldChange} /> : null}
-        <SelectField field="translateUnit" label="Translate Unit" value={timeline.translateUnit} options={TRANSLATE_OPTIONS.map((value) => [value, value])} onChange={onFieldChange} />
+        <TextField
+          field="animationName"
+          label="Animation Name"
+          value={timeline.animationName}
+          onValueInput={(value, focusSnapshot) => apply({ type: "fieldAction", field: "animationName", value, focusSnapshot })}
+        />
+        <SelectField
+          field="positionType"
+          label="Keyframe Position"
+          value={timeline.positionType}
+          options={[["time", "time"], ["percent", "percent"]]}
+          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "positionType", value, focusSnapshot })}
+        />
+        {timeline.positionType === "time"
+          ? (
+              <NumberField
+                field="duration"
+                label="Duration"
+                value={timeline.duration ?? 1}
+                min={1}
+                step={1}
+                onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "duration", value, focusSnapshot })}
+              />
+            )
+          : null}
+        <SelectField
+          field="translateUnit"
+          label="Translate Unit"
+          value={timeline.translateUnit}
+          options={TRANSLATE_OPTIONS.map((value) => [value, value])}
+          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "translateUnit", value, focusSnapshot })}
+        />
       </div>
     </div>
   );
 }
 
-function KeyframeList({ view, state, onAction }: { view: EditorView; state: EditorState; onAction: EditorAppProps["onAction"] }) {
+function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section wkf__section--list">
       <div class="wkf__section-head">
         <div class="wkf__section-title">Keyframes</div>
         <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          <ActionButton action="add-keyframe" label="Add" onAction={onAction} small />
-          <ActionButton action="duplicate-keyframe" label="Duplicate" onAction={onAction} ghost small disabled={view.selectedTimeline.keyframes.length === 0} />
-          <ActionButton action="delete-keyframe" label="Delete" onAction={onAction} ghost small disabled={view.selectedTimeline.keyframes.length === 0} />
+          <ActionButton action="add-keyframe" label="Add" small onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "add" })} />
+          <ActionButton action="duplicate-keyframe" label="Duplicate" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "duplicate" })} />
+          <ActionButton action="delete-keyframe" label="Delete" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "delete" })} />
         </div>
       </div>
       <div class="wkf__keyframe-list">
@@ -156,7 +188,7 @@ function KeyframeList({ view, state, onAction }: { view: EditorView; state: Edit
                 type="button"
                 class={`wkf__keyframe-item${index === state.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}`}
                 data-wkf-action="select-keyframe"
-                onClick={() => onAction("select-keyframe", index)}
+                onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "select", index })}
               >
                 <span class="wkf__keyframe-time">{keyframeLabel(keyframe, view.selectedTimeline)}</span>
                 <span class="wkf__keyframe-percent">{keyframeSecondaryLabel(keyframe, view.selectedTimeline)}</span>
@@ -169,14 +201,7 @@ function KeyframeList({ view, state, onAction }: { view: EditorView; state: Edit
   );
 }
 
-function SelectedKeyframeForm(
-  { view, onAction, onFieldInput, onFieldChange }: {
-    view: EditorView;
-    onAction: EditorAppProps["onAction"];
-    onFieldInput: EditorAppProps["onFieldInput"];
-    onFieldChange: EditorAppProps["onFieldChange"];
-  },
-) {
+function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: EditorAppProps["apply"] }) {
   const keyframe = view.selectedKeyframe ?? view.selectedTimeline.keyframes[0];
   return (
     <div class="wkf__section wkf__section--editor">
@@ -196,15 +221,28 @@ function SelectedKeyframeForm(
         ? (
             <>
               <div class="wkf__grid wkf__grid--editor">
-                <PositionField timeline={view.selectedTimeline} keyframe={keyframe} onFieldInput={onFieldInput} onFieldChange={onFieldChange} />
-                <TextField field="timingFunction" label="Timing Function" value={view.timingFunction} onInput={onFieldInput} />
+                <PositionField timeline={view.selectedTimeline} keyframe={keyframe} apply={apply} />
+                <TextField
+                  field="timingFunction"
+                  label="Timing Function"
+                  value={view.timingFunction}
+                  onValueInput={(value, focusSnapshot) => apply({ type: "fieldAction", field: "timingFunction", value, focusSnapshot })}
+                />
                 <div class="wkf__field wkf__field--full">
                   <span class="wkf__label">Insert Preset</span>
                   <div class="wkf__inline-actions wkf__inline-actions--wrap">
                     {TIMING_FUNCTION_PRESETS.map((value) => (
-                      <button key={value} type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="set-timing-function" onClick={() => onAction("set-timing-function", undefined, value)}>{value}</button>
+                      <button
+                        key={value}
+                        type="button"
+                        class="wkf__button wkf__button--small wkf__button--ghost"
+                        data-wkf-action="set-timing-function"
+                        onClick={() => apply({ type: "fieldAction", field: "timingFunction", value })}
+                      >
+                        {value}
+                      </button>
                     ))}
-                    <ActionButton action="clear-timing-function" label="Clear" onAction={onAction} ghost small />
+                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={() => apply({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" })} />
                   </div>
                 </div>
               </div>
@@ -212,27 +250,39 @@ function SelectedKeyframeForm(
               {view.opacityState !== "unset" && view.transformState !== "unset" ? null : (
                 <div class="wkf__property-add">
                   <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" onAction={onAction} ghost small /> : null}
-                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" onAction={onAction} ghost small /> : null}
+                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={() => apply({ type: "fieldAction", field: "opacity", operation: "add", value: 1 })} /> : null}
+                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={() => apply({ type: "transformAction", operation: "add", kind: "translate" })} /> : null}
                   </div>
                 </div>
               )}
               <div class="wkf__property-list">
-                {view.opacityState === "explicit" ? (
-                  <div class="wkf__property">
-                    <div class="wkf__section-head">
-                      <div>
-                        <div class="wkf__section-title">Opacity</div>
-                        <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
+                {view.opacityState === "explicit"
+                  ? (
+                      <div class="wkf__property">
+                        <div class="wkf__section-head">
+                          <div>
+                            <div class="wkf__section-title">Opacity</div>
+                            <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
+                          </div>
+                          <div class="wkf__inline-actions">
+                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={() => apply({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 })} />
+                          </div>
+                        </div>
+                        <RangeNumberField
+                          field="opacity"
+                          label="Opacity"
+                          value={view.opacityValue ?? 1}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          className="wkf__field wkf__field--full"
+                          onValueInput={(value) => apply({ type: "fieldAction", field: "opacity", value })}
+                          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "opacity", value, focusSnapshot })}
+                        />
                       </div>
-                      <div class="wkf__inline-actions">
-                        <ActionButton action="delete-opacity" label="Delete" onAction={onAction} ghost small />
-                      </div>
-                    </div>
-                    <RangeNumberField field="opacity" label="Opacity" value={view.opacityValue ?? 1} min={0} max={1} step={0.01} className="wkf__field wkf__field--full" onFieldInput={onFieldInput} onFieldChange={onFieldChange} />
-                  </div>
-                ) : null}
-                {view.transformState !== "unset" ? <TransformsEditor state={view} onAction={onAction} onFieldChange={onFieldChange} /> : null}
+                    )
+                  : null}
+                {view.transformState !== "unset" ? <TransformsEditor state={view} apply={apply} /> : null}
               </div>
             </>
           )
@@ -246,12 +296,20 @@ function SelectedKeyframeForm(
   );
 }
 
-function TransformsEditor({ state, onAction, onFieldChange }: { state: EditorView; onAction: EditorAppProps["onAction"]; onFieldChange: EditorAppProps["onFieldChange"] }) {
+function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__property">
       <div class="wkf__inline-actions wkf__inline-actions--wrap">
         {TRANSFORM_BUTTONS.map(([kind, label]) => (
-          <button key={kind} type="button" class="wkf__button wkf__button--small wkf__button--ghost" data-wkf-action="add-transform" onClick={() => onAction("add-transform", undefined, kind)}>{label}</button>
+          <button
+            key={kind}
+            type="button"
+            class="wkf__button wkf__button--small wkf__button--ghost"
+            data-wkf-action="add-transform"
+            onClick={() => apply({ type: "transformAction", operation: "add", kind })}
+          >
+            {label}
+          </button>
         ))}
       </div>
       <div class="wkf__section-head">
@@ -260,13 +318,13 @@ function TransformsEditor({ state, onAction, onFieldChange }: { state: EditorVie
           <p class="wkf__subtitle">{state.transformState === "none" ? "None" : `${state.transforms.length} item${state.transforms.length === 1 ? "" : "s"}`}</p>
         </div>
         <div class="wkf__inline-actions">
-          <ActionButton action="delete-transforms" label="Delete" onAction={onAction} ghost small />
-          {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" onAction={onAction} ghost small /> : null}
+          <ActionButton action="delete-transforms" label="Delete" ghost small onClick={() => apply({ type: "transformAction", operation: "delete" })} />
+          {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" ghost small onClick={() => apply({ type: "transformAction", operation: "clear" })} /> : null}
         </div>
       </div>
       <div class="wkf__transform-list">
         {state.transforms.map((transform, index) => (
-          <TransformEditor key={`transform-${index}-${transform.kind}`} transform={transform} index={index} total={state.transforms.length} onAction={onAction} onFieldChange={onFieldChange} />
+          <TransformEditor key={`transform-${index}-${transform.kind}`} transform={transform} index={index} total={state.transforms.length} apply={apply} />
         ))}
       </div>
     </div>
@@ -274,12 +332,11 @@ function TransformsEditor({ state, onAction, onFieldChange }: { state: EditorVie
 }
 
 function TransformEditor(
-  { transform, index, total, onAction, onFieldChange }: {
+  { transform, index, total, apply }: {
     transform: ViewTransformOperation;
     index: number;
     total: number;
-    onAction: EditorAppProps["onAction"];
-    onFieldChange: EditorAppProps["onFieldChange"];
+    apply: EditorAppProps["apply"];
   },
 ) {
   return (
@@ -291,37 +348,53 @@ function TransformEditor(
             label={`Transform ${index + 1}`}
             value={transform.kind}
             options={[["translate", "translate"], ["scale", "scale"], ["rotate", "rotate"], ["skew", "skew"]]}
-            onChange={onFieldChange}
+            onValueChange={(value, focusSnapshot) => apply({
+              type: "transformAction",
+              operation: "changeKind",
+              index,
+              kind: value as TransformKind,
+              ...(focusSnapshot ? {} : {}),
+            })}
           />
         </div>
         <div class="wkf__inline-actions">
-          <ActionButton action="move-transform-up" label="Up" onAction={onAction} index={index} ghost small disabled={index === 0} />
-          <ActionButton action="move-transform-down" label="Down" onAction={onAction} index={index} ghost small disabled={index === total - 1} />
-          <ActionButton action="delete-transform" label="Delete" onAction={onAction} index={index} ghost small />
+          <ActionButton action="move-transform-up" label="Up" ghost small disabled={index === 0} onClick={() => apply({ type: "transformAction", operation: "move", index, direction: -1 })} />
+          <ActionButton action="move-transform-down" label="Down" ghost small disabled={index === total - 1} onClick={() => apply({ type: "transformAction", operation: "move", index, direction: 1 })} />
+          <ActionButton action="delete-transform" label="Delete" ghost small onClick={() => apply({ type: "transformAction", operation: "delete", index })} />
         </div>
       </div>
       <div class="wkf__grid wkf__grid--editor">
         {transform.kind === "translate" || transform.kind === "scale" || transform.kind === "skew"
           ? (
               <>
-                <NumberField field={`transform-x-${index}`} label="X" value={transform.x} onChange={onFieldChange} />
-                <NumberField field={`transform-y-${index}`} label="Y" value={transform.y} onChange={onFieldChange} />
+                <NumberField
+                  field={`transform-x-${index}`}
+                  label="X"
+                  value={transform.x}
+                  onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "x", value, ...(focusSnapshot ? {} : {}) })}
+                />
+                <NumberField
+                  field={`transform-y-${index}`}
+                  label="Y"
+                  value={transform.y}
+                  onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "y", value, ...(focusSnapshot ? {} : {}) })}
+                />
               </>
             )
-          : <NumberField field={`transform-value-${index}`} label="Value" value={transform.value} onChange={onFieldChange} />}
+          : (
+              <NumberField
+                field={`transform-value-${index}`}
+                label="Value"
+                value={transform.value}
+                onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "value", value, ...(focusSnapshot ? {} : {}) })}
+              />
+            )}
       </div>
     </div>
   );
 }
 
-function PositionField(
-  { timeline, keyframe, onFieldInput, onFieldChange }: {
-    timeline: RenderTimeline;
-    keyframe: RenderTimeline["keyframes"][number];
-    onFieldInput: EditorAppProps["onFieldInput"];
-    onFieldChange: EditorAppProps["onFieldChange"];
-  },
-) {
+function PositionField({ timeline, keyframe, apply }: { timeline: RenderTimeline; keyframe: RenderTimeline["keyframes"][number]; apply: EditorAppProps["apply"] }) {
   const isTime = timeline.positionType === "time";
   return (
     <RangeNumberField
@@ -333,49 +406,55 @@ function PositionField(
       step={isTime ? 1 : 0.1}
       className="wkf__field wkf__field--time"
       suffix={isTime ? "ms" : "%"}
-      onFieldInput={onFieldInput}
-      onFieldChange={onFieldChange}
+      onValueInput={(value) => apply({ type: "fieldAction", field: "position", value })}
+      onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "position", value, focusSnapshot })}
     />
   );
 }
 
 function ActionButton(
-  { action, label, onAction, index, ghost = false, small = false, disabled = false }: {
-    action: string;
+  { action, label, onClick, ghost = false, small = false, disabled = false }: {
+    action?: string;
     label: string;
-    onAction: EditorAppProps["onAction"];
-    index?: number;
+    onClick: () => void;
     ghost?: boolean;
     small?: boolean;
     disabled?: boolean;
   },
 ) {
   const className = ["wkf__button", small ? "wkf__button--small" : "", ghost ? "wkf__button--ghost" : ""].filter(Boolean).join(" ");
-  return <button type="button" class={className} data-wkf-action={action} disabled={disabled} onClick={() => onAction(action, index)}>{label}</button>;
+  return <button type="button" class={className} data-wkf-action={action} disabled={disabled} onClick={onClick}>{label}</button>;
 }
 
-function TextField({ field, label, value, onInput }: { field: string; label: string; value: string; onInput: EditorAppProps["onFieldInput"] }) {
-  return (
-    <label class="wkf__field">
-      <span class="wkf__label">{label}</span>
-      <input class="wkf__input" type="text" data-wkf-field={field} value={value} onInput={(event) => onInput(field, currentValue(event), toInputMeta(event))} />
-    </label>
-  );
-}
-
-function SelectField(
-  { field, label, value, options, onChange }: {
+function TextField(
+  { field, label, value, onValueInput }: {
     field: string;
     label: string;
     value: string;
-    options: ReadonlyArray<readonly [string, string]>;
-    onChange: EditorAppProps["onFieldChange"];
+    onValueInput: (value: string, focusSnapshot: FocusSnapshot | null) => void;
   },
 ) {
   return (
     <label class="wkf__field">
       <span class="wkf__label">{label}</span>
-      <select class="wkf__input" data-wkf-field={field} value={value} onChange={(event) => onChange(field, currentValue(event), toInputMeta(event))}>
+      <input class="wkf__input" type="text" data-wkf-field={field} value={value} onInput={(event) => onValueInput(currentValue(event), captureFocusSnapshot(event.currentTarget))} />
+    </label>
+  );
+}
+
+function SelectField(
+  { field, label, value, options, onValueChange }: {
+    field: string;
+    label: string;
+    value: string;
+    options: ReadonlyArray<readonly [string, string]>;
+    onValueChange: (value: string, focusSnapshot: FocusSnapshot | null) => void;
+  },
+) {
+  return (
+    <label class="wkf__field">
+      <span class="wkf__label">{label}</span>
+      <select class="wkf__input" data-wkf-field={field} value={value} onChange={(event) => onValueChange(currentValue(event), captureFocusSnapshot(event.currentTarget))}>
         {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
       </select>
     </label>
@@ -383,26 +462,40 @@ function SelectField(
 }
 
 function NumberField(
-  { field, label, value, min, step, max, onChange }: {
+  { field, label, value, min, step, max, onValueChange }: {
     field: string;
     label: string;
     value: number;
     min?: number;
     step?: number;
     max?: number;
-    onChange: EditorAppProps["onFieldChange"];
+    onValueChange: (value: number, focusSnapshot: FocusSnapshot | null) => void;
   },
 ) {
   return (
     <label class="wkf__field">
       <span class="wkf__label">{label}</span>
-      <input class="wkf__input" type="number" data-wkf-field={field} value={String(value)} min={min} max={max} step={step} onChange={(event) => onChange(field, currentValue(event), toInputMeta(event))} />
+      <input
+        class="wkf__input"
+        type="number"
+        data-wkf-field={field}
+        value={String(value)}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => {
+          const nextValue = Number(currentValue(event));
+          if (Number.isFinite(nextValue)) {
+            onValueChange(nextValue, captureFocusSnapshot(event.currentTarget));
+          }
+        }}
+      />
     </label>
   );
 }
 
 function RangeNumberField(
-  { field, label, value, min, max, step, className, suffix = "", onFieldInput, onFieldChange }: {
+  { field, label, value, min, max, step, className, suffix = "", onValueInput, onValueChange }: {
     field: string;
     label: string;
     value: number;
@@ -411,16 +504,50 @@ function RangeNumberField(
     step: number;
     className: string;
     suffix?: string;
-    onFieldInput: EditorAppProps["onFieldInput"];
-    onFieldChange: EditorAppProps["onFieldChange"];
+    onValueInput: (value: number) => void;
+    onValueChange: (value: number, focusSnapshot: FocusSnapshot | null) => void;
   },
 ) {
   return (
     <div class={className}>
       <span class="wkf__label">{label}</span>
       <div class="wkf__range-group">
-        <input class="wkf__range" type="range" data-wkf-field={field} value={String(value)} min={min} max={max} step={step} onInput={(event) => onFieldInput(field, currentValue(event), toInputMeta(event))} onChange={(event) => onFieldChange(field, currentValue(event), toInputMeta(event))} />
-        <input class="wkf__input wkf__input--compact" type="number" data-wkf-field={field} value={String(value)} min={min} max={max} step={step} onChange={(event) => onFieldChange(field, currentValue(event), toInputMeta(event))} />
+        <input
+          class="wkf__range"
+          type="range"
+          data-wkf-field={field}
+          value={String(value)}
+          min={min}
+          max={max}
+          step={step}
+          onInput={(event) => {
+            const nextValue = Number(currentValue(event));
+            if (Number.isFinite(nextValue)) {
+              onValueInput(nextValue);
+            }
+          }}
+          onChange={(event) => {
+            const nextValue = Number(currentValue(event));
+            if (Number.isFinite(nextValue)) {
+              onValueChange(nextValue, captureFocusSnapshot(event.currentTarget));
+            }
+          }}
+        />
+        <input
+          class="wkf__input wkf__input--compact"
+          type="number"
+          data-wkf-field={field}
+          value={String(value)}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(event) => {
+            const nextValue = Number(currentValue(event));
+            if (Number.isFinite(nextValue)) {
+              onValueChange(nextValue, captureFocusSnapshot(event.currentTarget));
+            }
+          }}
+        />
       </div>
       {suffix ? <span class="wkf__subtitle">{suffix}</span> : null}
     </div>
@@ -431,24 +558,16 @@ function currentValue(event: JSX.TargetedEvent<HTMLInputElement | HTMLSelectElem
   return event.currentTarget.value;
 }
 
-function toInputMeta(event: JSX.TargetedEvent<HTMLInputElement | HTMLSelectElement, Event>): InputMeta {
-  const input = event.currentTarget;
-  return {
-    inputType: input.type,
-    focusSnapshot: {
-      field: input.dataset.wkfField ?? "",
-      index: fieldIndex(input),
-      selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
-      selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
-    },
-  };
-}
-
-function fieldIndex(input: HTMLInputElement | HTMLSelectElement): number {
+function captureFocusSnapshot(input: HTMLInputElement | HTMLSelectElement): FocusSnapshot | null {
   const field = input.dataset.wkfField;
   if (!field) {
-    return 0;
+    return null;
   }
   const inputs = input.ownerDocument.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-wkf-field='${field}']`);
-  return Math.max(0, Array.from(inputs).indexOf(input));
+  return {
+    field,
+    index: Math.max(0, Array.from(inputs).indexOf(input)),
+    selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
+    selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
+  };
 }
