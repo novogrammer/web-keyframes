@@ -9,6 +9,7 @@ import {
   DEFAULT_TRANSLATE_CONFIG,
   deleteKeyframeProperty,
   getOpacityValue,
+  getTransformProperty,
   getTransformOperations,
   hasKeyframeProperty,
   upsertKeyframeProperty,
@@ -98,6 +99,7 @@ export type EditorView = {
   sourceTimeline: WebKeyframesTimeline;
   selectedKeyframe: WebKeyframe | undefined;
   sourceKeyframe: WebKeyframe | undefined;
+  sourceTransforms: TransformOperation[];
   hasKeyframe: boolean;
   opacityState: "explicit" | "unset";
   opacityValue: number | null;
@@ -599,6 +601,7 @@ function deriveView(data: WebKeyframesDocument, timelineIndex: number, keyframeI
   const hasKeyframe = !!selectedKeyframe && !!sourceKeyframe;
   const opacityState = hasKeyframe && hasKeyframeProperty(sourceKeyframe!, "opacity") ? "explicit" : "unset";
   const opacityValue = hasKeyframe ? getOpacityValue(sourceKeyframe!) : null;
+  const sourceTransforms = hasKeyframe ? (getTransformProperty(sourceKeyframe!)?.value ?? []) : [];
   const transforms = hasKeyframe && hasKeyframeProperty(sourceKeyframe!, "transform") ? getTransformOperations(sourceKeyframe!) : [];
   const transformState = !hasKeyframe || !hasKeyframeProperty(sourceKeyframe!, "transform") ? "unset" : transforms.length === 0 ? "none" : "explicit";
   return {
@@ -607,6 +610,7 @@ function deriveView(data: WebKeyframesDocument, timelineIndex: number, keyframeI
     sourceTimeline,
     selectedKeyframe,
     sourceKeyframe,
+    sourceTransforms,
     hasKeyframe,
     opacityState,
     opacityValue,

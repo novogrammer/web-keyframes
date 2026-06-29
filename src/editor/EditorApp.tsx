@@ -97,6 +97,22 @@ export function EditorApp(props: EditorAppProps): JSX.Element {
   );
 }
 
+const objectKeys = new WeakMap<object, string>();
+let objectKeyCounter = 0;
+
+function stableObjectKey(value: object | undefined, prefix: string, fallback: string): string {
+  if (!value) {
+    return fallback;
+  }
+  let key = objectKeys.get(value);
+  if (!key) {
+    objectKeyCounter += 1;
+    key = `${prefix}-${objectKeyCounter}`;
+    objectKeys.set(value, key);
+  }
+  return key;
+}
+
 function TimelineList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section wkf__section--list">
@@ -111,7 +127,7 @@ function TimelineList({ view, state, apply }: { view: EditorView; state: EditorS
       <div class="wkf__keyframe-list">
         {view.timelines.map((timeline, index) => (
           <button
-            key={`timeline-${index}-${timeline.animationName}`}
+            key={stableObjectKey(state.data.timelines[index], "timeline", `timeline-fallback-${index}`)}
             type="button"
             class={`wkf__keyframe-item${index === state.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}`}
             data-wkf-action="select-timeline"
@@ -184,7 +200,7 @@ function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorS
         {view.selectedTimeline.keyframes.length
           ? view.selectedTimeline.keyframes.map((keyframe, index) => (
               <button
-                key={`keyframe-${index}-${keyframeLabel(keyframe, view.selectedTimeline)}`}
+                key={stableObjectKey(view.sourceTimeline.keyframes[index], "keyframe", `keyframe-fallback-${index}`)}
                 type="button"
                 class={`wkf__keyframe-item${index === state.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}`}
                 data-wkf-action="select-keyframe"
@@ -324,7 +340,7 @@ function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAp
       </div>
       <div class="wkf__transform-list">
         {state.transforms.map((transform, index) => (
-          <TransformEditor key={`transform-${index}-${transform.kind}`} transform={transform} index={index} total={state.transforms.length} apply={apply} />
+          <TransformEditor key={stableObjectKey(state.sourceTransforms[index], "transform", `transform-fallback-${index}`)} transform={transform} index={index} total={state.transforms.length} apply={apply} />
         ))}
       </div>
     </div>
