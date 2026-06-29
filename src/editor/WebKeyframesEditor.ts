@@ -12,6 +12,7 @@ import {
   getSelectedTimeline,
   normalizeEditorState,
   setStatus,
+  syncSelectionWithData,
   type ActivePreview,
   type EditorAction,
   type EditorState,
@@ -156,6 +157,7 @@ export class WebKeyframesEditor {
     if (!this.container) {
       return;
     }
+    syncSelectionWithData(this.state);
     render(
       h(EditorApp, {
         state: this.state,

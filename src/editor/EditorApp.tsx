@@ -11,7 +11,7 @@ import type {
   ViewTransformOperation,
 } from "./editorCore.js";
 import {
-  deriveViewForState,
+  deriveEditorView,
   keyframeLabel,
   keyframeSecondaryLabel,
   keyframeSummary,
@@ -34,7 +34,7 @@ type EditorAppProps = {
 };
 
 export function EditorApp(props: EditorAppProps): JSX.Element {
-  const view = deriveViewForState(props.state);
+  const view = deriveEditorView(props.state.data, props.state.selectedTimelineIndex, props.state.selectedKeyframeIndex);
   return (
     <div class="wkf__panel">
       <div class="wkf__header" data-wkf-drag-handle="true" onMouseDown={(event) => props.onDragStart(event as unknown as MouseEvent)}>

@@ -624,12 +624,11 @@ export function deriveEditorView(data: WebKeyframesDocument, timelineIndex: numb
   return deriveView(data, timelineIndex, keyframeIndex);
 }
 
-export function deriveViewForState(state: EditorState): EditorView {
+export function syncSelectionWithData(state: EditorState): void {
   normalizeEditorState(state);
   const view = deriveView(state.data, state.selectedTimelineIndex, state.selectedKeyframeIndex);
   state.selectedTimelineIndex = view.timelines.indexOf(view.selectedTimeline);
   state.selectedKeyframeIndex = view.selectedKeyframe ? view.selectedTimeline.keyframes.indexOf(view.selectedKeyframe) : 0;
-  return view;
 }
 
 function renderTimelineList(view: EditorView, selectedTimelineIndex: number): string {
