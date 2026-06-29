@@ -28,11 +28,9 @@
 
 ## 編集 API
 
-- 高頻度の修正操作を、JavaScript から呼べる明示的な編集コマンドとして定義した。
-- 最小セットとして `nudge`, `offset`, `duplicate`, `spread`, `mirror`, `stagger` を実装した。
-- 各操作の対象と変更内容が型と関数シグネチャで分かる API にした。
-- 単一値編集だけでなく、複数キーフレームや複数 transform への一括操作を前提にした編集 API を用意した。
-- キーボードショートカットや将来の CLI 拡張でも再利用できる操作語彙を core API として切り出した。
+- 公開 API は `generateCss()` と `WebKeyframesEditor` の小さい面に絞る方針を維持した。
+- transform 編集については、kind 変更 / 並べ替え / 追加 / 削除 / 値更新を扱う内部 helper を core 側に整理した。
+- editor UI からの高頻度編集は、input 名の文字列解釈ではなく、意味ベース action を通して core へ渡す形に整理した。
 
 ## プロダクト方針
 
@@ -42,7 +40,6 @@
 ## UX
 
 - `theatre.js` 的な汎用シーケンサー UI を持ち込まず、このツールに必要な範囲で順序編集 UI を設計する方針を明確にした。
-- 自由な直接操作より、JavaScript 側で定義した `nudge` や `range` のような定型操作を UI から呼び出す方針を優先することを確認した。
 - `timingFunction` の入力 UI は、構造化フォームではなく text を主にしてプリセットボタンで補助する形にした。
 - keyframe 追加時は既存値を複製せず、`properties: []` の空状態から編集を始めるようにした。
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
