@@ -113,6 +113,26 @@ function stableObjectKey(value: object | undefined, prefix: string, fallback: st
   return key;
 }
 
+function addTransformAction(kind: TransformKind): EditorAction {
+  return { type: "transformAction", operation: "add", kind };
+}
+
+function deleteTransformAction(index?: number): EditorAction {
+  return { type: "transformAction", operation: "delete", index };
+}
+
+function moveTransformAction(index: number, direction: -1 | 1): EditorAction {
+  return { type: "transformAction", operation: "move", index, direction };
+}
+
+function changeTransformKindAction(index: number, kind: TransformKind): EditorAction {
+  return { type: "transformAction", operation: "changeKind", index, kind };
+}
+
+function changeTransformValueAction(index: number, field: "x" | "y" | "value", value: number): EditorAction {
+  return { type: "transformAction", operation: "changeValue", index, field, value };
+}
+
 function TimelineList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section wkf__section--list">
@@ -267,7 +287,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                 <div class="wkf__property-add">
                   <div class="wkf__inline-actions wkf__inline-actions--wrap">
                     {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={() => apply({ type: "fieldAction", field: "opacity", operation: "add", value: 1 })} /> : null}
-                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={() => apply({ type: "transformAction", operation: "add", kind: "translate" })} /> : null}
+                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={() => apply(addTransformAction("translate"))} /> : null}
                   </div>
                 </div>
               )}
@@ -322,7 +342,7 @@ function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAp
             type="button"
             class="wkf__button wkf__button--small wkf__button--ghost"
             data-wkf-action="add-transform"
-            onClick={() => apply({ type: "transformAction", operation: "add", kind })}
+            onClick={() => apply(addTransformAction(kind))}
           >
             {label}
           </button>
@@ -334,7 +354,7 @@ function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAp
           <p class="wkf__subtitle">{state.transformState === "none" ? "None" : `${state.transforms.length} item${state.transforms.length === 1 ? "" : "s"}`}</p>
         </div>
         <div class="wkf__inline-actions">
-          <ActionButton action="delete-transforms" label="Delete" ghost small onClick={() => apply({ type: "transformAction", operation: "delete" })} />
+          <ActionButton action="delete-transforms" label="Delete" ghost small onClick={() => apply(deleteTransformAction())} />
           {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" ghost small onClick={() => apply({ type: "transformAction", operation: "clear" })} /> : null}
         </div>
       </div>
@@ -364,19 +384,13 @@ function TransformEditor(
             label={`Transform ${index + 1}`}
             value={transform.kind}
             options={[["translate", "translate"], ["scale", "scale"], ["rotate", "rotate"], ["skew", "skew"]]}
-            onValueChange={(value, focusSnapshot) => apply({
-              type: "transformAction",
-              operation: "changeKind",
-              index,
-              kind: value as TransformKind,
-              ...(focusSnapshot ? {} : {}),
-            })}
+            onValueChange={(value) => apply(changeTransformKindAction(index, value as TransformKind))}
           />
         </div>
         <div class="wkf__inline-actions">
-          <ActionButton action="move-transform-up" label="Up" ghost small disabled={index === 0} onClick={() => apply({ type: "transformAction", operation: "move", index, direction: -1 })} />
-          <ActionButton action="move-transform-down" label="Down" ghost small disabled={index === total - 1} onClick={() => apply({ type: "transformAction", operation: "move", index, direction: 1 })} />
-          <ActionButton action="delete-transform" label="Delete" ghost small onClick={() => apply({ type: "transformAction", operation: "delete", index })} />
+          <ActionButton action="move-transform-up" label="Up" ghost small disabled={index === 0} onClick={() => apply(moveTransformAction(index, -1))} />
+          <ActionButton action="move-transform-down" label="Down" ghost small disabled={index === total - 1} onClick={() => apply(moveTransformAction(index, 1))} />
+          <ActionButton action="delete-transform" label="Delete" ghost small onClick={() => apply(deleteTransformAction(index))} />
         </div>
       </div>
       <div class="wkf__grid wkf__grid--editor">
@@ -387,13 +401,13 @@ function TransformEditor(
                   field={`transform-x-${index}`}
                   label="X"
                   value={transform.x}
-                  onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "x", value, ...(focusSnapshot ? {} : {}) })}
+                  onValueChange={(value) => apply(changeTransformValueAction(index, "x", value))}
                 />
                 <NumberField
                   field={`transform-y-${index}`}
                   label="Y"
                   value={transform.y}
-                  onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "y", value, ...(focusSnapshot ? {} : {}) })}
+                  onValueChange={(value) => apply(changeTransformValueAction(index, "y", value))}
                 />
               </>
             )
@@ -402,7 +416,7 @@ function TransformEditor(
                 field={`transform-value-${index}`}
                 label="Value"
                 value={transform.value}
-                onValueChange={(value, focusSnapshot) => apply({ type: "transformAction", operation: "changeValue", index, field: "value", value, ...(focusSnapshot ? {} : {}) })}
+                onValueChange={(value) => apply(changeTransformValueAction(index, "value", value))}
               />
             )}
       </div>
