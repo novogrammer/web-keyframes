@@ -117,6 +117,46 @@ function addTransformAction(kind: TransformKind): EditorAction {
   return { type: "transformAction", operation: "add", kind };
 }
 
+function setTimelineAnimationNameAction(value: string, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setTimelineAnimationName", value, focusSnapshot };
+}
+
+function setTimelinePositionTypeAction(value: RenderTimeline["positionType"], focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setTimelinePositionType", value, focusSnapshot };
+}
+
+function setTimelineDurationAction(value: number, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setTimelineDuration", value, focusSnapshot };
+}
+
+function setTimelineTranslateUnitAction(value: RenderTimeline["translateUnit"], focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setTimelineTranslateUnit", value, focusSnapshot };
+}
+
+function setSelectedKeyframePositionAction(value: number, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setSelectedKeyframePosition", value, focusSnapshot };
+}
+
+function setSelectedKeyframeTimingFunctionAction(value: string, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setSelectedKeyframeTimingFunction", value, focusSnapshot };
+}
+
+function clearSelectedKeyframeTimingFunctionAction(): EditorAction {
+  return { type: "clearSelectedKeyframeTimingFunction" };
+}
+
+function addOpacityAction(): EditorAction {
+  return { type: "addOpacity" };
+}
+
+function removeOpacityAction(): EditorAction {
+  return { type: "removeOpacity" };
+}
+
+function setOpacityAction(value: number, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "setOpacity", value, focusSnapshot };
+}
+
 function deleteTransformAction(index?: number): EditorAction {
   return { type: "transformAction", operation: "delete", index };
 }
@@ -172,14 +212,14 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
           field="animationName"
           label="Animation Name"
           value={timeline.animationName}
-          onValueInput={(value, focusSnapshot) => apply({ type: "fieldAction", field: "animationName", value, focusSnapshot })}
+          onValueInput={(value, focusSnapshot) => apply(setTimelineAnimationNameAction(value, focusSnapshot))}
         />
         <SelectField
           field="positionType"
           label="Keyframe Position"
           value={timeline.positionType}
           options={[["time", "time"], ["percent", "percent"]]}
-          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "positionType", value, focusSnapshot })}
+          onValueChange={(value, focusSnapshot) => apply(setTimelinePositionTypeAction(value as RenderTimeline["positionType"], focusSnapshot))}
         />
         {timeline.positionType === "time"
           ? (
@@ -189,7 +229,7 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
                 value={timeline.duration ?? 1}
                 min={1}
                 step={1}
-                onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "duration", value, focusSnapshot })}
+                onValueChange={(value, focusSnapshot) => apply(setTimelineDurationAction(value, focusSnapshot))}
               />
             )
           : null}
@@ -198,7 +238,7 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
           label="Translate Unit"
           value={timeline.translateUnit}
           options={TRANSLATE_OPTIONS.map((value) => [value, value])}
-          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "translateUnit", value, focusSnapshot })}
+          onValueChange={(value, focusSnapshot) => apply(setTimelineTranslateUnitAction(value as RenderTimeline["translateUnit"], focusSnapshot))}
         />
       </div>
     </div>
@@ -262,7 +302,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                   field="timingFunction"
                   label="Timing Function"
                   value={view.timingFunction}
-                  onValueInput={(value, focusSnapshot) => apply({ type: "fieldAction", field: "timingFunction", value, focusSnapshot })}
+                  onValueInput={(value, focusSnapshot) => apply(setSelectedKeyframeTimingFunctionAction(value, focusSnapshot))}
                 />
                 <div class="wkf__field wkf__field--full">
                   <span class="wkf__label">Insert Preset</span>
@@ -273,12 +313,12 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                         type="button"
                         class="wkf__button wkf__button--small wkf__button--ghost"
                         data-wkf-action="set-timing-function"
-                        onClick={() => apply({ type: "fieldAction", field: "timingFunction", value })}
+                        onClick={() => apply(setSelectedKeyframeTimingFunctionAction(value))}
                       >
                         {value}
                       </button>
                     ))}
-                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={() => apply({ type: "fieldAction", field: "timingFunction", operation: "clear", value: "" })} />
+                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={() => apply(clearSelectedKeyframeTimingFunctionAction())} />
                   </div>
                 </div>
               </div>
@@ -286,7 +326,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
               {view.opacityState !== "unset" && view.transformState !== "unset" ? null : (
                 <div class="wkf__property-add">
                   <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={() => apply({ type: "fieldAction", field: "opacity", operation: "add", value: 1 })} /> : null}
+                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={() => apply(addOpacityAction())} /> : null}
                     {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={() => apply(addTransformAction("translate"))} /> : null}
                   </div>
                 </div>
@@ -301,7 +341,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                             <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
                           </div>
                           <div class="wkf__inline-actions">
-                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={() => apply({ type: "fieldAction", field: "opacity", operation: "delete", value: 0 })} />
+                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={() => apply(removeOpacityAction())} />
                           </div>
                         </div>
                         <RangeNumberField
@@ -312,8 +352,8 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                           max={1}
                           step={0.01}
                           className="wkf__field wkf__field--full"
-                          onValueInput={(value) => apply({ type: "fieldAction", field: "opacity", value })}
-                          onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "opacity", value, focusSnapshot })}
+                          onValueInput={(value) => apply(setOpacityAction(value))}
+                          onValueChange={(value, focusSnapshot) => apply(setOpacityAction(value, focusSnapshot))}
                         />
                       </div>
                     )
@@ -436,8 +476,8 @@ function PositionField({ timeline, keyframe, apply }: { timeline: RenderTimeline
       step={isTime ? 1 : 0.1}
       className="wkf__field wkf__field--time"
       suffix={isTime ? "ms" : "%"}
-      onValueInput={(value) => apply({ type: "fieldAction", field: "position", value })}
-      onValueChange={(value, focusSnapshot) => apply({ type: "fieldAction", field: "position", value, focusSnapshot })}
+      onValueInput={(value) => apply(setSelectedKeyframePositionAction(value))}
+      onValueChange={(value, focusSnapshot) => apply(setSelectedKeyframePositionAction(value, focusSnapshot))}
     />
   );
 }
