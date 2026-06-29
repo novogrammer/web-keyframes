@@ -1,8 +1,10 @@
 import { generateCss } from "../core/generateCss.js";
-import { cloneDocument, DEFAULT_TRANSLATE_CONFIG } from "../core/normalize.js";
-import type { TransformKind, WebKeyframesDocument, WebKeyframesTimeline } from "../core/types.js";
+import { cloneDocument } from "../core/normalize.js";
+import type { TransformKind, WebKeyframesDocument } from "../core/types.js";
 import { validateWebKeyframesDocument } from "../core/validate.js";
 import {
+  createDefaultEditorDocument,
+  createDefaultTimeline,
   createEditorState,
   dispatchEditorAction,
   type EditorAction,
@@ -250,34 +252,6 @@ export class WebKeyframesEditor {
 
 function actionIndex(target: HTMLElement): number {
   return Number(target.dataset.wkfIndex ?? "0");
-}
-
-function createDefaultTimeline(): WebKeyframesTimeline {
-  return {
-    animationName: "new-animation",
-    positionType: "percent",
-    translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
-    keyframes: [
-      {
-        percent: 0,
-        properties: [
-          { kind: "opacity", value: 0 },
-          { kind: "transform", value: [{ kind: "translate", x: 0, y: 40 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
-        ],
-      },
-      {
-        percent: 100,
-        properties: [
-          { kind: "opacity", value: 1 },
-          { kind: "transform", value: [{ kind: "translate", x: 0, y: 0 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
-        ],
-      },
-    ],
-  };
-}
-
-function createDefaultEditorDocument(): WebKeyframesDocument {
-  return { timelines: [createDefaultTimeline()] };
 }
 
 function validateAndCloneEditorData(data: WebKeyframesDocument): WebKeyframesDocument {

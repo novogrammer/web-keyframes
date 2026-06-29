@@ -129,6 +129,34 @@ const TRANSLATE_OPTIONS = ["px", "vw", "vh", "vmin", "vmax", "%", "em", "rem"] a
 const DEFAULT_NEW_ANIMATION_NAME = "new-animation";
 const DEFAULT_TIME_DURATION = 1200;
 
+export function createDefaultTimeline(): WebKeyframesTimeline {
+  return {
+    animationName: DEFAULT_NEW_ANIMATION_NAME,
+    positionType: "percent",
+    translateConfig: { unit: DEFAULT_TRANSLATE_CONFIG.unit },
+    keyframes: [
+      {
+        percent: 0,
+        properties: [
+          { kind: "opacity", value: 0 },
+          { kind: "transform", value: [{ kind: "translate", x: 0, y: 40 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
+        ],
+      },
+      {
+        percent: 100,
+        properties: [
+          { kind: "opacity", value: 1 },
+          { kind: "transform", value: [{ kind: "translate", x: 0, y: 0 }, { kind: "scale", x: 1, y: 1 }, { kind: "rotate", value: 0 }] },
+        ],
+      },
+    ],
+  };
+}
+
+export function createDefaultEditorDocument(): WebKeyframesDocument {
+  return { timelines: [createDefaultTimeline()] };
+}
+
 export function createEditorState(initialData: WebKeyframesDocument): EditorState {
   return {
     data: cloneDocument(initialData),

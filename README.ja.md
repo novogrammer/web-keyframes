@@ -155,6 +155,8 @@ editor.toggle();
 editor.getData();
 editor.setData(data);
 
+`initialData` と `setData()` は妥当な timeline JSON を前提とし、validation に失敗した場合は例外を投げます。
+
 editor.toJson();
 editor.toCss();
 ```
