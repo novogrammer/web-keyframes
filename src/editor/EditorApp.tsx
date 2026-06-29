@@ -384,7 +384,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                 />
                 <div class="wkf__field wkf__field--full">
                   <span class="wkf__label">Insert Preset</span>
-                  <div class="wkf__inline-actions wkf__inline-actions--wrap">
+                  <div class="wkf__inline-actions wkf__inline-actions--wrap wkf__chip-actions">
                     {TIMING_FUNCTION_PRESETS.map((value) => (
                       <button
                         key={value}
@@ -453,7 +453,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
 function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__property">
-      <div class="wkf__inline-actions wkf__inline-actions--wrap">
+      <div class="wkf__inline-actions wkf__inline-actions--wrap wkf__chip-actions wkf__chip-actions--leading">
         {TRANSFORM_BUTTONS.map(([kind, label]) => (
           <button
             key={kind}
@@ -471,7 +471,7 @@ function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAp
           <div class="wkf__section-title">Transforms</div>
           <p class="wkf__subtitle">{state.transformState === "none" ? "None" : `${state.transforms.length} item${state.transforms.length === 1 ? "" : "s"}`}</p>
         </div>
-        <div class="wkf__inline-actions">
+        <div class="wkf__inline-actions wkf__inline-actions--compact">
           <ActionButton action="delete-transforms" label="Delete" ghost small onClick={applyAction(apply, deleteTransformAction())} />
           {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" ghost small onClick={applyAction(apply, clearTransformsAction())} /> : null}
         </div>
