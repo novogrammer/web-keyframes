@@ -58,6 +58,8 @@ editor.mount();
 ```
 
 The editor UI can show generated JSON and CSS and lets you copy them without wiring the API or CLI first.
+The overlay editor is implemented with `preact` internally, but the public editor API stays small and DOM-oriented.
+When you load `web-keyframes/editor` directly in the browser, the distributed `editor.js` already bundles that internal `preact` runtime. You do not need to add a separate import map entry for `preact`.
 
 ## Convert To CSS
 

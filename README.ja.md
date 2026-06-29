@@ -57,6 +57,8 @@ editor.mount();
 ```
 
 エディタ UI だけでも、生成された JSON / CSS をその場で確認してコピーできます。
+内部実装には `preact` を使っていますが、公開している editor API は小さく、DOM ベースの使い方を維持しています。
+ブラウザで `web-keyframes/editor` を直接読み込む場合も、配布される `editor.js` に内部用の `preact` ランタイムを同梱しています。`preact` 用の import map を別途追加する必要はありません。
 
 ## CSS へ変換する
 
