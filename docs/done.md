@@ -25,6 +25,7 @@
 - `animation-name` ベースの対象検出は、現状の利用形態では十分信頼できることを確認した。
 - 複数の対象が同じ animation 名を共有するケースでも、preview は個別に正しく反映されることを確認した。
 - preview 生成も timeline JSON の sparse な keyframe 記述をそのまま尊重する前提に揃えた。
+- README / README.ja に、preview が computed `animation-name` ベースで対象を見つける前提と制約を明記した。
 
 ## 編集 API
 
@@ -54,3 +55,9 @@
 - examples の timeline JSON を `percent` ベースへ揃えた。
 - `examples/basic` に keyframe 単位の `timingFunction` 使用例を追加した。
 - `examples/hero-animation` を `hello-theatrejs` の構成から移植し、`100vw` 前提の hero と説明文配置を含めて example として整えた。
+- README / README.ja に `time` モードの使い方が分かる例を追加した。
+
+## テスト
+
+- 複数 timeline を跨いだ編集で、選択中 timeline の変更が他 timeline を汚さないことを回帰テストで確認した。
+- transform 並べ替えが selected keyframe の transform 順序と CSS 出力へ反映されることを回帰テストで確認した。

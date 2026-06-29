@@ -227,6 +227,34 @@ test("timeline selection switches the visible editor", async () => {
   assert.match(editor.toCss(), /@keyframes hero-out/);
 });
 
+test("editing a selected timeline does not mutate other timelines", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData: {
+      timelines: [
+        createTimeline("hero-in", 800),
+        createTimeline("hero-out", 500),
+      ],
+    },
+  });
+
+  editor.mount();
+
+  const buttons = window.document.querySelectorAll("[data-wkf-action='select-timeline']");
+  buttons[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await Promise.resolve();
+
+  setInputValue(window.document, "animationName", "hero-out-alt");
+  setNumberValue(window.document, "duration", 900);
+
+  const data = editor.getData();
+  assert.equal(data.timelines[0].animationName, "hero-in");
+  assert.equal(data.timelines[0].duration, 800);
+  assert.equal(data.timelines[1].animationName, "hero-out-alt");
+  assert.equal(data.timelines[1].duration, 900);
+});
+
 test("translate unit select supports additional fixed units", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({ root: window.document.body });
@@ -470,6 +498,22 @@ test("deleting the last transform sets transform to none", async () => {
 
   assert.deepEqual(getTransformOperations(editor.getData().timelines[0].keyframes[0]), []);
   assert.match(editor.toCss(), /transform: none;/);
+});
+
+test("transform reorder updates the selected keyframe transform order", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  await clickAction(window.document, "move-transform-down", 0);
+
+  const transforms = getTransformOperations(editor.getData().timelines[0].keyframes[0]);
+  assert.deepEqual(
+    transforms.map((transform) => transform.kind),
+    ["scale", "translate", "rotate"],
+  );
+  assert.match(editor.toCss(), /transform: scale\(1, 1\) translate\(0px, 40px\) rotate\(0deg\);/);
 });
 
 test("add and delete keyframe actions update the list", async () => {

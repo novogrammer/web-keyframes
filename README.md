@@ -70,6 +70,13 @@ You can get CSS in three ways: directly from the editor, from application code, 
 Open the overlay editor, edit the timeline, then use the built-in JSON and CSS panels to review
 or copy the current output.
 
+Preview assumes the current document already has elements whose computed `animation-name`
+matches `timeline.animationName`.
+
+- Preview only replaces matching `animation-name` values in the current document
+- It does not infer targets from selectors or class names
+- `Reset Preview` restores the temporary preview styles and inline animation-name overrides
+
 ### API
 
 ```ts
@@ -134,6 +141,27 @@ read in filename order and joined with blank lines.
 ```css
 .hero-logo {
   animation: hero-logo 1200ms ease-out both;
+}
+```
+
+### Time mode example
+
+Use `positionType: "time"` when you want keyframes to be placed by milliseconds.
+
+```json
+{
+  "timelines": [
+    {
+      "animationName": "hero-logo",
+      "positionType": "time",
+      "duration": 1200,
+      "keyframes": [
+        { "time": 0, "properties": [{ "kind": "opacity", "value": 0 }] },
+        { "time": 700, "timingFunction": "ease-out" },
+        { "time": 1200, "properties": [{ "kind": "opacity", "value": 1 }] }
+      ]
+    }
+  ]
 }
 ```
 

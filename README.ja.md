@@ -70,6 +70,13 @@ CLI で変換する方法です。
 オーバーレイエディタを開き、timeline を編集し、組み込みの JSON / CSS パネルで現在の出力を確認または
 コピーできます。
 
+preview は、現在の document 内に `timeline.animationName` と一致する computed
+`animation-name` を持つ要素があることを前提にしています。
+
+- preview は、現在の document 内で一致した `animation-name` だけを一時的に差し替えます
+- selector や class 名から対象を推測することはしません
+- `Reset Preview` は、一時的に追加した preview style と inline の `animation-name` 上書きを戻します
+
 ### API
 
 ```ts
@@ -134,6 +141,27 @@ web-keyframes to-css \
 ```css
 .hero-logo {
   animation: hero-logo 1200ms ease-out both;
+}
+```
+
+### `time` モードの例
+
+ミリ秒ベースでキーフレーム位置を置きたい場合は `positionType: "time"` を使います。
+
+```json
+{
+  "timelines": [
+    {
+      "animationName": "hero-logo",
+      "positionType": "time",
+      "duration": 1200,
+      "keyframes": [
+        { "time": 0, "properties": [{ "kind": "opacity", "value": 0 }] },
+        { "time": 700, "timingFunction": "ease-out" },
+        { "time": 1200, "properties": [{ "kind": "opacity", "value": 1 }] }
+      ]
+    }
+  ]
 }
 ```
 
