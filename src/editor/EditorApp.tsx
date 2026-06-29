@@ -117,6 +117,38 @@ function addTransformAction(kind: TransformKind): EditorAction {
   return { type: "transformAction", operation: "add", kind };
 }
 
+function addTimelineAction(): EditorAction {
+  return { type: "collectionAction", target: "timeline", operation: "add" };
+}
+
+function duplicateTimelineAction(): EditorAction {
+  return { type: "collectionAction", target: "timeline", operation: "duplicate" };
+}
+
+function deleteTimelineAction(): EditorAction {
+  return { type: "collectionAction", target: "timeline", operation: "delete" };
+}
+
+function selectTimelineAction(index: number): EditorAction {
+  return { type: "collectionAction", target: "timeline", operation: "select", index };
+}
+
+function addKeyframeAction(): EditorAction {
+  return { type: "collectionAction", target: "keyframe", operation: "add" };
+}
+
+function duplicateKeyframeAction(): EditorAction {
+  return { type: "collectionAction", target: "keyframe", operation: "duplicate" };
+}
+
+function deleteKeyframeAction(): EditorAction {
+  return { type: "collectionAction", target: "keyframe", operation: "delete" };
+}
+
+function selectKeyframeAction(index: number): EditorAction {
+  return { type: "collectionAction", target: "keyframe", operation: "select", index };
+}
+
 function setTimelineAnimationNameAction(value: string, focusSnapshot?: FocusSnapshot | null): EditorAction {
   return { type: "setTimelineAnimationName", value, focusSnapshot };
 }
@@ -157,6 +189,10 @@ function setOpacityAction(value: number, focusSnapshot?: FocusSnapshot | null): 
   return { type: "setOpacity", value, focusSnapshot };
 }
 
+function clearTransformsAction(): EditorAction {
+  return { type: "transformAction", operation: "clear" };
+}
+
 function deleteTransformAction(index?: number): EditorAction {
   return { type: "transformAction", operation: "delete", index };
 }
@@ -173,15 +209,47 @@ function changeTransformValueAction(index: number, field: "x" | "y" | "value", v
   return { type: "transformAction", operation: "changeValue", index, field, value, focusSnapshot };
 }
 
+function applyAction(apply: EditorAppProps["apply"], action: EditorAction): () => void {
+  return () => apply(action);
+}
+
+function bindStringInputAction(
+  apply: EditorAppProps["apply"],
+  createAction: (value: string, focusSnapshot?: FocusSnapshot | null) => EditorAction,
+): (value: string, focusSnapshot: FocusSnapshot | null) => void {
+  return (value, focusSnapshot) => apply(createAction(value, focusSnapshot));
+}
+
+function bindStringChangeAction(
+  apply: EditorAppProps["apply"],
+  createAction: (value: string, focusSnapshot?: FocusSnapshot | null) => EditorAction,
+): (value: string, focusSnapshot: FocusSnapshot | null) => void {
+  return (value, focusSnapshot) => apply(createAction(value, focusSnapshot));
+}
+
+function bindNumberInputAction(
+  apply: EditorAppProps["apply"],
+  createAction: (value: number) => EditorAction,
+): (value: number) => void {
+  return (value) => apply(createAction(value));
+}
+
+function bindNumberChangeAction(
+  apply: EditorAppProps["apply"],
+  createAction: (value: number, focusSnapshot?: FocusSnapshot | null) => EditorAction,
+): (value: number, focusSnapshot: FocusSnapshot | null) => void {
+  return (value, focusSnapshot) => apply(createAction(value, focusSnapshot));
+}
+
 function TimelineList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
   return (
     <div class="wkf__section wkf__section--list">
       <div class="wkf__section-head">
         <div class="wkf__section-title">Timelines</div>
         <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          <ActionButton action="add-timeline" label="Add" small onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "add" })} />
-          <ActionButton action="duplicate-timeline" label="Duplicate" ghost small onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "duplicate" })} />
-          <ActionButton action="delete-timeline" label="Delete" ghost small disabled={view.timelines.length <= 1} onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "delete" })} />
+          <ActionButton action="add-timeline" label="Add" small onClick={applyAction(apply, addTimelineAction())} />
+          <ActionButton action="duplicate-timeline" label="Duplicate" ghost small onClick={applyAction(apply, duplicateTimelineAction())} />
+          <ActionButton action="delete-timeline" label="Delete" ghost small disabled={view.timelines.length <= 1} onClick={applyAction(apply, deleteTimelineAction())} />
         </div>
       </div>
       <div class="wkf__keyframe-list">
@@ -191,7 +259,7 @@ function TimelineList({ view, state, apply }: { view: EditorView; state: EditorS
             type="button"
             class={`wkf__keyframe-item${index === state.selectedTimelineIndex ? " wkf__keyframe-item--active" : ""}`}
             data-wkf-action="select-timeline"
-            onClick={() => apply({ type: "collectionAction", target: "timeline", operation: "select", index })}
+            onClick={applyAction(apply, selectTimelineAction(index))}
           >
             <span class="wkf__keyframe-time">{timeline.animationName}</span>
             <span class="wkf__keyframe-percent">{timeline.positionType === "time" ? `${String(timeline.duration ?? 1)}ms` : "percent mode"}</span>
@@ -204,6 +272,13 @@ function TimelineList({ view, state, apply }: { view: EditorView; state: EditorS
 }
 
 function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; apply: EditorAppProps["apply"] }) {
+  const onAnimationNameInput = bindStringInputAction(apply, setTimelineAnimationNameAction);
+  const onPositionTypeChange = bindStringChangeAction(apply, (value, focusSnapshot) =>
+    setTimelinePositionTypeAction(value as RenderTimeline["positionType"], focusSnapshot));
+  const onDurationChange = bindNumberChangeAction(apply, setTimelineDurationAction);
+  const onTranslateUnitChange = bindStringChangeAction(apply, (value, focusSnapshot) =>
+    setTimelineTranslateUnitAction(value as RenderTimeline["translateUnit"], focusSnapshot));
+
   return (
     <div class="wkf__section">
       <div class="wkf__section-title">Selected Timeline</div>
@@ -212,14 +287,14 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
           field="animationName"
           label="Animation Name"
           value={timeline.animationName}
-          onValueInput={(value, focusSnapshot) => apply(setTimelineAnimationNameAction(value, focusSnapshot))}
+          onValueInput={onAnimationNameInput}
         />
         <SelectField
           field="positionType"
           label="Keyframe Position"
           value={timeline.positionType}
           options={[["time", "time"], ["percent", "percent"]]}
-          onValueChange={(value, focusSnapshot) => apply(setTimelinePositionTypeAction(value as RenderTimeline["positionType"], focusSnapshot))}
+          onValueChange={onPositionTypeChange}
         />
         {timeline.positionType === "time"
           ? (
@@ -229,7 +304,7 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
                 value={timeline.duration ?? 1}
                 min={1}
                 step={1}
-                onValueChange={(value, focusSnapshot) => apply(setTimelineDurationAction(value, focusSnapshot))}
+                onValueChange={onDurationChange}
               />
             )
           : null}
@@ -238,7 +313,7 @@ function SelectedTimelineForm({ timeline, apply }: { timeline: RenderTimeline; a
           label="Translate Unit"
           value={timeline.translateUnit}
           options={TRANSLATE_OPTIONS.map((value) => [value, value])}
-          onValueChange={(value, focusSnapshot) => apply(setTimelineTranslateUnitAction(value as RenderTimeline["translateUnit"], focusSnapshot))}
+          onValueChange={onTranslateUnitChange}
         />
       </div>
     </div>
@@ -251,9 +326,9 @@ function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorS
       <div class="wkf__section-head">
         <div class="wkf__section-title">Keyframes</div>
         <div class="wkf__inline-actions wkf__inline-actions--wrap">
-          <ActionButton action="add-keyframe" label="Add" small onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "add" })} />
-          <ActionButton action="duplicate-keyframe" label="Duplicate" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "duplicate" })} />
-          <ActionButton action="delete-keyframe" label="Delete" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "delete" })} />
+          <ActionButton action="add-keyframe" label="Add" small onClick={applyAction(apply, addKeyframeAction())} />
+          <ActionButton action="duplicate-keyframe" label="Duplicate" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={applyAction(apply, duplicateKeyframeAction())} />
+          <ActionButton action="delete-keyframe" label="Delete" ghost small disabled={view.selectedTimeline.keyframes.length === 0} onClick={applyAction(apply, deleteKeyframeAction())} />
         </div>
       </div>
       <div class="wkf__keyframe-list">
@@ -264,7 +339,7 @@ function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorS
                 type="button"
                 class={`wkf__keyframe-item${index === state.selectedKeyframeIndex ? " wkf__keyframe-item--active" : ""}`}
                 data-wkf-action="select-keyframe"
-                onClick={() => apply({ type: "collectionAction", target: "keyframe", operation: "select", index })}
+                onClick={applyAction(apply, selectKeyframeAction(index))}
               >
                 <span class="wkf__keyframe-time">{keyframeLabel(keyframe, view.selectedTimeline)}</span>
                 <span class="wkf__keyframe-percent">{keyframeSecondaryLabel(keyframe, view.selectedTimeline)}</span>
@@ -279,6 +354,9 @@ function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorS
 
 function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: EditorAppProps["apply"] }) {
   const keyframe = view.selectedKeyframe ?? view.selectedTimeline.keyframes[0];
+  const onTimingFunctionInput = bindStringInputAction(apply, setSelectedKeyframeTimingFunctionAction);
+  const onOpacityInput = bindNumberInputAction(apply, setOpacityAction);
+  const onOpacityChange = bindNumberChangeAction(apply, setOpacityAction);
   return (
     <div class="wkf__section wkf__section--editor">
       <div class="wkf__section-head">
@@ -302,7 +380,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                   field="timingFunction"
                   label="Timing Function"
                   value={view.timingFunction}
-                  onValueInput={(value, focusSnapshot) => apply(setSelectedKeyframeTimingFunctionAction(value, focusSnapshot))}
+                  onValueInput={onTimingFunctionInput}
                 />
                 <div class="wkf__field wkf__field--full">
                   <span class="wkf__label">Insert Preset</span>
@@ -313,12 +391,12 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                         type="button"
                         class="wkf__button wkf__button--small wkf__button--ghost"
                         data-wkf-action="set-timing-function"
-                        onClick={() => apply(setSelectedKeyframeTimingFunctionAction(value))}
+                        onClick={applyAction(apply, setSelectedKeyframeTimingFunctionAction(value))}
                       >
                         {value}
                       </button>
                     ))}
-                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={() => apply(clearSelectedKeyframeTimingFunctionAction())} />
+                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={applyAction(apply, clearSelectedKeyframeTimingFunctionAction())} />
                   </div>
                 </div>
               </div>
@@ -326,8 +404,8 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
               {view.opacityState !== "unset" && view.transformState !== "unset" ? null : (
                 <div class="wkf__property-add">
                   <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={() => apply(addOpacityAction())} /> : null}
-                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={() => apply(addTransformAction("translate"))} /> : null}
+                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={applyAction(apply, addOpacityAction())} /> : null}
+                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={applyAction(apply, addTransformAction("translate"))} /> : null}
                   </div>
                 </div>
               )}
@@ -341,7 +419,7 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                             <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
                           </div>
                           <div class="wkf__inline-actions">
-                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={() => apply(removeOpacityAction())} />
+                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={applyAction(apply, removeOpacityAction())} />
                           </div>
                         </div>
                         <RangeNumberField
@@ -352,8 +430,8 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
                           max={1}
                           step={0.01}
                           className="wkf__field wkf__field--full"
-                          onValueInput={(value) => apply(setOpacityAction(value))}
-                          onValueChange={(value, focusSnapshot) => apply(setOpacityAction(value, focusSnapshot))}
+                          onValueInput={onOpacityInput}
+                          onValueChange={onOpacityChange}
                         />
                       </div>
                     )
@@ -394,8 +472,8 @@ function TransformsEditor({ state, apply }: { state: EditorView; apply: EditorAp
           <p class="wkf__subtitle">{state.transformState === "none" ? "None" : `${state.transforms.length} item${state.transforms.length === 1 ? "" : "s"}`}</p>
         </div>
         <div class="wkf__inline-actions">
-          <ActionButton action="delete-transforms" label="Delete" ghost small onClick={() => apply(deleteTransformAction())} />
-          {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" ghost small onClick={() => apply({ type: "transformAction", operation: "clear" })} /> : null}
+          <ActionButton action="delete-transforms" label="Delete" ghost small onClick={applyAction(apply, deleteTransformAction())} />
+          {state.transformState === "explicit" ? <ActionButton action="clear-transforms" label="None" ghost small onClick={applyAction(apply, clearTransformsAction())} /> : null}
         </div>
       </div>
       <div class="wkf__transform-list">
@@ -466,6 +544,8 @@ function TransformEditor(
 
 function PositionField({ timeline, keyframe, apply }: { timeline: RenderTimeline; keyframe: RenderTimeline["keyframes"][number]; apply: EditorAppProps["apply"] }) {
   const isTime = timeline.positionType === "time";
+  const onPositionInput = bindNumberInputAction(apply, setSelectedKeyframePositionAction);
+  const onPositionChange = bindNumberChangeAction(apply, setSelectedKeyframePositionAction);
   return (
     <RangeNumberField
       field="position"
@@ -476,8 +556,8 @@ function PositionField({ timeline, keyframe, apply }: { timeline: RenderTimeline
       step={isTime ? 1 : 0.1}
       className="wkf__field wkf__field--time"
       suffix={isTime ? "ms" : "%"}
-      onValueInput={(value) => apply(setSelectedKeyframePositionAction(value))}
-      onValueChange={(value, focusSnapshot) => apply(setSelectedKeyframePositionAction(value, focusSnapshot))}
+      onValueInput={onPositionInput}
+      onValueChange={onPositionChange}
     />
   );
 }
