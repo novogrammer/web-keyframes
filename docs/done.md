@@ -45,7 +45,7 @@
 - keyframe 追加時は既存値を複製せず、`properties: []` の空状態から編集を始めるようにした。
 - `src/editor/WebKeyframesEditor.ts` の責務を整理し、描画用データ整形と preview 適用ロジックを別モジュールへ分離した。
 - editor UI の Lit 化を検討したが、現段階では導入しない判断にした。
-- overlay editor の描画を `preact` ベースへ置き換え、文字列テンプレート描画と DOM 委譲中心の構成を整理した。
+- overlay editor の描画を `preact` ベースへ置き換え、公開 API を変えずにコンポーネント単位で UI を整理した。
 
 ## Examples
 

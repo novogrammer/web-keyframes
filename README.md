@@ -157,11 +157,11 @@ editor.toggle();
 editor.getData();
 editor.setData(data);
 
-`initialData` and `setData()` expect valid timeline JSON and throw when validation fails.
-
 editor.toJson();
 editor.toCss();
 ```
+
+`initialData` and `setData()` expect valid timeline JSON and throw when validation fails.
 
 ## Timeline JSON
 

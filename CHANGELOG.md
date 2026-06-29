@@ -7,6 +7,11 @@ All notable changes to `web-keyframes` will be documented in this file.
 ### Changed
 
 - Breaking: `timeline.positionType` is now required in timeline JSON and validation no longer infers the mode from keyframe fields
+- Switched the overlay editor rendering to an internal `preact` implementation while keeping the public editor API unchanged
+
+### Fixed
+
+- Restored selection and focus regression coverage for duplicated timelines / keyframes and transform field edits in the editor
 
 ## [0.4.0] - 2026-06-29
 
