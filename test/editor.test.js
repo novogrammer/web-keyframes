@@ -185,6 +185,24 @@ test("timeline actions add duplicate and delete timelines", async () => {
   assert.equal(editor.getData().timelines.length, 2);
 });
 
+test("duplicate timeline selects the new timeline", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({
+    root: window.document.body,
+    initialData: {
+      timelines: [
+        createTimeline("hero-in", 800),
+      ],
+    },
+  });
+
+  editor.mount();
+  await clickAction(window.document, "duplicate-timeline");
+
+  assert.equal(editor.getData().timelines[1].animationName, "hero-in-copy");
+  assert.equal(window.document.querySelector("[data-wkf-field='animationName']")?.value, "hero-in-copy");
+});
+
 test("timeline selection switches the visible editor", async () => {
   const { window } = createWindow();
   const editor = new WebKeyframesEditor({
@@ -505,6 +523,70 @@ test("duplicate keyframe action inserts a copied frame and keeps timeline percen
   assert.equal(data.keyframes.length, 3);
   assert.equal(data.keyframes[1].percent, 10);
   assert.match(window.document.body.textContent ?? "", /10% of timeline/);
+});
+
+test("duplicate keyframe selects the duplicated row", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+  await clickAction(window.document, "duplicate-keyframe");
+
+  const active = Array.from(window.document.querySelectorAll("[data-wkf-action='select-keyframe']")).find((node) =>
+    node.classList.contains("wkf__keyframe-item--active")
+  )?.querySelector(".wkf__keyframe-time");
+  assert.equal(active?.textContent, "10%");
+});
+
+test("animationName input keeps focus on the same timeline after rerender", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const input = window.document.querySelector("[data-wkf-field='animationName']");
+  input.focus();
+  setInputValue(window.document, "animationName", "hero-title-enter");
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(window.document.activeElement?.dataset.wkfField, "animationName");
+  assert.equal(window.document.activeElement?.value, "hero-title-enter");
+});
+
+test("position change keeps focus on the same keyframe after sort", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const input = window.document.querySelector("[data-wkf-field='position'][type='number']");
+  input.focus();
+  input.value = "30";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(window.document.activeElement?.dataset.wkfField, "position");
+  assert.equal(window.document.activeElement?.getAttribute("type"), "number");
+  assert.equal(editor.getData().timelines[0].keyframes[0].percent, 30);
+});
+
+test("transform field keeps focus on the same transform after rerender", async () => {
+  const { window } = createWindow();
+  const editor = new WebKeyframesEditor({ root: window.document.body });
+
+  editor.mount();
+
+  const input = window.document.querySelector("[data-wkf-field='transform-x-0']");
+  input.focus();
+  input.value = "24";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(window.document.activeElement?.dataset.wkfField, "transform-x-0");
+  assert.equal(getTransformOperations(editor.getData().timelines[0].keyframes[0])[0].x, 24);
 });
 
 test("keyframe list summary reflects translate settings and sparse fields without dangling commas", async () => {

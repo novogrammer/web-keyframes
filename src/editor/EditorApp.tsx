@@ -125,12 +125,12 @@ function moveTransformAction(index: number, direction: -1 | 1): EditorAction {
   return { type: "transformAction", operation: "move", index, direction };
 }
 
-function changeTransformKindAction(index: number, kind: TransformKind): EditorAction {
-  return { type: "transformAction", operation: "changeKind", index, kind };
+function changeTransformKindAction(index: number, kind: TransformKind, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "transformAction", operation: "changeKind", index, kind, focusSnapshot };
 }
 
-function changeTransformValueAction(index: number, field: "x" | "y" | "value", value: number): EditorAction {
-  return { type: "transformAction", operation: "changeValue", index, field, value };
+function changeTransformValueAction(index: number, field: "x" | "y" | "value", value: number, focusSnapshot?: FocusSnapshot | null): EditorAction {
+  return { type: "transformAction", operation: "changeValue", index, field, value, focusSnapshot };
 }
 
 function TimelineList({ view, state, apply }: { view: EditorView; state: EditorState; apply: EditorAppProps["apply"] }) {
@@ -384,7 +384,7 @@ function TransformEditor(
             label={`Transform ${index + 1}`}
             value={transform.kind}
             options={[["translate", "translate"], ["scale", "scale"], ["rotate", "rotate"], ["skew", "skew"]]}
-            onValueChange={(value) => apply(changeTransformKindAction(index, value as TransformKind))}
+            onValueChange={(value, focusSnapshot) => apply(changeTransformKindAction(index, value as TransformKind, focusSnapshot))}
           />
         </div>
         <div class="wkf__inline-actions">
@@ -401,13 +401,13 @@ function TransformEditor(
                   field={`transform-x-${index}`}
                   label="X"
                   value={transform.x}
-                  onValueChange={(value) => apply(changeTransformValueAction(index, "x", value))}
+                  onValueChange={(value, focusSnapshot) => apply(changeTransformValueAction(index, "x", value, focusSnapshot))}
                 />
                 <NumberField
                   field={`transform-y-${index}`}
                   label="Y"
                   value={transform.y}
-                  onValueChange={(value) => apply(changeTransformValueAction(index, "y", value))}
+                  onValueChange={(value, focusSnapshot) => apply(changeTransformValueAction(index, "y", value, focusSnapshot))}
                 />
               </>
             )
@@ -416,7 +416,7 @@ function TransformEditor(
                 field={`transform-value-${index}`}
                 label="Value"
                 value={transform.value}
-                onValueChange={(value) => apply(changeTransformValueAction(index, "value", value))}
+                onValueChange={(value, focusSnapshot) => apply(changeTransformValueAction(index, "value", value, focusSnapshot))}
               />
             )}
       </div>

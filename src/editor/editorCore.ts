@@ -77,6 +77,7 @@ type TransformEditorAction = {
   direction?: -1 | 1;
   field?: TransformValueField;
   value?: number;
+  focusSnapshot?: FocusSnapshot | null;
 };
 
 export type EditorAction =
@@ -243,8 +244,13 @@ export function dispatchEditorAction(state: EditorState, action: EditorAction): 
       return action.target === "timeline" ? dispatchTimelineAction(state, action) : dispatchKeyframeAction(state, action);
     case "fieldAction":
       return dispatchFieldAction(state, action);
-    case "transformAction":
-      return dispatchTransformAction(state, action);
+    case "transformAction": {
+      const changed = dispatchTransformAction(state, action);
+      if (changed && action.focusSnapshot) {
+        state.pendingFocus = action.focusSnapshot;
+      }
+      return changed;
+    }
   }
   return false;
 }
