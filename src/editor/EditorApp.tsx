@@ -354,9 +354,6 @@ function KeyframeList({ view, state, apply }: { view: EditorView; state: EditorS
 
 function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: EditorAppProps["apply"] }) {
   const keyframe = view.selectedKeyframe ?? view.selectedTimeline.keyframes[0];
-  const onTimingFunctionInput = bindStringInputAction(apply, setSelectedKeyframeTimingFunctionAction);
-  const onOpacityInput = bindNumberInputAction(apply, setOpacityAction);
-  const onOpacityChange = bindNumberChangeAction(apply, setOpacityAction);
   return (
     <div class="wkf__section wkf__section--editor">
       <div class="wkf__section-head">
@@ -376,66 +373,12 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
             <>
               <div class="wkf__grid wkf__grid--editor">
                 <PositionField timeline={view.selectedTimeline} keyframe={keyframe} apply={apply} />
-                <TextField
-                  field="timingFunction"
-                  label="Timing Function"
-                  value={view.timingFunction}
-                  onValueInput={onTimingFunctionInput}
-                />
-                <div class="wkf__field wkf__field--full">
-                  <span class="wkf__label">Insert Preset</span>
-                  <div class="wkf__inline-actions wkf__inline-actions--wrap wkf__chip-actions">
-                    {TIMING_FUNCTION_PRESETS.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        class="wkf__button wkf__button--small wkf__button--ghost"
-                        data-wkf-action="set-timing-function"
-                        onClick={applyAction(apply, setSelectedKeyframeTimingFunctionAction(value))}
-                      >
-                        {value}
-                      </button>
-                    ))}
-                    <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={applyAction(apply, clearSelectedKeyframeTimingFunctionAction())} />
-                  </div>
-                </div>
+                <TimingFunctionEditor value={view.timingFunction} apply={apply} />
               </div>
               <div class="wkf__section-head wkf__section-head--properties"><div class="wkf__section-title">Properties</div></div>
-              {view.opacityState !== "unset" && view.transformState !== "unset" ? null : (
-                <div class="wkf__property-add">
-                  <div class="wkf__inline-actions wkf__inline-actions--wrap">
-                    {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={applyAction(apply, addOpacityAction())} /> : null}
-                    {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={applyAction(apply, addTransformAction("translate"))} /> : null}
-                  </div>
-                </div>
-              )}
+              <PropertyAddPanel view={view} apply={apply} />
               <div class="wkf__property-list">
-                {view.opacityState === "explicit"
-                  ? (
-                      <div class="wkf__property">
-                        <div class="wkf__section-head">
-                          <div>
-                            <div class="wkf__section-title">Opacity</div>
-                            <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
-                          </div>
-                          <div class="wkf__inline-actions">
-                            <ActionButton action="delete-opacity" label="Delete" ghost small onClick={applyAction(apply, removeOpacityAction())} />
-                          </div>
-                        </div>
-                        <RangeNumberField
-                          field="opacity"
-                          label="Opacity"
-                          value={view.opacityValue ?? 1}
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          className="wkf__field wkf__field--full"
-                          onValueInput={onOpacityInput}
-                          onValueChange={onOpacityChange}
-                        />
-                      </div>
-                    )
-                  : null}
+                <OpacityEditor view={view} apply={apply} />
                 {view.transformState !== "unset" ? <TransformsEditor state={view} apply={apply} /> : null}
               </div>
             </>
@@ -446,6 +389,86 @@ function SelectedKeyframeForm({ view, apply }: { view: EditorView; apply: Editor
               <p class="wkf__subtitle">Use the Add button above to create the first keyframe.</p>
             </div>
           )}
+    </div>
+  );
+}
+
+function TimingFunctionEditor({ value, apply }: { value: string; apply: EditorAppProps["apply"] }) {
+  const onTimingFunctionInput = bindStringInputAction(apply, setSelectedKeyframeTimingFunctionAction);
+  return (
+    <>
+      <TextField
+        field="timingFunction"
+        label="Timing Function"
+        value={value}
+        onValueInput={onTimingFunctionInput}
+      />
+      <div class="wkf__field wkf__field--full">
+        <span class="wkf__label">Insert Preset</span>
+        <div class="wkf__inline-actions wkf__inline-actions--wrap wkf__chip-actions">
+          {TIMING_FUNCTION_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              class="wkf__button wkf__button--small wkf__button--ghost"
+              data-wkf-action="set-timing-function"
+              onClick={applyAction(apply, setSelectedKeyframeTimingFunctionAction(preset))}
+            >
+              {preset}
+            </button>
+          ))}
+          <ActionButton action="clear-timing-function" label="Clear" ghost small onClick={applyAction(apply, clearSelectedKeyframeTimingFunctionAction())} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PropertyAddPanel({ view, apply }: { view: EditorView; apply: EditorAppProps["apply"] }) {
+  if (view.opacityState !== "unset" && view.transformState !== "unset") {
+    return null;
+  }
+
+  return (
+    <div class="wkf__property-add">
+      <div class="wkf__inline-actions wkf__inline-actions--wrap">
+        {view.opacityState === "unset" ? <ActionButton action="add-opacity" label="+ Opacity" ghost small onClick={applyAction(apply, addOpacityAction())} /> : null}
+        {view.transformState === "unset" ? <ActionButton action="add-transform" label="+ Transform" ghost small onClick={applyAction(apply, addTransformAction("translate"))} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function OpacityEditor({ view, apply }: { view: EditorView; apply: EditorAppProps["apply"] }) {
+  if (view.opacityState !== "explicit") {
+    return null;
+  }
+
+  const onOpacityInput = bindNumberInputAction(apply, setOpacityAction);
+  const onOpacityChange = bindNumberChangeAction(apply, setOpacityAction);
+
+  return (
+    <div class="wkf__property">
+      <div class="wkf__section-head">
+        <div>
+          <div class="wkf__section-title">Opacity</div>
+          <p class="wkf__subtitle">Set to {formatNumber(view.opacityValue ?? 1)}</p>
+        </div>
+        <div class="wkf__inline-actions">
+          <ActionButton action="delete-opacity" label="Delete" ghost small onClick={applyAction(apply, removeOpacityAction())} />
+        </div>
+      </div>
+      <RangeNumberField
+        field="opacity"
+        label="Opacity"
+        value={view.opacityValue ?? 1}
+        min={0}
+        max={1}
+        step={0.01}
+        className="wkf__field wkf__field--full"
+        onValueInput={onOpacityInput}
+        onValueChange={onOpacityChange}
+      />
     </div>
   );
 }
