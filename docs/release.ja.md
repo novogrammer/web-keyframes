@@ -39,14 +39,14 @@ node --test
 6. 注釈付きタグを作成する。例:
 
 ```bash
-git tag -a v0.2.0 -m "web-keyframes v0.2.0"
+git tag -a v0.5.0 -m "web-keyframes v0.5.0"
 ```
 
 7. ブランチとタグを push する。
 
 ```bash
 git push origin main
-git push origin v0.2.0
+git push origin v0.5.0
 ```
 
 ## GitHub からの install
@@ -54,7 +54,7 @@ git push origin v0.2.0
 利用側はタグを指定して install します。
 
 ```bash
-npm install github:novogrammer/web-keyframes#v0.2.0
+npm install github:novogrammer/web-keyframes#v0.5.0
 ```
 
 ## 補足

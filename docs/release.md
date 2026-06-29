@@ -36,14 +36,14 @@ Expected result:
 6. Create an annotated tag, for example:
 
 ```bash
-git tag -a v0.2.0 -m "web-keyframes v0.2.0"
+git tag -a v0.5.0 -m "web-keyframes v0.5.0"
 ```
 
 7. Push the branch and tag:
 
 ```bash
 git push origin main
-git push origin v0.2.0
+git push origin v0.5.0
 ```
 
 ## Install from GitHub
@@ -51,7 +51,7 @@ git push origin v0.2.0
 Consumers can install a tagged release like this:
 
 ```bash
-npm install github:YOUR_NAME/web-keyframes#v0.2.0
+npm install github:YOUR_NAME/web-keyframes#v0.5.0
 ```
 
 ## Notes

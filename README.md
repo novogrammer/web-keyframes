@@ -21,7 +21,7 @@ GitHub installs are expected to build `dist/` during package preparation. The re
 ## Install
 
 ```bash
-npm install github:novogrammer/web-keyframes#v0.4.0
+npm install github:novogrammer/web-keyframes#v0.5.0
 ```
 
 ## Hosted examples

@@ -20,7 +20,7 @@ GitHub install 時は `prepare` により `dist/` を生成する前提です。
 ## インストール
 
 ```bash
-npm install github:novogrammer/web-keyframes#v0.4.0
+npm install github:novogrammer/web-keyframes#v0.5.0
 ```
 
 ## 公開サンプル
